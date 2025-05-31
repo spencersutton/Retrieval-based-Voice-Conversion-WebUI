@@ -1,6 +1,6 @@
 import traceback
 import logging
-from typing import Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from configs.config import Config
 
@@ -24,19 +24,39 @@ from infer.modules.vc.utils import *
 
 class VC:
     def __init__(self: "VC", config: Config):
-        self.n_spk = None
-        self.tgt_sr = None
-        self.net_g = None
-        self.pipeline = None
-        self.cpt = None
-        self.version = None
-        self.if_f0 = None
-        self.version = None
-        self.hubert_model = None
+        # self.n_spk = None
+        # self.tgt_sr = None
+        # self.net_g = None
+        # self.pipeline = None
+        # self.cpt = None
+        # self.version = None
+        # self.if_f0 = None
+        # self.version = None
+        # self.hubert_model = None
 
-        self.config = config
+        # self.config = config
+        self.n_spk: Optional[int] = None
+        self.tgt_sr: Optional[int] = None
+        self.net_g: Optional[
+            Union[
+                SynthesizerTrnMs256NSFsid,
+                SynthesizerTrnMs256NSFsid_nono,
+                SynthesizerTrnMs768NSFsid,
+                SynthesizerTrnMs768NSFsid_nono,
+            ]
+        ] = None
+        self.pipeline: Optional[Pipeline] = None
+        self.cpt: Optional[Dict[str, Any]] = None
+        self.version: Optional[str] = None
+        self.if_f0: Optional[int] = None
+        self.hubert_model: Optional[Any] = None
+        self.config: Config = config
 
-    def get_vc(self: "VC", sid, *to_return_protect):
+    def get_vc(self: "VC", sid: Optional[str], *to_return_protect):
+        if sid is None or sid == "":
+            
+            logger.info("No SID")
+            return
         logger.info("Get sid: " + sid)
 
         to_return_protect0 = {
@@ -164,7 +184,7 @@ class VC:
         protect: float,
     ):
         if input_audio_path is None:
-            return "You need to upload an audio", None
+            return "Audio is required", None
         f0_up_key = int(f0_up_key)
         try:
             audio = load_audio(input_audio_path, 16000)
@@ -230,21 +250,21 @@ class VC:
             return info, (None, None)
 
     def vc_multi(
-        self,
-        sid,
-        dir_path,
-        opt_root,
-        paths,
-        f0_up_key,
-        f0_method,
-        file_index,
-        file_index2,
-        index_rate,
-        filter_radius,
-        resample_sr,
-        rms_mix_rate,
-        protect,
-        format1,
+        self: "VC",
+        sid: int,
+        dir_path: str,
+        opt_root: str,
+        paths: List[Union[str, Any]],  # Paths can be strings or gradio File objects
+        f0_up_key: Union[int, float],
+        f0_method: str,
+        file_index: Optional[str],
+        file_index2: Optional[str],
+        index_rate: float,
+        filter_radius: int,
+        resample_sr: int,
+        rms_mix_rate: float,
+        protect: float,
+        format1: str,
     ):
         try:
             dir_path = (

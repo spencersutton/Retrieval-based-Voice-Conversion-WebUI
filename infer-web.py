@@ -165,7 +165,7 @@ def change_choices():
     for name in os.listdir(weight_root):
         if name.endswith(".pth"):
             names.append(name)
-    index_paths = []
+    index_paths = [""]
     for root, dirs, files in os.walk(index_root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
@@ -804,24 +804,17 @@ def change_f0_method(f0method8):
     return {"visible": visible, "__type__": "update"}
 
 
-with gr.Blocks(title="RVC WebUI") as app:
-    gr.Markdown("## RVC WebUI")
-    gr.Markdown(
-        value=i18n(
-            "本软件以MIT协议开源, 作者不对软件具备任何控制力, 使用软件者、传播软件导出的声音者自负全责. <br>如不认可该条款, 则不能使用或引用软件包内任何代码和文件. 详见根目录<b>LICENSE</b>."
-        )
-    )
+with gr.Blocks(title="RVC WebUI Fork") as app:
+    gr.Markdown("## RVC WebUI Fork")
     with gr.Tabs():
-        with gr.TabItem(i18n("模型推理")):
+        with gr.TabItem(i18n("Inference")):
             with gr.Row():
-                sid0 = gr.Dropdown(
-                    label=i18n("推理音色"), choices=sorted(names), value=lambda: None
+                model_dropdown = gr.Dropdown(
+                    label=i18n("Model"), choices=sorted(names)
                 )
                 with gr.Column():
-                    refresh_button = gr.Button(
-                        i18n("刷新音色列表和索引路径"), variant="primary"
-                    )
-                    clean_button = gr.Button(i18n("卸载音色省显存"), variant="primary")
+                    refresh_btn = gr.Button(i18n("Refresh"), variant="primary")
+                    unload_btn = gr.Button(i18n("Unload Model"), variant="primary")
                 spk_item = gr.Slider(
                     minimum=0,
                     maximum=2333,
@@ -831,25 +824,27 @@ with gr.Blocks(title="RVC WebUI") as app:
                     visible=False,
                     interactive=True,
                 )
-                clean_button.click(
-                    fn=clean, inputs=[], outputs=[sid0], api_name="infer_clean"
+                unload_btn.click(
+                    fn=clean,
+                    inputs=[],
+                    outputs=[model_dropdown],
+                    api_name="infer_clean",
                 )
-            with gr.TabItem(i18n("单次推理")):
+            with gr.TabItem(i18n("Basic")):
                 with gr.Group():
                     with gr.Row():
                         with gr.Column():
-                            vc_transform0 = gr.Number(
-                                label=i18n("变调(整数, 半音数量, 升八度12降八度-12)"),
+                            vc_transform0 = gr.Slider(
+                                label="Pitch Offset",
+                                minimum=-24,  # Assuming a reasonable range for pitch shifting
+                                maximum=24,  # You can adjust these values as needed
+                                step=1,  # Semitones are typically whole numbers
                                 value=0,
                             )
-                            # input_audio0 = gr.Textbox(
-                            #     label=i18n("Audio file path"),
-                            #     placeholder="C:\\Users\\Desktop\\audio_example.wav",
-                            # )
-                            input_audio0 = gr.Audio( # <<< Changed from gr.Textbox
-                                label=i18n("Upload Audio File"), # Updated label for clarity
-                                type="filepath"  # Key change: provides a temporary filepath string
-                                # sources=["upload", "microphone"] # Optional: to allow both upload and microphone
+
+                            input_audio0 = gr.Audio(
+                                label=i18n("Input Audio"),  # Updated label for clarity
+                                type="filepath",
                             )
                             file_index1 = gr.Textbox(
                                 label=i18n(
@@ -862,7 +857,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 label=i18n("自动检测index路径,下拉式选择(dropdown)"),
                                 choices=sorted(index_paths),
                                 interactive=True,
-                                value=lambda: None,
+                                # value=lambda: None,
                             )
                             f0method0 = gr.Radio(
                                 label=i18n(
@@ -929,22 +924,17 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 visible=False,
                             )
 
-                            refresh_button.click(
+                            refresh_btn.click(
                                 fn=change_choices,
                                 inputs=[],
-                                outputs=[sid0, file_index2],
+                                outputs=[model_dropdown, file_index2],
                                 api_name="infer_refresh",
                             )
-                            # file_big_npy1 = gr.Textbox(
-                            #     label=i18n("特征文件路径"),
-                            #     value="E:\\codes\py39\\vits_vc_gpu_train\\logs\\mi-test-1key\\total_fea.npy",
-                            #     interactive=True,
-                            # )
                 with gr.Group():
                     with gr.Column():
-                        but0 = gr.Button(i18n("转换"), variant="primary")
+                        but0 = gr.Button(i18n("Convert"), variant="primary")
                         with gr.Row():
-                            vc_output1 = gr.Textbox(label=i18n("输出信息"))
+                            vc_output1 = gr.Textbox(label=i18n("Log info"))
                             vc_output2 = gr.Audio(
                                 label=i18n("输出音频(右下角三个点,点了可以下载)")
                             )
@@ -959,7 +949,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 f0method0,
                                 file_index1,
                                 file_index2,
-                                # file_big_npy1,
                                 index_rate1,
                                 filter_radius0,
                                 resample_sr0,
@@ -1014,7 +1003,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                             interactive=True,
                         )
 
-                        refresh_button.click(
+                        refresh_btn.click(
                             fn=lambda: change_choices()[1],
                             inputs=[],
                             outputs=file_index4,
@@ -1109,12 +1098,30 @@ with gr.Blocks(title="RVC WebUI") as app:
                         [vc_output3],
                         api_name="infer_convert_batch",
                     )
-                sid0.change(
+
+                model_dropdown.change(
                     fn=vc.get_vc,
-                    inputs=[sid0, protect0, protect1],
+                    inputs=[model_dropdown, protect0, protect1],
                     outputs=[spk_item, protect0, protect1, file_index2, file_index4],
                     api_name="infer_change_voice",
                 )
+                app.load(
+                    fn=vc.get_vc,
+                    inputs=[
+                        model_dropdown,
+                        protect0,
+                        protect1,
+                    ],  # Use the components themselves to get their initial values
+                    outputs=[spk_item, protect0, protect1, file_index2, file_index4],
+                )
+
+                # initial_outputs = vc.get_vc(model_dropdown.value, protect0.value, protect1.value)
+                # spk_item.update(initial_outputs[0])
+                # protect0.update(initial_outputs[1])
+                # protect1.update(initial_outputs[2])
+                # file_index1.update(initial_outputs[3])
+                # file_index4.update(initial_outputs[4])
+
         with gr.TabItem(i18n("伴奏人声分离&去混响&去回声")):
             with gr.Group():
                 gr.Markdown(

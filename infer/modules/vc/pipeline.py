@@ -2,6 +2,7 @@ import os
 import sys
 import traceback
 import logging
+from typing import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +72,9 @@ class Pipeline(object):
             config.x_max,
             config.is_half,
         )
-        self.sr = 16000  # hubert输入采样率
-        self.window = 160  # 每帧点数
-        self.t_pad = self.sr * self.x_pad  # 每条前后pad时间
+        self.sr: int = 16000  # hubert输入采样率
+        self.window: int = 160  # 每帧点数
+        self.t_pad: int = self.sr * self.x_pad  # 每条前后pad时间
         self.t_pad_tgt = tgt_sr * self.x_pad
         self.t_pad2 = self.t_pad * 2
         self.t_query = self.sr * self.x_query  # 查询切点前后查询时间
@@ -83,11 +84,11 @@ class Pipeline(object):
 
     def get_f0(
         self,
-        input_audio_path,
+        input_audio_path: str,
         x,
         p_len,
         f0_up_key,
-        f0_method,
+        f0_method: Literal["pm", "harvest", "crepe", "rmvpe"],
         filter_radius,
         inp_f0=None,
     ):
