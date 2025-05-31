@@ -2,7 +2,7 @@ import os
 import sys
 import traceback
 import logging
-from typing import List, Literal, Union
+from typing import List, Literal, Optional, Union
 from configs.config import Config
 from infer.lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid,
@@ -107,6 +107,7 @@ class Pipeline(object):
         f0_max = 1100
         f0_mel_min = 1127 * np.log(1 + f0_min / 700)
         f0_mel_max = 1127 * np.log(1 + f0_max / 700)
+        f0: np.ndarray
         if f0_method == "pm":
             f0 = (
                 parselmouth.Sound(x, self.sr)
@@ -194,19 +195,24 @@ class Pipeline(object):
         return f0_coarse, f0bak  # 1-0
 
     def vc(
-        self,
-        model,
-        net_g,
-        sid,
-        audio0,
-        pitch,
-        pitchf,
-        times,
-        index,
-        big_npy,
-        index_rate,
-        version,
-        protect,
+        self: "Pipeline",
+        model: FairseqHubertModel,
+        net_g: Union[
+            SynthesizerTrnMs256NSFsid,
+            SynthesizerTrnMs256NSFsid_nono,
+            SynthesizerTrnMs768NSFsid,
+            SynthesizerTrnMs768NSFsid_nono,
+        ],
+        sid: int,
+        audio0: np.ndarray,
+        pitch: Optional[torch.Tensor],
+        pitchf: Optional[torch.Tensor],
+        times: List[float],
+        index: Optional[faiss.Index],
+        big_npy: Optional[np.ndarray],
+        index_rate: float,
+        version: str,
+        protect: float,
     ):  # ,file_index,file_big_npy
         feats = torch.from_numpy(audio0)
         if self.is_half:
@@ -238,9 +244,6 @@ class Pipeline(object):
             npy = feats[0].cpu().numpy()
             if self.is_half:
                 npy = npy.astype("float32")
-
-            # _, I = index.search(npy, 1)
-            # npy = big_npy[I.squeeze()]
 
             score, ix = index.search(npy, k=8)
             weight = np.square(1 / score)
@@ -278,7 +281,7 @@ class Pipeline(object):
         with torch.no_grad():
             hasp = pitch is not None and pitchf is not None
             arg = (feats, p_len, pitch, pitchf, sid) if hasp else (feats, p_len, sid)
-            audio1 = (net_g.infer(*arg)[0][0, 0]).data.cpu().float().numpy()
+            audio1: np.ndarray = (net_g.infer(*arg)[0][0, 0]).data.cpu().float().numpy()
             del hasp, arg
         del feats, p_len, padding_mask
         if torch.cuda.is_available():
@@ -322,9 +325,9 @@ class Pipeline(object):
             and index_rate != 0
         ):
             try:
-                index = faiss.read_index(file_index)
+                index: faiss.Index = faiss.read_index(file_index)
                 # big_npy = np.load(file_big_npy)
-                big_npy = index.reconstruct_n(0, index.ntotal)
+                big_npy: np.ndarray = index.reconstruct_n(0, index.ntotal)
             except:
                 traceback.print_exc()
                 index = big_npy = None

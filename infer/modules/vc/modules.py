@@ -162,9 +162,7 @@ class VC:
         self: "VC",
         sid: int,  # Speaker ID, typically an integer
         input_audio_path: Optional[str],
-        f0_up_key: Union[
-            int, float
-        ],  # Pitch change, can be int or float from gr.Number
+        f0_up_key: int,
         f0_file: Optional[str],  # Path to F0 file, if provided
         f0_method: str,
         file_index: Optional[str],  # Path to .index file from textbox
@@ -202,7 +200,7 @@ class VC:
             else:
                 file_index = ""  # 防止小白写错，自动帮他替换掉
 
-            audio_opt = self.pipeline.pipeline(
+            audio_opt: np.ndarray = self.pipeline.pipeline(
                 self.hubert_model,
                 self.net_g,
                 sid,

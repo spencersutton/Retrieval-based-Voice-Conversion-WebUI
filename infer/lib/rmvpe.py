@@ -1,6 +1,6 @@
 from io import BytesIO
 import os
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 import numpy as np
 import torch
 
@@ -160,7 +160,7 @@ from time import time as ttime
 
 
 class BiGRU(nn.Module):
-    def __init__(self, input_features, hidden_features, num_layers):
+    def __init__(self, input_features: int, hidden_features: int, num_layers: int):
         super(BiGRU, self).__init__()
         self.gru = nn.GRU(
             input_features,
@@ -170,7 +170,7 @@ class BiGRU(nn.Module):
             bidirectional=True,
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         return self.gru(x)[0]
 
 
@@ -373,8 +373,8 @@ class DeepUnet(nn.Module):
 class E2E(nn.Module):
     def __init__(
         self,
-        n_blocks,
-        n_gru,
+        n_blocks: int,
+        n_gru: int,
         kernel_size,
         en_de_layers=5,
         inter_layers=4,
@@ -403,12 +403,32 @@ class E2E(nn.Module):
                 nn.Linear(3 * nn.N_MELS, nn.N_CLASS), nn.Dropout(0.25), nn.Sigmoid()
             )
 
-    def forward(self, mel):
+    def forward(self, mel: torch.Tensor):
         # print(mel.shape)
-        mel = mel.transpose(-1, -2).unsqueeze(1)
-        x = self.cnn(self.unet(mel)).transpose(1, 2).flatten(-2)
-        x = self.fc(x)
+        # mel = mel.transpose(-1, -2).unsqueeze(1)
+        # x = self.cnn(self.unet(mel)).transpose(1, 2).flatten(-2)
+        # x = x.contiguous()
+        # x = self.fc(x)
         # print(x.shape)
+        # return x
+        # print("Initial mel shape:", mel.shape)
+        mel = mel.transpose(-1, -2).unsqueeze(1)
+        # print("Mel after transpose and unsqueeze:", mel.shape)
+
+        unet_output = self.unet(mel)
+        # print("Unet output shape:", unet_output.shape)
+
+        x = self.cnn(unet_output)
+        # print("CNN output shape:", x.shape)
+
+        x = x.transpose(1, 2).flatten(-2)
+        # print("After transpose and flatten:", x.shape)  # This is the input to GRU
+
+        # x = x.contiguous()
+        # print("After contiguous:", x.shape, x.is_contiguous())  # Verify contiguity
+
+        x = self.fc(x)
+        # print("Final x shape:", x.shape)
         return x
 
 
@@ -493,7 +513,9 @@ class MelSpectrogram(torch.nn.Module):
 
 
 class RMVPE:
-    def __init__(self, model_path: str, is_half, device=None, use_jit=False):
+    def __init__(
+        self, model_path: str, is_half, device: Optional[str] = None, use_jit=False
+    ):
         self.resample_kernel = {}
         self.resample_kernel = {}
         self.is_half = is_half
@@ -566,7 +588,7 @@ class RMVPE:
         cents_mapping = 20 * np.arange(360) + 1997.3794084376191
         self.cents_mapping = np.pad(cents_mapping, (4, 4))  # 368
 
-    def mel2hidden(self, mel):
+    def mel2hidden(self, mel: torch.Tensor):
         with torch.no_grad():
             n_frames = mel.shape[-1]
             n_pad = 32 * ((n_frames - 1) // 32 + 1) - n_frames
@@ -591,32 +613,199 @@ class RMVPE:
         # f0 = np.array([10 * (2 ** (cent_pred / 1200)) if cent_pred else 0 for cent_pred in cents_pred])
         return f0
 
-    def infer_from_audio(self, audio, thred=0.03):
-        # torch.cuda.synchronize()
-        # t0 = ttime()
+    # def infer_from_audio(self, audio, thred=0.03):
+    #     # torch.cuda.synchronize()
+    #     # t0 = ttime()
+    #     if not torch.is_tensor(audio):
+    #         audio = torch.from_numpy(audio)
+    #     mel = self.mel_extractor(
+    #         audio.float().to(self.device).unsqueeze(0), center=True
+    #     )
+    #     # print(123123123,mel.device.type)
+    #     # torch.cuda.synchronize()
+    #     # t1 = ttime()
+    #     hidden = self.mel2hidden(mel)
+    #     # torch.cuda.synchronize()
+    #     # t2 = ttime()
+    #     # print(234234,hidden.device.type)
+    #     if "privateuseone" not in str(self.device):
+    #         hidden = hidden.squeeze(0).cpu().numpy()
+    #     else:
+    #         hidden = hidden[0]
+    #     if self.is_half == True:
+    #         hidden = hidden.astype("float32")
+
+    #     f0 = self.decode(hidden, thred=thred)
+    #     # torch.cuda.synchronize()
+    #     # t3 = ttime()
+    #     # print("hmvpe:%s\t%s\t%s\t%s"%(t1-t0,t2-t1,t3-t2,t3-t0))
+    #     return f0
+    def infer_from_audio(
+        self,
+        audio: Union[torch.Tensor, np.ndarray],
+        thred=0.03,
+        chunk_size_seconds=10,
+        overlap_seconds=1,
+    ):
         if not torch.is_tensor(audio):
             audio = torch.from_numpy(audio)
-        mel = self.mel_extractor(
-            audio.float().to(self.device).unsqueeze(0), center=True
-        )
-        # print(123123123,mel.device.type)
-        # torch.cuda.synchronize()
-        # t1 = ttime()
-        hidden = self.mel2hidden(mel)
-        # torch.cuda.synchronize()
-        # t2 = ttime()
-        # print(234234,hidden.device.type)
-        if "privateuseone" not in str(self.device):
-            hidden = hidden.squeeze(0).cpu().numpy()
-        else:
-            hidden = hidden[0]
-        if self.is_half == True:
-            hidden = hidden.astype("float32")
 
-        f0 = self.decode(hidden, thred=thred)
-        # torch.cuda.synchronize()
-        # t3 = ttime()
-        # print("hmvpe:%s\t%s\t%s\t%s"%(t1-t0,t2-t1,t3-t2,t3-t0))
+        # Calculate frame-based chunk and overlap sizes
+        # Based on your mel_extractor's hop_length (160 samples at 16000 Hz)
+        # hop_length_ms = 160 / 16000 * 1000 = 10 ms
+        # So, 1 second = 100 frames
+
+        # Convert chunk and overlap from seconds to mel frames
+        sampling_rate = 16000  # Your mel_extractor's sampling rate
+        hop_length = 160  # Your mel_extractor's hop_length
+
+        chunk_frames = int(chunk_size_seconds * sampling_rate / hop_length)
+        overlap_frames = int(overlap_seconds * sampling_rate / hop_length)
+
+        all_hidden_parts = []
+
+        # Pad audio to ensure all chunks can be processed, especially the last one
+        # A more robust padding might be needed depending on how audio is handled
+        audio_len = audio.size(0)
+
+        # Simple padding to ensure full chunks. You might want to consider more sophisticated padding.
+        if audio_len < chunk_frames * hop_length:
+            # If audio is shorter than a single chunk, process it as is.
+            mel = self.mel_extractor(
+                audio.float().to(self.device).unsqueeze(0), center=True
+            )
+            hidden = self.mel2hidden(mel)
+            if "privateuseone" not in str(self.device):
+                hidden = hidden.squeeze(0).cpu().numpy()
+            else:
+                hidden = hidden[0]
+            if self.is_half:
+                hidden = hidden.astype("float32")
+            f0 = self.decode(hidden, thred=thred)
+            return f0
+
+        # Determine indices for chunking
+        start_sample = 0
+        while start_sample < audio_len:
+            end_sample = min(
+                start_sample + chunk_size_seconds * sampling_rate, audio_len
+            )
+
+            # Take audio chunk
+            current_audio_chunk = audio[start_sample:end_sample]
+
+            # If the chunk is shorter than what's needed for the full mel extraction
+            # (due to win_length), pad it or handle it.
+            # Here, we'll ensure it's at least as long as win_length
+            if len(current_audio_chunk) < self.mel_extractor.win_length:
+                # Pad the end of the very last short chunk
+                pad_needed = self.mel_extractor.win_length - len(current_audio_chunk)
+                current_audio_chunk = F.pad(
+                    current_audio_chunk, (0, pad_needed), mode="constant"
+                )
+
+            mel_chunk = self.mel_extractor(
+                current_audio_chunk.float().to(self.device).unsqueeze(0), center=True
+            )
+            hidden_chunk = self.mel2hidden(
+                mel_chunk
+            )  # Shape: (1, num_frames_in_chunk, 384)
+
+            # Remove batch dimension
+            hidden_chunk = hidden_chunk.squeeze(0)
+
+            all_hidden_parts.append(hidden_chunk)
+
+            # Move to the next chunk
+            start_sample += (chunk_size_seconds - overlap_seconds) * sampling_rate
+            if start_sample >= audio_len:  # Ensure we don't go past the end too early
+                break
+
+        # Combine the hidden parts with blending for overlaps
+        # This is a simplified blending. For true overlap-add/blend,
+        # you'd need to consider the weight of each segment.
+        # For pitch, a simple concatenation might be acceptable, but blending
+        # is safer if the model is sensitive to edge effects.
+        combined_hidden = torch.cat(all_hidden_parts, dim=0)
+
+        # Post-process to handle overlaps more gracefully
+        # A common approach: for overlapping regions, average the predictions
+        # from both chunks. This can be complex to implement perfectly for pitch.
+        # For a first pass, simple concatenation might be okay if the overlap is large enough.
+        # Let's refine the combining part to handle overlap explicitly:
+
+        final_hidden_list = []
+        current_idx_in_combined = 0
+
+        # Add the first non-overlapping part
+        first_chunk_non_overlap_frames = chunk_frames - overlap_frames
+        final_hidden_list.append(all_hidden_parts[0][:first_chunk_non_overlap_frames])
+        current_idx_in_combined += first_chunk_non_overlap_frames
+
+        for i in range(1, len(all_hidden_parts)):
+            prev_chunk = all_hidden_parts[i - 1]
+            curr_chunk = all_hidden_parts[i]
+
+            # Overlap region from previous chunk
+            prev_overlap_part = prev_chunk[-overlap_frames:]
+            # Overlap region from current chunk
+            curr_overlap_part = curr_chunk[:overlap_frames]
+
+            # Blend the overlap regions
+            # Simple linear fade-in/fade-out for blending
+            blend_weights_prev = torch.linspace(
+                1, 0, overlap_frames, device=self.device
+            ).unsqueeze(-1)
+            blend_weights_curr = torch.linspace(
+                0, 1, overlap_frames, device=self.device
+            ).unsqueeze(-1)
+
+            blended_overlap = (
+                prev_overlap_part * blend_weights_prev
+                + curr_overlap_part * blend_weights_curr
+            )
+
+            final_hidden_list.append(blended_overlap)
+
+            # Add the non-overlapping part of the current chunk
+            non_overlap_curr_part = curr_chunk[
+                overlap_frames : chunk_frames - overlap_frames
+            ]
+            final_hidden_list.append(non_overlap_curr_part)
+            current_idx_in_combined += chunk_frames - overlap_frames
+
+        # Handle the very last chunk's remaining non-overlapping part if not fully covered
+        # (This logic might need further adjustment based on how the last segment's
+        # non-overlapping part is handled by the loop above; this is a common tricky part)
+        if (
+            len(all_hidden_parts) > 0
+            and (audio_len % (sampling_rate * (chunk_size_seconds - overlap_seconds)))
+            != 0
+        ):
+            last_chunk_remaining_frames = (
+                audio_len
+                - (
+                    start_sample
+                    - (chunk_size_seconds - overlap_seconds) * sampling_rate
+                )
+            ) // hop_length
+            if last_chunk_remaining_frames > 0:
+                final_hidden_list.append(
+                    all_hidden_parts[-1][-last_chunk_remaining_frames:]
+                )
+
+        combined_hidden_final = torch.cat(final_hidden_list, dim=0)
+
+        if "privateuseone" not in str(self.device):
+            combined_hidden_final = combined_hidden_final.cpu().numpy()
+        else:
+            combined_hidden_final = combined_hidden_final[
+                0
+            ]  # Assuming onnx returns batch dim
+        if self.is_half:
+            combined_hidden_final = combined_hidden_final.astype("float32")
+
+        f0 = self.decode(combined_hidden_final, thred=thred)
         return f0
 
     def to_local_average_cents(self, salience, thred=0.05):
