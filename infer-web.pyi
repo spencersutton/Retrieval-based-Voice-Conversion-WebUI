@@ -119,6 +119,7 @@ else:
     default_batch_size = 1
 gpus = "-".join([i[0] for i in gpu_infos])
 
+from gradio.events import Dependency
 
 class ToolButton(gr.Button, gr.components.FormComponent):
     """Small button with single emoji as text, fits inside gradio forms"""
@@ -128,6 +129,11 @@ class ToolButton(gr.Button, gr.components.FormComponent):
 
     def get_block_name(self):
         return "button"
+    from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
+    from gradio.blocks import Block
+    if TYPE_CHECKING:
+        from gradio.components import Timer
+        from gradio.components.base import Component
 
 
 weight_root = os.getenv("weight_root")
@@ -139,7 +145,7 @@ names = []
 for name in os.listdir(weight_root):
     if name.endswith(".pth"):
         names.append(name)
-index_paths = [""] # Fix for gradio 5
+index_paths = []
 
 
 def lookup_indices(index_root):
@@ -816,9 +822,7 @@ with gr.Blocks(title="RVC WebUI") as app:
     with gr.Tabs():
         with gr.TabItem(i18n("模型推理")):
             with gr.Row():
-                sid0 = gr.Dropdown(
-                    label=i18n("推理音色"), choices=sorted(names), value=lambda: None
-                )
+                sid0 = gr.Dropdown(label=i18n("推理音色"), choices=sorted(names))
                 with gr.Column():
                     refresh_button = gr.Button(
                         i18n("刷新音色列表和索引路径"), variant="primary"
@@ -861,7 +865,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 label=i18n("自动检测index路径,下拉式选择(dropdown)"),
                                 choices=sorted(index_paths),
                                 interactive=True,
-                                value=lambda: None,
                             )
                             f0method0 = gr.Radio(
                                 label=i18n(
@@ -992,7 +995,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                             label=i18n("自动检测index路径,下拉式选择(dropdown)"),
                             choices=sorted(index_paths),
                             interactive=True,
-                            value=lambda: None,
                         )
                         f0method1 = gr.Radio(
                             label=i18n(
@@ -1133,7 +1135,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         )
                     with gr.Column():
                         model_choose = gr.Dropdown(
-                            label=i18n("模型"), choices=uvr5_names, value=lambda: None
+                            label=i18n("模型"), choices=uvr5_names
                         )
                         agg = gr.Slider(
                             minimum=0,
@@ -1613,9 +1615,9 @@ with gr.Blocks(title="RVC WebUI") as app:
                 gr.Markdown(traceback.format_exc())
 
     if config.iscolab:
-        app.queue(max_size=1022).launch(share=True)
+        app.queue(concurrency_count=511, max_size=1022).launch(share=True)
     else:
-        app.queue(max_size=1022).launch(
+        app.queue(concurrency_count=511, max_size=1022).launch(
             server_name="0.0.0.0",
             inbrowser=not config.noautoopen,
             server_port=config.listen_port,
