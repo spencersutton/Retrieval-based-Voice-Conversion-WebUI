@@ -2,6 +2,8 @@ import traceback
 import logging
 from typing import Any, Dict, List, Optional, Union
 
+import librosa
+
 from configs.config import Config
 
 logger = logging.getLogger(__name__)
@@ -24,16 +26,6 @@ from infer.modules.vc.utils import *
 
 class VC:
     def __init__(self: "VC", config: Config):
-        # self.n_spk = None
-        # self.tgt_sr = None
-        # self.net_g = None
-        # self.pipeline = None
-        # self.cpt = None
-        # self.version = None
-        # self.if_f0 = None
-        # self.version = None
-        # self.hubert_model = None
-
         # self.config = config
         self.n_spk: Optional[int] = None
         self.tgt_sr: Optional[int] = None
@@ -49,12 +41,12 @@ class VC:
         self.cpt: Optional[Dict[str, Any]] = None
         self.version: Optional[str] = None
         self.if_f0: Optional[int] = None
-        self.hubert_model: Optional[Any] = None
+        self.hubert_model: Optional[HubertModel] = None
         self.config: Config = config
 
     def get_vc(self: "VC", sid: Optional[str], *to_return_protect):
         if sid is None or sid == "":
-            
+
             logger.info("No SID")
             return
         logger.info("Get sid: " + sid)
@@ -188,7 +180,7 @@ class VC:
         f0_up_key = int(f0_up_key)
         try:
             audio = load_audio(input_audio_path, 16000)
-            audio_max = np.abs(audio).max() / 0.95
+            audio_max: np.float64 = np.abs(audio).max() / 0.95
             if audio_max > 1:
                 audio /= audio_max
             times = [0, 0, 0]
@@ -245,6 +237,244 @@ class VC:
                 (tgt_sr, audio_opt),
             )
         except:
+            info = traceback.format_exc()
+            logger.warning(info)
+            return info, (None, None)
+
+    def vc_long(
+        self: "VC",
+        sid: int,  # Speaker ID, typically an integer
+        input_audio_path: Optional[str],
+        f0_up_key: Union[
+            int, float
+        ],  # Pitch change, can be int or float from gr.Number
+        f0_file: Optional[str],  # Path to F0 file, if provided
+        f0_method: str,
+        file_index: Optional[str],  # Path to .index file from textbox
+        file_index2: Optional[str],  # Path to .index file from dropdown
+        index_rate: float,
+        filter_radius: int,  # Typically an integer for radius
+        resample_sr: int,  # Target sample rate, typically an integer
+        rms_mix_rate: float,
+        protect: float,
+        chunk_length: int = 15,  # Add a parameter for chunk length in seconds
+        overlap_length: int = 2,  # Add a parameter for overlap length in seconds
+    ):
+        if input_audio_path is None:
+            return "Audio is required", None
+        f0_up_key = int(f0_up_key)
+
+        try:
+            audio, sr = sf.read(
+                input_audio_path
+            )  # Use soundfile to get sample rate directly
+            audio = (audio * 32768).astype(
+                np.float32
+            )  # Convert to int16 range, then to float32
+            # Handle stereo to mono conversion if necessary (common for RVC)
+            if audio.ndim > 1:
+                audio = audio.mean(axis=1)
+
+            # Resample to 16000Hz for Hubert if needed
+            if sr != 16000:
+                audio = librosa.resample(audio, orig_sr=sr, target_sr=16000)
+                sr = 16000
+
+            audio_max = np.abs(audio).max() / 0.95
+            if audio_max > 1:
+                audio /= audio_max
+
+            if self.hubert_model is None:
+                self.hubert_model = load_hubert(self.config)
+
+            if file_index:
+                file_index = (
+                    file_index.strip(" ")
+                    .strip('"')
+                    .strip("\n")
+                    .strip('"')
+                    .strip(" ")
+                    .replace("trained", "added")
+                )
+            elif file_index2:
+                file_index = file_index2
+            else:
+                file_index = ""
+
+            # --- Chunking Logic ---
+            total_length_samples = audio.shape[0]
+            chunk_length_samples = chunk_length * sr
+            overlap_samples = overlap_length * sr
+
+            output_audio_chunks = []
+            start_time = 0
+
+            total_inference_time = [0, 0, 0]  # To accumulate times
+
+            while start_time < total_length_samples:
+                end_time = min(start_time + chunk_length_samples, total_length_samples)
+                current_chunk = audio[start_time:end_time]
+
+                # Add overlap to the beginning of the chunk (except for the first chunk)
+                # and to the end (except for the last chunk)
+                current_overlap_start = max(0, start_time - overlap_samples)
+                current_overlap_end = min(
+                    total_length_samples, end_time + overlap_samples
+                )
+
+                # Adjust chunk to include overlap for processing
+                chunk_for_processing = audio[current_overlap_start:current_overlap_end]
+
+                # Calculate the start and end of the original chunk within the processed chunk
+                original_chunk_start_in_processed = start_time - current_overlap_start
+                original_chunk_end_in_processed = (
+                    original_chunk_start_in_processed + current_chunk.shape[0]
+                )
+
+                if chunk_for_processing.shape[0] == 0:
+                    break  # Avoid processing empty chunks
+
+                times = [0, 0, 0]  # Times for current chunk
+
+                logger.info(
+                    f"Processing chunk from {start_time/sr:.2f}s to {end_time/sr:.2f}s"
+                )
+
+                audio_opt_chunk = self.pipeline.pipeline(
+                    self.hubert_model,
+                    self.net_g,
+                    sid,
+                    chunk_for_processing,  # Pass the chunk with overlap
+                    input_audio_path,  # Keep original path for logging if needed
+                    times,
+                    f0_up_key,
+                    f0_method,
+                    file_index,
+                    index_rate,
+                    self.if_f0,
+                    filter_radius,
+                    self.tgt_sr,
+                    resample_sr,
+                    rms_mix_rate,
+                    self.version,
+                    protect,
+                    f0_file,
+                )
+
+                # Accumulate times
+                total_inference_time[0] += times[0]
+                total_inference_time[1] += times[1]
+                total_inference_time[2] += times[2]
+
+                # Extract the non-overlapping part from the processed chunk
+                if audio_opt_chunk is not None:
+                    # Determine the actual start and end of the original chunk within the *output* of the pipeline
+                    # This assumes the pipeline maintains the relative timing and only changes content
+                    output_sr = (
+                        self.tgt_sr
+                        if self.tgt_sr != resample_sr >= 16000
+                        else resample_sr
+                    )
+
+                    # Calculate indices for the non-overlapping part in the output chunk
+                    # This is crucial for seamless stitching
+                    overlap_start_output_samples = overlap_samples * output_sr // sr
+
+                    # If it's the first chunk, take from the beginning, otherwise from after the overlap
+                    chunk_output_start_idx = (
+                        0 if start_time == 0 else overlap_start_output_samples
+                    )
+
+                    # If it's the last chunk, take to the end, otherwise up to the end of the non-overlap
+                    chunk_output_end_idx = (
+                        audio_opt_chunk.shape[0]
+                        if end_time == total_length_samples
+                        else (
+                            original_chunk_end_in_processed * output_sr // sr
+                            - (
+                                overlap_samples * output_sr // sr
+                                if start_time + chunk_length_samples
+                                < total_length_samples
+                                else 0
+                            )
+                        )
+                    )
+
+                    # Ensure indices are within bounds
+                    chunk_output_end_idx = min(
+                        chunk_output_end_idx, audio_opt_chunk.shape[0]
+                    )
+
+                    # Take the non-overlapping portion of the output chunk
+                    # If it's the very first chunk, we take from the beginning up to the point *before* the next overlap starts.
+                    # If it's a middle chunk, we take the part *after* the previous overlap and *before* the next overlap.
+                    # If it's the very last chunk, we take from *after* the previous overlap to the end.
+
+                    # Simplified overlap handling for stitching:
+                    # For the first chunk, take the whole thing and deal with potential overlap at the end.
+                    # For middle chunks, trim `overlap_samples` from the start and end.
+                    # For the last chunk, trim `overlap_samples` from the start and take to the end.
+
+                    # A more robust overlap-add method would involve crossfading the overlaps.
+                    # For simplicity, let's just trim for now.
+
+                    if start_time == 0:  # First chunk
+                        # Take the processed audio up to the point where the overlap for the *next* chunk would begin
+                        non_overlap_end_idx = min(
+                            audio_opt_chunk.shape[0],
+                            chunk_length_samples * output_sr // sr,
+                        )
+                        output_audio_chunks.append(
+                            audio_opt_chunk[:non_overlap_end_idx]
+                        )
+                    else:  # Subsequent chunks
+                        # Take from the start of the current chunk's non-overlapping part
+                        # up to the end of the chunk (or end of non-overlapping part if it's a middle chunk)
+                        non_overlap_start_idx = overlap_samples * output_sr // sr
+                        non_overlap_end_idx = min(
+                            audio_opt_chunk.shape[0],
+                            non_overlap_start_idx
+                            + chunk_length_samples * output_sr // sr,
+                        )
+
+                        # If this is the last chunk, take everything from the non_overlap_start_idx to the end
+                        if end_time == total_length_samples:
+                            output_audio_chunks.append(
+                                audio_opt_chunk[non_overlap_start_idx:]
+                            )
+                        else:
+                            # For middle chunks, we might still have a trailing overlap
+                            output_audio_chunks.append(
+                                audio_opt_chunk[
+                                    non_overlap_start_idx:non_overlap_end_idx
+                                ]
+                            )
+
+                    # A more advanced solution would be to use a proper overlap-add method to prevent clicks
+                    # For now, this is a basic trimming strategy.
+
+                start_time += (
+                    chunk_length_samples - overlap_samples
+                )  # Move by non-overlapping part
+
+            # Concatenate all processed chunks
+            audio_opt = np.concatenate(output_audio_chunks)
+
+            if self.tgt_sr != resample_sr >= 16000:
+                tgt_sr = resample_sr
+            else:
+                tgt_sr = self.tgt_sr
+            index_info = (
+                "Index:\n%s." % file_index
+                if os.path.exists(file_index)
+                else "Index not used."
+            )
+            return (
+                "Success.\n%s\nTime:\nnpy: %.2fs, f0: %.2fs, infer: %.2fs."
+                % (index_info, *total_inference_time),
+                (tgt_sr, audio_opt),
+            )
+        except Exception:
             info = traceback.format_exc()
             logger.warning(info)
             return info, (None, None)

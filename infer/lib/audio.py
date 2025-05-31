@@ -7,11 +7,11 @@ import traceback
 import re
 
 
-def wav2(i, o, format):
-    inp = av.open(i, "rb")
+def wav2(input_path: str, output_path: str, format: str):
+    inp = av.open(input_path, "rb")
     if format == "m4a":
         format = "mp4"
-    out = av.open(o, "wb", format=format)
+    out = av.open(output_path, "wb", format=format)
     if format == "ogg":
         format = "libvorbis"
     if format == "mp4":
@@ -30,7 +30,7 @@ def wav2(i, o, format):
     inp.close()
 
 
-def load_audio(file, sr):
+def load_audio(file: str, sr: int) -> np.ndarray:
     try:
         # https://github.com/openai/whisper/blob/main/whisper/audio.py#L26
         # This launches a subprocess to decode audio while down-mixing and resampling as necessary.
@@ -52,9 +52,10 @@ def load_audio(file, sr):
     return np.frombuffer(out, np.float32).flatten()
 
 
-
-def clean_path(path_str):
+def clean_path(path_str: str) -> str:
     if platform.system() == "Windows":
         path_str = path_str.replace("/", "\\")
-    path_str = re.sub(r'[\u202a\u202b\u202c\u202d\u202e]', '', path_str)  # 移除 Unicode 控制字符
+    path_str = re.sub(
+        r"[\u202a\u202b\u202c\u202d\u202e]", "", path_str
+    )  # 移除 Unicode 控制字符
     return path_str.strip(" ").strip('"').strip("\n").strip('"').strip(" ")

@@ -1,9 +1,11 @@
 import os
+from typing import List, Tuple, Union
 
 from fairseq import checkpoint_utils
+from configs.config import Config
+from fairseq.models.hubert.hubert import HubertModel
 
-
-def get_index_path_from_model(sid):
+def get_index_path_from_model(sid: str) -> str:
     return next(
         (
             f
@@ -19,7 +21,8 @@ def get_index_path_from_model(sid):
     )
 
 
-def load_hubert(config):
+def load_hubert(config: Config) -> HubertModel:  # hubert_model is a torch.nn.Module
+    models: List[HubertModel]
     models, _, _ = checkpoint_utils.load_model_ensemble_and_task(
         ["assets/hubert/hubert_base.pt"],
         suffix="",

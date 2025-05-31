@@ -4,6 +4,7 @@ import sys
 import json
 import shutil
 from multiprocessing import cpu_count
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import torch
 
@@ -21,7 +22,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-version_config_list = [
+version_config_list: list[str] = [
     "v1/32k.json",
     "v1/40k.json",
     "v1/48k.json",
@@ -30,7 +31,7 @@ version_config_list = [
 ]
 
 
-def singleton_variable(func):
+def singleton_variable(func: Callable[..., Any]) -> Callable[..., Any]:
     def wrapper(*args, **kwargs):
         if not wrapper.instance:
             wrapper.instance = func(*args, **kwargs)
@@ -42,14 +43,36 @@ def singleton_variable(func):
 
 @singleton_variable
 class Config:
+    device: str
+    is_half: bool
+    use_jit: bool
+    n_cpu: int
+    gpu_name: Optional[str]
+    json_config: Dict[str, Any]
+    gpu_mem: Optional[int]
+
+    python_cmd: str
+    listen_port: int
+    iscolab: bool
+    noparallel: bool
+    noautoopen: bool
+    dml: bool
+
+    instead: str
+    preprocess_per: float
+    x_pad: int
+    x_query: int
+    x_center: int
+    x_max: int
+    
     def __init__(self):
         self.device = "cuda:0"
-        self.is_half = True
-        self.use_jit = False
-        self.n_cpu = 0
-        self.gpu_name = None
-        self.json_config = self.load_config_json()
-        self.gpu_mem = None
+        self.is_half: bool = True
+        self.use_jit: bool = False
+        self.n_cpu: int = 0
+        self.gpu_name: Optional[str] = None
+        self.json_config: Dict[str, Any] = self.load_config_json()
+        self.gpu_mem: Optional[int] = None
         (
             self.python_cmd,
             self.listen_port,
@@ -58,8 +81,8 @@ class Config:
             self.noautoopen,
             self.dml,
         ) = self.arg_parse()
-        self.instead = ""
-        self.preprocess_per = 3.7
+        self.instead: str = ""
+        self.preprocess_per: float = 3.7
         self.x_pad, self.x_query, self.x_center, self.x_max = self.device_config()
 
     @staticmethod
@@ -74,7 +97,7 @@ class Config:
         return d
 
     @staticmethod
-    def arg_parse() -> tuple:
+    def arg_parse() -> Tuple[str, int, bool, bool, bool, bool]:
         exe = sys.executable or "python"
         parser = argparse.ArgumentParser()
         parser.add_argument("--port", type=int, default=7865, help="Listen port")
@@ -201,21 +224,21 @@ class Config:
             logger.info("Use DirectML instead")
             if (
                 os.path.exists(
-                    "runtime\Lib\site-packages\onnxruntime\capi\DirectML.dll"
+                    r"runtime\\Lib\site-packages\\onnxruntime\\capi\\DirectML.dll"
                 )
                 == False
             ):
                 try:
                     os.rename(
-                        "runtime\Lib\site-packages\onnxruntime",
-                        "runtime\Lib\site-packages\onnxruntime-cuda",
+                        r"runtime\\Lib\site-packages\\onnxruntime",
+                        r"runtime\\Lib\site-packages\\onnxruntime-cuda",
                     )
                 except:
                     pass
                 try:
                     os.rename(
-                        "runtime\Lib\site-packages\onnxruntime-dml",
-                        "runtime\Lib\site-packages\onnxruntime",
+                        r"runtime\\Lib\site-packages\\onnxruntime-dml",
+                        r"runtime\\Lib\site-packages\\onnxruntime",
                     )
                 except:
                     pass
