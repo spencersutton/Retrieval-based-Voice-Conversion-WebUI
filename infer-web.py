@@ -66,9 +66,9 @@ i18n = I18nAuto()
 logger.info(i18n)
 # 判断是否有能用来训练和加速推理的N卡
 ngpu = torch.cuda.device_count()
-gpu_infos = []
-mem = []
-if_gpu_ok = False
+gpu_infos: list[str] = []
+mem: list[int] = []
+if_gpu_ok: bool = False
 
 if torch.cuda.is_available() or ngpu != 0:
     for i in range(ngpu):
@@ -115,7 +115,9 @@ if if_gpu_ok and len(gpu_infos) > 0:
     gpu_info = "\n".join(gpu_infos)
     default_batch_size = min(mem) // 2
 else:
-    gpu_info = i18n("很遗憾您这没有能用的显卡来支持您训练")
+    gpu_info = i18n(
+        "Unfortunately, you don't have a usable graphics card to support your training."
+    )
     default_batch_size = 1
 gpus = "-".join([i[0] for i in gpu_infos])
 
@@ -139,7 +141,7 @@ names = []
 for name in os.listdir(weight_root):
     if name.endswith(".pth"):
         names.append(name)
-index_paths = [""] # Fix for gradio 5
+index_paths = [""]  # Fix for gradio 5
 
 
 def lookup_indices(index_root):
@@ -215,7 +217,7 @@ def if_done_multi(done, ps):
     done[0] = True
 
 
-def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
+def preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
     sr = sr_dict[sr]
     os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/preprocess.log" % (now_dir, exp_dir), "w")
@@ -452,7 +454,7 @@ def change_version19(sr2, if_f0_3, version19):
     )
 
 
-def change_f0(if_f0_3, sr2, version19):  # f0method8,pretrained_G14,pretrained_D15
+def change_f0(if_f0_3: bool, sr2, version19):  # f0method8,pretrained_G14,pretrained_D15
     path_str = "" if version19 == "v1" else "_v2"
     return (
         {"visible": if_f0_3, "__type__": "update"},
@@ -461,7 +463,6 @@ def change_f0(if_f0_3, sr2, version19):  # f0method8,pretrained_G14,pretrained_D
     )
 
 
-# but3.click(click_train,[exp_dir1,sr2,if_f0_3,save_epoch10,total_epoch11,batch_size12,if_save_latest13,pretrained_G14,pretrained_D15,gpus16])
 def click_train(
     exp_dir1,
     sr2,
@@ -609,7 +610,7 @@ def click_train(
     logger.info("Execute: " + cmd)
     p = Popen(cmd, shell=True, cwd=now_dir)
     p.wait()
-    return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
+    return "Training finished. You can view the training log in the console or train.log in the experiment folder."
 
 
 # but4.click(train_index, [exp_dir1], info3)
@@ -623,10 +624,10 @@ def train_index(exp_dir1, version19):
         else "%s/3_feature768" % (exp_dir)
     )
     if not os.path.exists(feature_dir):
-        return "请先进行特征提取!"
+        return "Please perform feature extraction first!"
     listdir_res = list(os.listdir(feature_dir))
     if len(listdir_res) == 0:
-        return "请先进行特征提取！"
+        return "Please perform feature extraction first!"
     infos = []
     npys = []
     for name in sorted(listdir_res):
@@ -706,12 +707,9 @@ def train_index(exp_dir1, version19):
     except:
         infos.append("链接索引到外部-%s失败" % (outside_index_root))
 
-    # faiss.write_index(index, '%s/added_IVF%s_Flat_FastScan_%s.index'%(exp_dir,n_ivf,version19))
-    # infos.append("成功构建索引，added_IVF%s_Flat_FastScan_%s.index"%(n_ivf,version19))
     yield "\n".join(infos)
 
 
-# but5.click(train1key, [exp_dir1, sr2, if_f0_3, trainset_dir4, spk_id5, gpus6, np7, f0method8, save_epoch10, total_epoch11, batch_size12, if_save_latest13, pretrained_G14, pretrained_D15, gpus16, if_cache_gpu17], info3)
 def train1key(
     exp_dir1,
     sr2,
@@ -732,18 +730,18 @@ def train1key(
     version19,
     gpus_rmvpe,
 ):
-    infos = []
+    infos: list[str] = []
 
     def get_info_str(strr):
         infos.append(strr)
         return "\n".join(infos)
 
     # step1:处理数据
-    yield get_info_str(i18n("step1:正在处理数据"))
+    yield get_info_str(i18n("step1: processing data..."))
     [get_info_str(_) for _ in preprocess_dataset(trainset_dir4, exp_dir1, sr2, np7)]
 
     # step2a:提取音高
-    yield get_info_str(i18n("step2:正在提取音高&正在提取特征"))
+    yield get_info_str(i18n("step2: extracting feature & pitch"))
     [
         get_info_str(_)
         for _ in extract_f0_feature(
@@ -844,11 +842,14 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 label=i18n("变调(整数, 半音数量, 升八度12降八度-12)"),
                                 value=0,
                             )
-                            input_audio0 = gr.Textbox(
-                                label=i18n(
-                                    "输入待处理音频文件路径(默认是正确格式示例)"
-                                ),
-                                placeholder="C:\\Users\\Desktop\\audio_example.wav",
+                            # input_audio0 = gr.Textbox(
+                            #     label=i18n("Audio file path"),
+                            #     placeholder="C:\\Users\\Desktop\\audio_example.wav",
+                            # )
+                            input_audio0 = gr.Audio( # <<< Changed from gr.Textbox
+                                label=i18n("Upload Audio File"), # Updated label for clarity
+                                type="filepath"  # Key change: provides a temporary filepath string
+                                # sources=["upload", "microphone"] # Optional: to allow both upload and microphone
                             )
                             file_index1 = gr.Textbox(
                                 label=i18n(

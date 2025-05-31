@@ -1,5 +1,8 @@
 import traceback
 import logging
+from typing import Optional, Union
+
+from configs.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +23,7 @@ from infer.modules.vc.utils import *
 
 
 class VC:
-    def __init__(self, config):
+    def __init__(self: "VC", config: Config):
         self.n_spk = None
         self.tgt_sr = None
         self.net_g = None
@@ -33,7 +36,7 @@ class VC:
 
         self.config = config
 
-    def get_vc(self, sid, *to_return_protect):
+    def get_vc(self: "VC", sid, *to_return_protect):
         logger.info("Get sid: " + sid)
 
         to_return_protect0 = {
@@ -144,19 +147,21 @@ class VC:
         )
 
     def vc_single(
-        self,
-        sid,
-        input_audio_path,
-        f0_up_key,
-        f0_file,
-        f0_method,
-        file_index,
-        file_index2,
-        index_rate,
-        filter_radius,
-        resample_sr,
-        rms_mix_rate,
-        protect,
+        self: "VC",
+        sid: int,  # Speaker ID, typically an integer
+        input_audio_path: Optional[str],
+        f0_up_key: Union[
+            int, float
+        ],  # Pitch change, can be int or float from gr.Number
+        f0_file: Optional[str],  # Path to F0 file, if provided
+        f0_method: str,
+        file_index: Optional[str],  # Path to .index file from textbox
+        file_index2: Optional[str],  # Path to .index file from dropdown
+        index_rate: float,
+        filter_radius: int,  # Typically an integer for radius
+        resample_sr: int,  # Target sample rate, typically an integer
+        rms_mix_rate: float,
+        protect: float,
     ):
         if input_audio_path is None:
             return "You need to upload an audio", None
