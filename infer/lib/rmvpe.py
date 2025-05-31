@@ -644,8 +644,8 @@ class RMVPE:
         self,
         audio: Union[torch.Tensor, np.ndarray],
         thred=0.03,
-        chunk_size_seconds=10,
-        overlap_seconds=1,
+        chunk_size_seconds=60,
+        overlap_seconds=2,
     ):
         if not torch.is_tensor(audio):
             audio = torch.from_numpy(audio)
