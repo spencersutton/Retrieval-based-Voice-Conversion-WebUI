@@ -11,6 +11,8 @@ from infer.lib.infer_pack.models import (
     SynthesizerTrnMs768NSFsid_nono,
 )
 
+import gradio as gr
+
 logger = logging.getLogger(__name__)
 
 from functools import lru_cache
@@ -316,7 +318,10 @@ class Pipeline(object):
         version: str,
         protect: float,
         f0_file=None,
+        progress=gr.Progress(),
     ):
+        progress(0.01, desc="Initializing...")  # Initial progress
+
         if (
             file_index != ""
             # and file_big_npy != ""
@@ -369,6 +374,7 @@ class Pipeline(object):
         sid = torch.tensor(sid, device=self.device).unsqueeze(0).long()
         pitch, pitchf = None, None
         if if_f0 == 1:
+            progress(0.2, desc="Extracting F0...")  # Progress update
             pitch, pitchf = self.get_f0(
                 input_audio_path,
                 audio_pad,
@@ -386,7 +392,14 @@ class Pipeline(object):
             pitchf = torch.tensor(pitchf, device=self.device).unsqueeze(0).float()
         t2 = ttime()
         times[1] += t2 - t1
-        for t in opt_ts:
+
+        total_segments = len(opt_ts) + 1  # +1 for the last segment
+        # for t in opt_ts:
+        for i, t in enumerate(opt_ts):
+            progress(
+                (i / total_segments) * 0.7 + 0.25,
+                desc=f"Converting segment {i+1}/{total_segments}...",
+            )  # Progress update
             t = t // self.window * self.window
             if if_f0 == 1:
                 audio_opt.append(
@@ -423,6 +436,11 @@ class Pipeline(object):
                     )[self.t_pad_tgt : -self.t_pad_tgt]
                 )
             s = t
+
+        progress(
+            0.95, desc="Finalizing conversion..."
+        )  # Progress update before last segment
+
         if if_f0 == 1:
             audio_opt.append(
                 self.vc(
@@ -472,4 +490,6 @@ class Pipeline(object):
         del pitch, pitchf, sid
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+        progress(1.0, desc="Conversion complete.")  # Final progress
+
         return audio_opt

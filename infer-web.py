@@ -859,9 +859,10 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                                 interactive=True,
                                 # value=lambda: None,
                             )
+                            # "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
                             f0method0 = gr.Radio(
                                 label=i18n(
-                                    "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
+                                    "Pitch Method"
                                 ),
                                 choices=(
                                     ["pm", "harvest", "crepe", "rmvpe"]
