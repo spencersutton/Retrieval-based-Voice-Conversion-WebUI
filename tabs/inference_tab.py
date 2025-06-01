@@ -33,12 +33,7 @@ def create_inference_tab(app: gr.Blocks):
                 refresh_btn = gr.Button(
                     i18n("Refresh"), variant="primary"
                 )  # Use the shared button
-                refresh_btn.click(
-                    fn=change_choices,
-                    inputs=[],
-                    outputs=[model_dropdown, file_index2],
-                    api_name="infer_refresh",
-                )
+                
                 unload_btn = gr.Button(i18n("Unload Model"), variant="primary")
             spk_item = gr.Slider(
                 minimum=0,
@@ -184,6 +179,12 @@ def create_inference_tab(app: gr.Blocks):
             outputs=[spk_item, protect0, file_index2],
             api_name="infer_change_voice",
         )
+        refresh_btn.click(
+                    fn=change_choices,
+                    inputs=[],
+                    outputs=[model_dropdown, file_index2],
+                    api_name="infer_refresh",
+                )
         app.load(
             fn=shared.vc.get_vc,
             inputs=[

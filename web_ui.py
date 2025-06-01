@@ -1,22 +1,13 @@
+import datetime
 import os
 from typing import List
-
-# from shared import index_root, outside_index_root, weight_uvr5_root, weight_root
-
 from shared import i18n
 import shared
+from tabs.ckpt_processing_tab import create_ckpt_processing_tab
 from tabs.faq_tab import create_faq_tab
 from tabs.inference_tab import create_inference_tab
-
-# from infer.modules.uvr5.modules import uvr
-from infer.lib.train.process_ckpt import (
-    change_info,
-    extract_small_model,
-    merge,
-    show_info,
-)
 from sklearn.cluster import MiniBatchKMeans
-import torch, platform
+import platform
 import numpy as np
 import gradio as gr
 import faiss
@@ -56,7 +47,7 @@ def if_done_multi(done: List[bool], ps):
     done[0] = True
 
 
-def preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
+def preprocess_dataset(trainset_dir: str, exp_dir: str, sr: int, n_p: int):
     sr = shared.sr_dict[sr]
     os.makedirs("%s/logs/%s" % (shared.now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/preprocess.log" % (shared.now_dir, exp_dir), "w")
@@ -72,7 +63,6 @@ def preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
         shared.config.preprocess_per,
     )
     shared.logger.info("Execute: " + cmd)
-    # , stdin=PIPE, stdout=PIPE,stderr=PIPE,cwd=now_dir
     p = Popen(cmd, shell=True)
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
@@ -96,7 +86,9 @@ def preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
 
 
 # but2.click(extract_f0,[gpus6,np7,f0method8,if_f0_3,trainset_dir4],[info2])
-def extract_f0_feature(gpus: str, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe):
+def extract_f0_feature(
+    gpus: str, n_p, f0method, if_f0: bool, exp_dir, version19, gpus_rmvpe
+):
     gpus: List[str] = gpus.split("-")
     os.makedirs("%s/logs/%s" % (shared.now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir), "w")
@@ -242,7 +234,7 @@ def extract_f0_feature(gpus: str, n_p, f0method, if_f0, exp_dir, version19, gpus
     yield log
 
 
-def get_pretrained_models(path_str, f0_str, sr2):
+def get_pretrained_models(path_str: str, f0_str: str, sr2: int):
     if_pretrained_generator_exist = os.access(
         "assets/pretrained%s/%sG%s.pth" % (path_str, f0_str, sr2), os.F_OK
     )
@@ -277,13 +269,12 @@ def get_pretrained_models(path_str, f0_str, sr2):
     )
 
 
-def change_sr2(sr2, if_f0_3, version19):
+def change_sr2(sr2: int, if_f0_3, version19):
     path_str = "" if version19 == "v1" else "_v2"
     f0_str = "f0" if if_f0_3 else ""
     return get_pretrained_models(path_str, f0_str, sr2)
 
-
-def change_version19(sr2, if_f0_3, version19):
+def change_version19(sr2: int, if_f0_3: bool, version19: str):
     path_str = "" if version19 == "v1" else "_v2"
     if sr2 == "32k" and version19 == "v1":
         sr2 = "40k"
@@ -629,23 +620,6 @@ def train1key(
     yield get_info_str(i18n("全流程结束！"))
 
 
-#                    ckpt_path2.change(change_info_,[ckpt_path2],[sr__,if_f0__])
-def change_info_(ckpt_path):
-    if not os.path.exists(ckpt_path.replace(os.path.basename(ckpt_path), "train.log")):
-        return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
-    try:
-        with open(
-            ckpt_path.replace(os.path.basename(ckpt_path), "train.log"), "r"
-        ) as f:
-            info = eval(f.read().strip("\n").split("\n")[0].split("\t")[-1])
-            sr, f0 = info["sample_rate"], info["if_f0"]
-            version = "v2" if ("version" in info and info["version"] == "v2") else "v1"
-            return sr, str(f0), version
-    except:
-        traceback.print_exc()
-        return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
-
-
 F0GPUVisible = shared.config.dml == False
 
 
@@ -663,38 +637,42 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
         create_inference_tab(app=app)
         create_vocal_tab()
 
-        with gr.TabItem(i18n("训练")):
+        with gr.TabItem(i18n("Train")):
             gr.Markdown(
                 value=i18n(
                     "step1: 填写实验配置. 实验数据放在logs下, 每个实验一个文件夹, 需手工输入实验名路径, 内含实验配置, 日志, 训练得到的模型文件. "
                 )
             )
             with gr.Row():
-                exp_dir1 = gr.Textbox(label=i18n("输入实验名"), value="mi-test")
-                sr2 = gr.Radio(
-                    label=i18n("目标采样率"),
+                current_date = datetime.date.today()
+                formatted_date = current_date.strftime("%Y-%m-%d")
+                exp_dir1 = gr.Textbox(
+                    label=i18n("Experiment Name"), value=f"experiment_{formatted_date}"
+                )
+                target_sr = gr.Radio(
+                    label=i18n("Target Sample Rate"),
                     choices=["40k", "48k"],
-                    value="40k",
+                    value="48k",
                     interactive=True,
                 )
                 if_f0_3 = gr.Radio(
-                    label=i18n("模型是否带音高指导(唱歌一定要, 语音可以不要)"),
+                    label=i18n("Enable Pitch Guidance"),
                     choices=[True, False],
                     value=True,
                     interactive=True,
                 )
                 version19 = gr.Radio(
-                    label=i18n("版本"),
+                    label=i18n("Version"),
                     choices=["v1", "v2"],
                     value="v2",
                     interactive=True,
                     visible=True,
                 )
-                np7 = gr.Slider(
+                cpu_count = gr.Slider(
                     minimum=0,
                     maximum=shared.config.n_cpu,
                     step=1,
-                    label=i18n("提取音高和处理数据使用的CPU进程数"),
+                    label=i18n("CPU Process Count"),
                     value=int(np.ceil(shared.config.n_cpu / 1.5)),
                     interactive=True,
                 )
@@ -721,7 +699,7 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                     info1 = gr.Textbox(label=i18n("输出信息"), value="")
                     but1.click(
                         preprocess_dataset,
-                        [trainset_dir4, exp_dir1, sr2, np7],
+                        [trainset_dir4, exp_dir1, target_sr, cpu_count],
                         [info1],
                         api_name="train_preprocess",
                     )
@@ -774,7 +752,7 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                         extract_f0_feature,
                         [
                             gpus6,
-                            np7,
+                            cpu_count,
                             f0method8,
                             if_f0_3,
                             exp_dir1,
@@ -844,19 +822,19 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                         value="assets/pretrained_v2/f0D40k.pth",
                         interactive=True,
                     )
-                    sr2.change(
+                    target_sr.change(
                         change_sr2,
-                        [sr2, if_f0_3, version19],
+                        [target_sr, if_f0_3, version19],
                         [pretrained_G14, pretrained_D15],
                     )
                     version19.change(
                         change_version19,
-                        [sr2, if_f0_3, version19],
-                        [pretrained_G14, pretrained_D15, sr2],
+                        [target_sr, if_f0_3, version19],
+                        [pretrained_G14, pretrained_D15, target_sr],
                     )
                     if_f0_3.change(
                         change_f0,
-                        [if_f0_3, sr2, version19],
+                        [if_f0_3, target_sr, version19],
                         [f0method8, gpus_rmvpe, pretrained_G14, pretrained_D15],
                     )
                     gpus16 = gr.Textbox(
@@ -874,7 +852,7 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                         click_train,
                         [
                             exp_dir1,
-                            sr2,
+                            target_sr,
                             if_f0_3,
                             spk_id5,
                             save_epoch10,
@@ -896,11 +874,11 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                         train1key,
                         [
                             exp_dir1,
-                            sr2,
+                            target_sr,
                             if_f0_3,
                             trainset_dir4,
                             spk_id5,
-                            np7,
+                            cpu_count,
                             f0method8,
                             save_epoch10,
                             total_epoch11,
@@ -917,176 +895,7 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                         info3,
                         api_name="train_start_all",
                     )
-
-        with gr.TabItem(i18n("ckpt处理")):
-            with gr.Group():
-                gr.Markdown(value=i18n("模型融合, 可用于测试音色融合"))
-                with gr.Row():
-                    ckpt_a = gr.Textbox(
-                        label=i18n("A模型路径"), value="", interactive=True
-                    )
-                    ckpt_b = gr.Textbox(
-                        label=i18n("B模型路径"), value="", interactive=True
-                    )
-                    alpha_a = gr.Slider(
-                        minimum=0,
-                        maximum=1,
-                        label=i18n("A模型权重"),
-                        value=0.5,
-                        interactive=True,
-                    )
-                with gr.Row():
-                    sr_ = gr.Radio(
-                        label=i18n("目标采样率"),
-                        choices=["40k", "48k"],
-                        value="40k",
-                        interactive=True,
-                    )
-                    if_f0_ = gr.Radio(
-                        label=i18n("模型是否带音高指导"),
-                        choices=[i18n("是"), i18n("否")],
-                        value=i18n("是"),
-                        interactive=True,
-                    )
-                    info__ = gr.Textbox(
-                        label=i18n("要置入的模型信息"),
-                        value="",
-                        max_lines=8,
-                        interactive=True,
-                    )
-                    name_to_save0 = gr.Textbox(
-                        label=i18n("保存的模型名不带后缀"),
-                        value="",
-                        max_lines=1,
-                        interactive=True,
-                    )
-                    version_2 = gr.Radio(
-                        label=i18n("模型版本型号"),
-                        choices=["v1", "v2"],
-                        value="v1",
-                        interactive=True,
-                    )
-                with gr.Row():
-                    but6 = gr.Button(i18n("融合"), variant="primary")
-                    info4 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
-                but6.click(
-                    merge,
-                    [
-                        ckpt_a,
-                        ckpt_b,
-                        alpha_a,
-                        sr_,
-                        if_f0_,
-                        info__,
-                        name_to_save0,
-                        version_2,
-                    ],
-                    info4,
-                    api_name="ckpt_merge",
-                )  # def merge(path1,path2,alpha1,sr,f0,info):
-            with gr.Group():
-                gr.Markdown(
-                    value=i18n("修改模型信息(仅支持weights文件夹下提取的小模型文件)")
-                )
-                with gr.Row():
-                    ckpt_path0 = gr.Textbox(
-                        label=i18n("模型路径"), value="", interactive=True
-                    )
-                    info_ = gr.Textbox(
-                        label=i18n("要改的模型信息"),
-                        value="",
-                        max_lines=8,
-                        interactive=True,
-                    )
-                    name_to_save1 = gr.Textbox(
-                        label=i18n("保存的文件名, 默认空为和源文件同名"),
-                        value="",
-                        max_lines=8,
-                        interactive=True,
-                    )
-                with gr.Row():
-                    but7 = gr.Button(i18n("修改"), variant="primary")
-                    info5 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
-                but7.click(
-                    change_info,
-                    [ckpt_path0, info_, name_to_save1],
-                    info5,
-                    api_name="ckpt_modify",
-                )
-            with gr.Group():
-                gr.Markdown(
-                    value=i18n("查看模型信息(仅支持weights文件夹下提取的小模型文件)")
-                )
-                with gr.Row():
-                    ckpt_path1 = gr.Textbox(
-                        label=i18n("模型路径"), value="", interactive=True
-                    )
-                    but8 = gr.Button(i18n("查看"), variant="primary")
-                    info6 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
-                but8.click(show_info, [ckpt_path1], info6, api_name="ckpt_show")
-            with gr.Group():
-                gr.Markdown(
-                    value=i18n(
-                        "模型提取(输入logs文件夹下大文件模型路径),适用于训一半不想训了模型没有自动提取保存小文件模型,或者想测试中间模型的情况"
-                    )
-                )
-                with gr.Row():
-                    ckpt_path2 = gr.Textbox(
-                        label=i18n("模型路径"),
-                        value="E:\\codes\\py39\\logs\\mi-test_f0_48k\\G_23333.pth",
-                        interactive=True,
-                    )
-                    save_name = gr.Textbox(
-                        label=i18n("保存名"), value="", interactive=True
-                    )
-                    sr__ = gr.Radio(
-                        label=i18n("目标采样率"),
-                        choices=["32k", "40k", "48k"],
-                        value="40k",
-                        interactive=True,
-                    )
-                    if_f0__ = gr.Radio(
-                        label=i18n("模型是否带音高指导,1是0否"),
-                        choices=["1", "0"],
-                        value="1",
-                        interactive=True,
-                    )
-                    version_1 = gr.Radio(
-                        label=i18n("模型版本型号"),
-                        choices=["v1", "v2"],
-                        value="v2",
-                        interactive=True,
-                    )
-                    info___ = gr.Textbox(
-                        label=i18n("要置入的模型信息"),
-                        value="",
-                        max_lines=8,
-                        interactive=True,
-                    )
-                    but9 = gr.Button(i18n("提取"), variant="primary")
-                    info7 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
-                    ckpt_path2.change(
-                        change_info_, [ckpt_path2], [sr__, if_f0__, version_1]
-                    )
-                but9.click(
-                    extract_small_model,
-                    [ckpt_path2, save_name, sr__, if_f0__, info___, version_1],
-                    info7,
-                    api_name="ckpt_extract",
-                )
-
-        # tab_faq = i18n("常见问题解答")
-        # with gr.TabItem(tab_faq):
-        #     try:
-        #         if tab_faq == "常见问题解答":
-        #             with open("docs/cn/faq.md", "r", encoding="utf8") as f:
-        #                 info = f.read()
-        #         else:
-        #             with open("docs/en/faq_en.md", "r", encoding="utf8") as f:
-        #                 info = f.read()
-        #         gr.Markdown(value=info)
-        #     except:
-        #         gr.Markdown(traceback.format_exc())
+        create_ckpt_processing_tab()
         create_onnx_tab()
         create_faq_tab(i18n)
 
