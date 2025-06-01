@@ -30,6 +30,8 @@ ENV UV_LINK_MODE=copy
 RUN uv sync --locked
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
+COPY ./tools/download_models.py ./tools/download_models.py
+RUN uv run tools/download_models.py
 COPY . .
 # VOLUME [ "/app/weights", "/app/opt" ]
 EXPOSE 7865
