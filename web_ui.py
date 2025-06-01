@@ -1,10 +1,12 @@
 import os
-import sys
-from dotenv import load_dotenv
+from typing import List
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-load_dotenv()
+# from shared import index_root, outside_index_root, weight_uvr5_root, weight_root
+
+from shared import i18n
+import shared
+from tabs.faq_tab import create_faq_tab
+from tabs.inference_tab import create_inference_tab
 from infer.modules.vc.modules import VC
 from infer.modules.uvr5.modules import uvr
 from infer.lib.train.process_ckpt import (
@@ -13,113 +15,20 @@ from infer.lib.train.process_ckpt import (
     merge,
     show_info,
 )
-from i18n.i18n import I18nAuto
-from configs.config import Config
 from sklearn.cluster import MiniBatchKMeans
 import torch, platform
 import numpy as np
 import gradio as gr
 import faiss
-import fairseq
 import pathlib
 import json
 from time import sleep
 from subprocess import Popen
 from random import shuffle
-import warnings
 import traceback
 import threading
-import shutil
-import logging
 
-
-logging.getLogger("numba").setLevel(logging.WARNING)
-logging.getLogger("httpx").setLevel(logging.WARNING)
-
-logger = logging.getLogger(__name__)
-
-tmp = os.path.join(now_dir, "TEMP")
-shutil.rmtree(tmp, ignore_errors=True)
-shutil.rmtree("%s/runtime/Lib/site-packages/infer_pack" % (now_dir), ignore_errors=True)
-shutil.rmtree("%s/runtime/Lib/site-packages/uvr5_pack" % (now_dir), ignore_errors=True)
-os.makedirs(tmp, exist_ok=True)
-os.makedirs(os.path.join(now_dir, "logs"), exist_ok=True)
-os.makedirs(os.path.join(now_dir, "assets/weights"), exist_ok=True)
-os.environ["TEMP"] = tmp
-warnings.filterwarnings("ignore")
-torch.manual_seed(114514)
-
-
-config = Config()
-vc = VC(config)
-
-
-if config.dml == True:
-
-    def forward_dml(ctx, x, scale):
-        ctx.scale = scale
-        res = x.clone().detach()
-        return res
-
-    fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
-i18n = I18nAuto()
-logger.info(i18n)
-# 判断是否有能用来训练和加速推理的N卡
-ngpu = torch.cuda.device_count()
-gpu_infos: list[str] = []
-mem: list[int] = []
-if_gpu_ok: bool = False
-
-if torch.cuda.is_available() or ngpu != 0:
-    for i in range(ngpu):
-        gpu_name = torch.cuda.get_device_name(i)
-        if any(
-            value in gpu_name.upper()
-            for value in [
-                "10",
-                "16",
-                "20",
-                "30",
-                "40",
-                "A2",
-                "A3",
-                "A4",
-                "P4",
-                "A50",
-                "500",
-                "A60",
-                "70",
-                "80",
-                "90",
-                "M4",
-                "T4",
-                "TITAN",
-                "4060",
-                "L",
-                "6000",
-            ]
-        ):
-            # A10#A100#V100#A40#P40#M40#K80#A4500
-            if_gpu_ok = True  # 至少有一张能用的N卡
-            gpu_infos.append("%s\t%s" % (i, gpu_name))
-            mem.append(
-                int(
-                    torch.cuda.get_device_properties(i).total_memory
-                    / 1024
-                    / 1024
-                    / 1024
-                    + 0.4
-                )
-            )
-if if_gpu_ok and len(gpu_infos) > 0:
-    gpu_info = "\n".join(gpu_infos)
-    default_batch_size = min(mem) // 2
-else:
-    gpu_info = i18n(
-        "Unfortunately, you don't have a usable graphics card to support your training."
-    )
-    default_batch_size = 1
-gpus = "-".join([i[0] for i in gpu_infos])
+# from shared import *
 
 
 class ToolButton(gr.Button, gr.components.FormComponent):
@@ -132,65 +41,26 @@ class ToolButton(gr.Button, gr.components.FormComponent):
         return "button"
 
 
-weight_root = os.getenv("weight_root")
-weight_uvr5_root = os.getenv("weight_uvr5_root")
-index_root = os.getenv("index_root")
-outside_index_root = os.getenv("outside_index_root")
-
-names = []
-for name in os.listdir(weight_root):
-    if name.endswith(".pth"):
-        names.append(name)
-index_paths = [""]  # Fix for gradio 5
-
-
 def lookup_indices(index_root):
-    global index_paths
+    # shared.index_paths
     for root, dirs, files in os.walk(index_root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
-                index_paths.append("%s/%s" % (root, name))
+                shared.index_paths.append("%s/%s" % (root, name))
 
 
-lookup_indices(index_root)
-lookup_indices(outside_index_root)
+lookup_indices(shared.index_root)
+lookup_indices(shared.outside_index_root)
 uvr5_names = []
-for name in os.listdir(weight_uvr5_root):
+for name in os.listdir(shared.weight_uvr5_root):
     if name.endswith(".pth") or "onnx" in name:
         uvr5_names.append(name.replace(".pth", ""))
-
-
-def change_choices():
-    names = []
-    for name in os.listdir(weight_root):
-        if name.endswith(".pth"):
-            names.append(name)
-    index_paths = [""]
-    for root, dirs, files in os.walk(index_root, topdown=False):
-        for name in files:
-            if name.endswith(".index") and "trained" not in name:
-                index_paths.append("%s/%s" % (root, name))
-    return {"choices": sorted(names), "__type__": "update"}, {
-        "choices": sorted(index_paths),
-        "__type__": "update",
-    }
-
-
-def clean():
-    return {"value": "", "__type__": "update"}
 
 
 def export_onnx(ModelPath, ExportedPath):
     from infer.modules.onnx.export import export_onnx as eo
 
     eo(ModelPath, ExportedPath)
-
-
-sr_dict = {
-    "32k": 32000,
-    "40k": 40000,
-    "48k": 48000,
-}
 
 
 def if_done(done, p):
@@ -202,7 +72,7 @@ def if_done(done, p):
     done[0] = True
 
 
-def if_done_multi(done, ps):
+def if_done_multi(done: List[bool], ps):
     while 1:
         # poll==None代表进程未结束
         # 只要有一个进程未结束都不停
@@ -219,20 +89,20 @@ def if_done_multi(done, ps):
 
 def preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
     sr = sr_dict[sr]
-    os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
-    f = open("%s/logs/%s/preprocess.log" % (now_dir, exp_dir), "w")
+    os.makedirs("%s/logs/%s" % (shared.now_dir, exp_dir), exist_ok=True)
+    f = open("%s/logs/%s/preprocess.log" % (shared.now_dir, exp_dir), "w")
     f.close()
     cmd = '"%s" infer/modules/train/preprocess.py "%s" %s %s "%s/logs/%s" %s %.1f' % (
-        config.python_cmd,
+        shared.config.python_cmd,
         trainset_dir,
         sr,
         n_p,
-        now_dir,
+        shared.now_dir,
         exp_dir,
-        config.noparallel,
-        config.preprocess_per,
+        shared.config.noparallel,
+        shared.config.preprocess_per,
     )
-    logger.info("Execute: " + cmd)
+    shared.logger.info("Execute: " + cmd)
     # , stdin=PIPE, stdout=PIPE,stderr=PIPE,cwd=now_dir
     p = Popen(cmd, shell=True)
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
@@ -245,38 +115,38 @@ def preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
         ),
     ).start()
     while 1:
-        with open("%s/logs/%s/preprocess.log" % (now_dir, exp_dir), "r") as f:
+        with open("%s/logs/%s/preprocess.log" % (shared.now_dir, exp_dir), "r") as f:
             yield (f.read())
         sleep(1)
         if done[0]:
             break
-    with open("%s/logs/%s/preprocess.log" % (now_dir, exp_dir), "r") as f:
+    with open("%s/logs/%s/preprocess.log" % (shared.now_dir, exp_dir), "r") as f:
         log = f.read()
-    logger.info(log)
+    shared.logger.info(log)
     yield log
 
 
 # but2.click(extract_f0,[gpus6,np7,f0method8,if_f0_3,trainset_dir4],[info2])
-def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe):
-    gpus = gpus.split("-")
-    os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
-    f = open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "w")
+def extract_f0_feature(gpus: str, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe):
+    gpus: List[str] = gpus.split("-")
+    os.makedirs("%s/logs/%s" % (shared.now_dir, exp_dir), exist_ok=True)
+    f = open("%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir), "w")
     f.close()
     if if_f0:
         if f0method != "rmvpe_gpu":
             cmd = (
                 '"%s" infer/modules/train/extract/extract_f0_print.py "%s/logs/%s" %s %s'
                 % (
-                    config.python_cmd,
-                    now_dir,
+                    shared.config.python_cmd,
+                    shared.now_dir,
                     exp_dir,
                     n_p,
                     f0method,
                 )
             )
-            logger.info("Execute: " + cmd)
+            shared.logger.info("Execute: " + cmd)
             p = Popen(
-                cmd, shell=True, cwd=now_dir
+                cmd, shell=True, cwd=shared.now_dir
             )  # , stdin=PIPE, stdout=PIPE,stderr=PIPE
             # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
             done = [False]
@@ -290,24 +160,24 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
         else:
             if gpus_rmvpe != "-":
                 gpus_rmvpe = gpus_rmvpe.split("-")
-                leng = len(gpus_rmvpe)
+                length = len(gpus_rmvpe)
                 ps = []
                 for idx, n_g in enumerate(gpus_rmvpe):
                     cmd = (
                         '"%s" infer/modules/train/extract/extract_f0_rmvpe.py %s %s %s "%s/logs/%s" %s '
                         % (
-                            config.python_cmd,
-                            leng,
+                            shared.config.python_cmd,
+                            length,
                             idx,
                             n_g,
-                            now_dir,
+                            shared.now_dir,
                             exp_dir,
-                            config.is_half,
+                            shared.config.is_half,
                         )
                     )
-                    logger.info("Execute: " + cmd)
+                    shared.logger.info("Execute: " + cmd)
                     p = Popen(
-                        cmd, shell=True, cwd=now_dir
+                        cmd, shell=True, cwd=shared.now_dir
                     )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
                     ps.append(p)
                 # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
@@ -321,30 +191,30 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
                 ).start()
             else:
                 cmd = (
-                    config.python_cmd
+                    shared.config.python_cmd
                     + ' infer/modules/train/extract/extract_f0_rmvpe_dml.py "%s/logs/%s" '
                     % (
-                        now_dir,
+                        shared.now_dir,
                         exp_dir,
                     )
                 )
-                logger.info("Execute: " + cmd)
+                shared.logger.info("Execute: " + cmd)
                 p = Popen(
-                    cmd, shell=True, cwd=now_dir
+                    cmd, shell=True, cwd=shared.now_dir
                 )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
                 p.wait()
                 done = [True]
         while 1:
             with open(
-                "%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "r"
+                "%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir), "r"
             ) as f:
                 yield (f.read())
             sleep(1)
             if done[0]:
                 break
-        with open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "r") as f:
+        with open("%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir), "r") as f:
             log = f.read()
-        logger.info(log)
+        shared.logger.info(log)
         yield log
     # 对不同part分别开多进程
     """
@@ -354,26 +224,26 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
     exp_dir=sys.argv[4]
     os.environ["CUDA_VISIBLE_DEVICES"]=str(i_gpu)
     """
-    leng = len(gpus)
+    length = len(gpus)
     ps = []
     for idx, n_g in enumerate(gpus):
         cmd = (
             '"%s" infer/modules/train/extract_feature_print.py %s %s %s %s "%s/logs/%s" %s %s'
             % (
-                config.python_cmd,
-                config.device,
-                leng,
+                shared.config.python_cmd,
+                shared.config.device,
+                length,
                 idx,
                 n_g,
-                now_dir,
+                shared.now_dir,
                 exp_dir,
                 version19,
-                config.is_half,
+                shared.config.is_half,
             )
         )
-        logger.info("Execute: " + cmd)
+        shared.logger.info("Execute: " + cmd)
         p = Popen(
-            cmd, shell=True, cwd=now_dir
+            cmd, shell=True, cwd=shared.now_dir
         )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
         ps.append(p)
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
@@ -386,14 +256,14 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
         ),
     ).start()
     while 1:
-        with open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "r") as f:
+        with open("%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir), "r") as f:
             yield (f.read())
         sleep(1)
         if done[0]:
             break
-    with open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "r") as f:
+    with open("%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir), "r") as f:
         log = f.read()
-    logger.info(log)
+    shared.logger.info(log)
     yield log
 
 
@@ -405,14 +275,14 @@ def get_pretrained_models(path_str, f0_str, sr2):
         "assets/pretrained%s/%sD%s.pth" % (path_str, f0_str, sr2), os.F_OK
     )
     if not if_pretrained_generator_exist:
-        logger.warning(
+        shared.logger.warning(
             "assets/pretrained%s/%sG%s.pth not exist, will not use pretrained model",
             path_str,
             f0_str,
             sr2,
         )
     if not if_pretrained_discriminator_exist:
-        logger.warning(
+        shared.logger.warning(
             "assets/pretrained%s/%sD%s.pth not exist, will not use pretrained model",
             path_str,
             f0_str,
@@ -464,8 +334,8 @@ def change_f0(if_f0_3: bool, sr2, version19):  # f0method8,pretrained_G14,pretra
 
 
 def click_train(
-    exp_dir1,
-    sr2,
+    exp_dir1: str,
+    sr2: int,
     if_f0_3,
     spk_id5,
     save_epoch10,
@@ -480,7 +350,7 @@ def click_train(
     version19,
 ):
     # 生成filelist
-    exp_dir = "%s/logs/%s" % (now_dir, exp_dir1)
+    exp_dir = "%s/logs/%s" % (shared.now_dir, exp_dir1)
     os.makedirs(exp_dir, exist_ok=True)
     gt_wavs_dir = "%s/0_gt_wavs" % (exp_dir)
     feature_dir = (
@@ -534,25 +404,25 @@ def click_train(
         for _ in range(2):
             opt.append(
                 "%s/logs/mute/0_gt_wavs/mute%s.wav|%s/logs/mute/3_feature%s/mute.npy|%s/logs/mute/2a_f0/mute.wav.npy|%s/logs/mute/2b-f0nsf/mute.wav.npy|%s"
-                % (now_dir, sr2, now_dir, fea_dim, now_dir, now_dir, spk_id5)
+                % (shared.now_dir, sr2, shared.now_dir, fea_dim, shared.now_dir, shared.now_dir, spk_id5)
             )
     else:
         for _ in range(2):
             opt.append(
                 "%s/logs/mute/0_gt_wavs/mute%s.wav|%s/logs/mute/3_feature%s/mute.npy|%s"
-                % (now_dir, sr2, now_dir, fea_dim, spk_id5)
+                % (shared.now_dir, sr2, shared.now_dir, fea_dim, spk_id5)
             )
     shuffle(opt)
     with open("%s/filelist.txt" % exp_dir, "w") as f:
         f.write("\n".join(opt))
-    logger.debug("Write filelist done")
+    shared.logger.debug("Write filelist done")
     # 生成config#无需生成config
     # cmd = python_cmd + " train_nsf_sim_cache_sid_load_pretrain.py -e mi-test -sr 40k -f0 1 -bs 4 -g 0 -te 10 -se 5 -pg pretrained/f0G40k.pth -pd pretrained/f0D40k.pth -l 1 -c 0"
-    logger.info("Use gpus: %s", str(gpus16))
+    shared.logger.info("Use gpus: %s", str(gpus16))
     if pretrained_G14 == "":
-        logger.info("No pretrained Generator")
+        shared.logger.info("No pretrained Generator")
     if pretrained_D15 == "":
-        logger.info("No pretrained Discriminator")
+        shared.logger.info("No pretrained Discriminator")
     if version19 == "v1" or sr2 == "40k":
         config_path = "v1/%s.json" % sr2
     else:
@@ -561,7 +431,7 @@ def click_train(
     if not pathlib.Path(config_save_path).exists():
         with open(config_save_path, "w", encoding="utf-8") as f:
             json.dump(
-                config.json_config[config_path],
+                shared.config.json_config[config_path],
                 f,
                 ensure_ascii=False,
                 indent=4,
@@ -572,7 +442,7 @@ def click_train(
         cmd = (
             '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -g %s -te %s -se %s %s %s -l %s -c %s -sw %s -v %s'
             % (
-                config.python_cmd,
+                shared.config.python_cmd,
                 exp_dir1,
                 sr2,
                 1 if if_f0_3 else 0,
@@ -592,7 +462,7 @@ def click_train(
         cmd = (
             '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -te %s -se %s %s %s -l %s -c %s -sw %s -v %s'
             % (
-                config.python_cmd,
+                shared.config.python_cmd,
                 exp_dir1,
                 sr2,
                 1 if if_f0_3 else 0,
@@ -601,14 +471,14 @@ def click_train(
                 save_epoch10,
                 "-pg %s" % pretrained_G14 if pretrained_G14 != "" else "",
                 "-pd %s" % pretrained_D15 if pretrained_D15 != "" else "",
-                1 if if_save_latest13 == i18n("是") else 0,
-                1 if if_cache_gpu17 == i18n("是") else 0,
-                1 if if_save_every_weights18 == i18n("是") else 0,
+                1 if if_save_latest13 == shared.i18n("是") else 0,
+                1 if if_cache_gpu17 == shared.i18n("是") else 0,
+                1 if if_save_every_weights18 == shared.i18n("是") else 0,
                 version19,
             )
         )
-    logger.info("Execute: " + cmd)
-    p = Popen(cmd, shell=True, cwd=now_dir)
+    shared.logger.info("Execute: " + cmd)
+    p = Popen(cmd, shell=True, cwd=shared.now_dir)
     p.wait()
     return "Training finished. You can view the training log in the console or train.log in the experiment folder."
 
@@ -645,7 +515,7 @@ def train_index(exp_dir1, version19):
                 MiniBatchKMeans(
                     n_clusters=10000,
                     verbose=True,
-                    batch_size=256 * config.n_cpu,
+                    batch_size=256 * shared.config.n_cpu,
                     compute_labels=False,
                     init="random",
                 )
@@ -654,7 +524,7 @@ def train_index(exp_dir1, version19):
             )
         except:
             info = traceback.format_exc()
-            logger.info(info)
+            shared.logger.info(info)
             infos.append(info)
             yield "\n".join(infos)
 
@@ -695,7 +565,7 @@ def train_index(exp_dir1, version19):
             % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1, version19),
             "%s/%s_IVF%s_Flat_nprobe_%s_%s_%s.index"
             % (
-                outside_index_root,
+                shared.outside_index_root,
                 exp_dir1,
                 n_ivf,
                 index_ivf.nprobe,
@@ -703,9 +573,9 @@ def train_index(exp_dir1, version19):
                 version19,
             ),
         )
-        infos.append("链接索引到外部-%s" % (outside_index_root))
+        infos.append("链接索引到外部-%s" % (shared.outside_index_root))
     except:
-        infos.append("链接索引到外部-%s失败" % (outside_index_root))
+        infos.append("链接索引到外部-%s失败" % (shared.outside_index_root))
 
     yield "\n".join(infos)
 
@@ -737,11 +607,11 @@ def train1key(
         return "\n".join(infos)
 
     # step1:处理数据
-    yield get_info_str(i18n("step1: processing data..."))
+    yield get_info_str(shared.i18n("step1: processing data..."))
     [get_info_str(_) for _ in preprocess_dataset(trainset_dir4, exp_dir1, sr2, np7)]
 
     # step2a:提取音高
-    yield get_info_str(i18n("step2: extracting feature & pitch"))
+    yield get_info_str(shared.i18n("step2: extracting feature & pitch"))
     [
         get_info_str(_)
         for _ in extract_f0_feature(
@@ -750,7 +620,7 @@ def train1key(
     ]
 
     # step3a:训练模型
-    yield get_info_str(i18n("step3a:正在训练模型"))
+    yield get_info_str(shared.i18n("step3a:正在训练模型"))
     click_train(
         exp_dir1,
         sr2,
@@ -793,7 +663,7 @@ def change_info_(ckpt_path):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
 
 
-F0GPUVisible = config.dml == False
+F0GPUVisible = shared.config.dml == False
 
 
 def change_f0_method(f0method8):
@@ -807,448 +677,9 @@ def change_f0_method(f0method8):
 with gr.Blocks(title="RVC WebUI Fork") as app:
     gr.Markdown("## RVC WebUI Fork")
     with gr.Tabs():
-        with gr.TabItem(i18n("Inference")):
-            with gr.Row():
-                model_dropdown = gr.Dropdown(label=i18n("Model"), choices=sorted(names))
-                with gr.Column():
-                    refresh_btn = gr.Button(i18n("Refresh"), variant="primary")
-                    unload_btn = gr.Button(i18n("Unload Model"), variant="primary")
-                spk_item = gr.Slider(
-                    minimum=0,
-                    maximum=2333,
-                    step=1,
-                    label=i18n("请选择说话人id"),
-                    value=0,
-                    visible=False,
-                    interactive=True,
-                )
-                unload_btn.click(
-                    fn=clean,
-                    inputs=[],
-                    outputs=[model_dropdown],
-                    api_name="infer_clean",
-                )
-            with gr.TabItem(i18n("Basic")):
-                with gr.Group():
-                    with gr.Row():
-                        with gr.Column():
-                            vc_transform0 = gr.Slider(
-                                label="Pitch Offset",
-                                minimum=-24,
-                                maximum=24,
-                                step=1,
-                                value=0,
-                            )
+        create_inference_tab(app=app)
 
-                            input_audio = gr.Audio(
-                                label=i18n("Input Audio"),
-                                type="numpy",
-                            )
-                            file_index1 = gr.Textbox(
-                                label=i18n(
-                                    "特征检索库文件路径,为空则使用下拉的选择结果"
-                                ),
-                                placeholder="C:\\Users\\Desktop\\model_example.index",
-                                interactive=True,
-                            )
-                            file_index2 = gr.Dropdown(
-                                label=i18n("自动检测index路径,下拉式选择(dropdown)"),
-                                choices=sorted(index_paths),
-                                interactive=True,
-                                # value=lambda: None,
-                            )
-                            # "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
-                            f0method0 = gr.Radio(
-                                label=i18n("Pitch Method"),
-                                choices=(
-                                    ["pm", "harvest", "crepe", "rmvpe"]
-                                    if config.dml == False
-                                    else ["pm", "harvest", "rmvpe"]
-                                ),
-                                value="rmvpe",
-                                interactive=True,
-                            )
-
-                        with gr.Column():
-                            resample_sr0 = gr.Slider(
-                                minimum=0,
-                                maximum=48000,
-                                label=i18n("后处理重采样至最终采样率，0为不进行重采样"),
-                                value=0,
-                                step=1,
-                                interactive=True,
-                            )
-                            rms_mix_rate0 = gr.Slider(
-                                minimum=0,
-                                maximum=1,
-                                label=i18n(
-                                    "输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"
-                                ),
-                                value=0.25,
-                                interactive=True,
-                            )
-                            protect0 = gr.Slider(
-                                minimum=0,
-                                maximum=0.5,
-                                label=i18n(
-                                    "保护清辅音和呼吸声，防止电音撕裂等artifact，拉满0.5不开启，调低加大保护力度但可能降低索引效果"
-                                ),
-                                value=0.33,
-                                step=0.01,
-                                interactive=True,
-                            )
-                            filter_radius0 = gr.Slider(
-                                minimum=0,
-                                maximum=7,
-                                label=i18n(
-                                    ">=3则使用对harvest音高识别的结果使用中值滤波，数值为滤波半径，使用可以削弱哑音"
-                                ),
-                                value=3,
-                                step=1,
-                                interactive=True,
-                            )
-                            index_rate1 = gr.Slider(
-                                minimum=0,
-                                maximum=1,
-                                label=i18n("检索特征占比"),
-                                value=0.75,
-                                interactive=True,
-                            )
-                            f0_file = gr.File(
-                                label=i18n(
-                                    "F0曲线文件, 可选, 一行一个音高, 代替默认F0及升降调"
-                                ),
-                                visible=False,
-                            )
-
-                            refresh_btn.click(
-                                fn=change_choices,
-                                inputs=[],
-                                outputs=[model_dropdown, file_index2],
-                                api_name="infer_refresh",
-                            )
-
-                with gr.Group():
-                    with gr.Column():
-                        but0 = gr.Button(i18n("Convert"), variant="primary")
-                        with gr.Row():
-                            vc_log_output = gr.Textbox(label=i18n("Log info"))
-                            vc_file_output = gr.Audio(
-                                label=i18n("输出音频(右下角三个点,点了可以下载)")
-                            )
-
-                        but0.click(
-                            vc.vc_single,
-                            [
-                                spk_item,
-                                input_audio,
-                                vc_transform0,
-                                f0_file,
-                                f0method0,
-                                file_index1,
-                                file_index2,
-                                index_rate1,
-                                filter_radius0,
-                                resample_sr0,
-                                rms_mix_rate0,
-                                protect0,
-                            ],
-                            [vc_log_output, vc_file_output],
-                            api_name="infer_convert",
-                        )
-            with gr.TabItem(i18n("Realtime")):
-                with gr.Group():
-                    with gr.Row():
-                        with gr.Column():
-                            vc_transform0 = gr.Slider(
-                                label="Pitch Offset",
-                                minimum=-24,  # Assuming a reasonable range for pitch shifting
-                                maximum=24,  # You can adjust these values as needed
-                                step=1,  # Semitones are typically whole numbers
-                                value=0,
-                            )
-
-                            audio_in = gr.Audio(
-                                label=i18n("Input Audio"),  # Updated label for clarity
-                                type="numpy",
-                                sources="microphone",
-                            )
-                            audio_out = gr.Audio(
-                                label="Result", streaming=True, autoplay=True
-                            )
-                            file_index1 = gr.Textbox(
-                                label=i18n(
-                                    "特征检索库文件路径,为空则使用下拉的选择结果"
-                                ),
-                                placeholder="C:\\Users\\Desktop\\model_example.index",
-                                interactive=True,
-                            )
-                            file_index2 = gr.Dropdown(
-                                label=i18n("自动检测index路径,下拉式选择(dropdown)"),
-                                choices=sorted(index_paths),
-                                interactive=True,
-                                # value=lambda: None,
-                            )
-                            # "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
-                            f0method0 = gr.Radio(
-                                label=i18n("Pitch Method"),
-                                choices=(
-                                    ["pm", "harvest", "crepe", "rmvpe"]
-                                    if config.dml == False
-                                    else ["pm", "harvest", "rmvpe"]
-                                ),
-                                value="rmvpe",
-                                interactive=True,
-                            )
-
-                        with gr.Column():
-                            resample_sr0 = gr.Slider(
-                                minimum=0,
-                                maximum=48000,
-                                label=i18n("后处理重采样至最终采样率，0为不进行重采样"),
-                                value=0,
-                                step=1,
-                                interactive=True,
-                            )
-                            rms_mix_rate0 = gr.Slider(
-                                minimum=0,
-                                maximum=1,
-                                label=i18n(
-                                    "输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"
-                                ),
-                                value=0.25,
-                                interactive=True,
-                            )
-                            protect0 = gr.Slider(
-                                minimum=0,
-                                maximum=0.5,
-                                label=i18n(
-                                    "保护清辅音和呼吸声，防止电音撕裂等artifact，拉满0.5不开启，调低加大保护力度但可能降低索引效果"
-                                ),
-                                value=0.33,
-                                step=0.01,
-                                interactive=True,
-                            )
-                            filter_radius0 = gr.Slider(
-                                minimum=0,
-                                maximum=7,
-                                label=i18n(
-                                    ">=3则使用对harvest音高识别的结果使用中值滤波，数值为滤波半径，使用可以削弱哑音"
-                                ),
-                                value=3,
-                                step=1,
-                                interactive=True,
-                            )
-                            index_rate1 = gr.Slider(
-                                minimum=0,
-                                maximum=1,
-                                label=i18n("检索特征占比"),
-                                value=0.75,
-                                interactive=True,
-                            )
-                            f0_file = gr.File(
-                                label=i18n(
-                                    "F0曲线文件, 可选, 一行一个音高, 代替默认F0及升降调"
-                                ),
-                                visible=False,
-                            )
-
-                            refresh_btn.click(
-                                fn=change_choices,
-                                inputs=[],
-                                outputs=[model_dropdown, file_index2],
-                                api_name="infer_refresh",
-                            )
-                state = gr.State()
-                with gr.Group():
-                    with gr.Column():
-                        audio_in.stream(
-                            vc.vc_single,
-                            [
-                                spk_item,
-                                audio_in,
-                                vc_transform0,
-                                f0_file,
-                                f0method0,
-                                file_index1,
-                                file_index2,
-                                index_rate1,
-                                filter_radius0,
-                                resample_sr0,
-                                rms_mix_rate0,
-                                protect0,
-                            ],
-                            [vc_log_output, audio_out],
-                            time_limit=1,
-                            stream_every=0.1,
-                            concurrency_limit=30,
-                        )
-
-            with gr.TabItem(i18n("Batch")):
-                gr.Markdown(
-                    value=i18n(
-                        "批量转换, 输入待转换音频文件夹, 或上传多个音频文件, 在指定文件夹(默认opt)下输出转换的音频. "
-                    )
-                )
-                with gr.Row():
-                    with gr.Column():
-                        vc_transform1 = gr.Number(
-                            label=i18n("变调(整数, 半音数量, 升八度12降八度-12)"),
-                            value=0,
-                        )
-                        opt_input = gr.Textbox(
-                            label=i18n("指定输出文件夹"), value="opt"
-                        )
-                        file_index3 = gr.Textbox(
-                            label=i18n("特征检索库文件路径,为空则使用下拉的选择结果"),
-                            value="",
-                            interactive=True,
-                        )
-                        file_index4 = gr.Dropdown(
-                            label=i18n("自动检测index路径,下拉式选择(dropdown)"),
-                            choices=sorted(index_paths),
-                            interactive=True,
-                            value=lambda: None,
-                        )
-                        f0method1 = gr.Radio(
-                            label=i18n(
-                                "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
-                            ),
-                            choices=(
-                                ["pm", "harvest", "crepe", "rmvpe"]
-                                if config.dml == False
-                                else ["pm", "harvest", "rmvpe"]
-                            ),
-                            value="rmvpe",
-                            interactive=True,
-                        )
-                        format1 = gr.Radio(
-                            label=i18n("导出文件格式"),
-                            choices=["wav", "flac", "mp3", "m4a"],
-                            value="wav",
-                            interactive=True,
-                        )
-
-                        refresh_btn.click(
-                            fn=lambda: change_choices()[1],
-                            inputs=[],
-                            outputs=file_index4,
-                            api_name="infer_refresh_batch",
-                        )
-                        # file_big_npy2 = gr.Textbox(
-                        #     label=i18n("特征文件路径"),
-                        #     value="E:\\codes\\py39\\vits_vc_gpu_train\\logs\\mi-test-1key\\total_fea.npy",
-                        #     interactive=True,
-                        # )
-
-                    with gr.Column():
-                        resample_sr1 = gr.Slider(
-                            minimum=0,
-                            maximum=48000,
-                            label=i18n("后处理重采样至最终采样率，0为不进行重采样"),
-                            value=0,
-                            step=1,
-                            interactive=True,
-                        )
-                        rms_mix_rate1 = gr.Slider(
-                            minimum=0,
-                            maximum=1,
-                            label=i18n(
-                                "输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"
-                            ),
-                            value=1,
-                            interactive=True,
-                        )
-                        protect1 = gr.Slider(
-                            minimum=0,
-                            maximum=0.5,
-                            label=i18n(
-                                "保护清辅音和呼吸声，防止电音撕裂等artifact，拉满0.5不开启，调低加大保护力度但可能降低索引效果"
-                            ),
-                            value=0.33,
-                            step=0.01,
-                            interactive=True,
-                        )
-                        filter_radius1 = gr.Slider(
-                            minimum=0,
-                            maximum=7,
-                            label=i18n(
-                                ">=3则使用对harvest音高识别的结果使用中值滤波，数值为滤波半径，使用可以削弱哑音"
-                            ),
-                            value=3,
-                            step=1,
-                            interactive=True,
-                        )
-                        index_rate2 = gr.Slider(
-                            minimum=0,
-                            maximum=1,
-                            label=i18n("检索特征占比"),
-                            value=1,
-                            interactive=True,
-                        )
-                with gr.Row():
-                    dir_input = gr.Textbox(
-                        label=i18n(
-                            "输入待处理音频文件夹路径(去文件管理器地址栏拷就行了)"
-                        ),
-                        placeholder="C:\\Users\\Desktop\\input_vocal_dir",
-                    )
-                    inputs = gr.File(
-                        file_count="multiple",
-                        label=i18n("也可批量输入音频文件, 二选一, 优先读文件夹"),
-                    )
-
-                with gr.Row():
-                    but1 = gr.Button(i18n("转换"), variant="primary")
-                    vc_output3 = gr.Textbox(label=i18n("输出信息"))
-
-                    but1.click(
-                        vc.vc_multi,
-                        [
-                            spk_item,
-                            dir_input,
-                            opt_input,
-                            inputs,
-                            vc_transform1,
-                            f0method1,
-                            file_index3,
-                            file_index4,
-                            # file_big_npy2,
-                            index_rate2,
-                            filter_radius1,
-                            resample_sr1,
-                            rms_mix_rate1,
-                            protect1,
-                            format1,
-                        ],
-                        [vc_output3],
-                        api_name="infer_convert_batch",
-                    )
-
-                model_dropdown.change(
-                    fn=vc.get_vc,
-                    inputs=[model_dropdown, protect0, protect1],
-                    outputs=[spk_item, protect0, protect1, file_index2, file_index4],
-                    api_name="infer_change_voice",
-                )
-                app.load(
-                    fn=vc.get_vc,
-                    inputs=[
-                        model_dropdown,
-                        protect0,
-                        protect1,
-                    ],  # Use the components themselves to get their initial values
-                    outputs=[spk_item, protect0, protect1, file_index2, file_index4],
-                )
-
-                # initial_outputs = vc.get_vc(model_dropdown.value, protect0.value, protect1.value)
-                # spk_item.update(initial_outputs[0])
-                # protect0.update(initial_outputs[1])
-                # protect1.update(initial_outputs[2])
-                # file_index1.update(initial_outputs[3])
-                # file_index4.update(initial_outputs[4])
-
-        with gr.TabItem(i18n("伴奏人声分离&去混响&去回声")):
+        with gr.TabItem(i18n("Vocal Preprocessing")):
             with gr.Group():
                 gr.Markdown(
                     value=i18n(
@@ -1335,10 +766,10 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                 )
                 np7 = gr.Slider(
                     minimum=0,
-                    maximum=config.n_cpu,
+                    maximum=shared.config.n_cpu,
                     step=1,
                     label=i18n("提取音高和处理数据使用的CPU进程数"),
-                    value=int(np.ceil(config.n_cpu / 1.5)),
+                    value=int(np.ceil(shared.config.n_cpu / 1.5)),
                     interactive=True,
                 )
             with gr.Group():  # 暂时单人的, 后面支持最多4人的#数据处理
@@ -1380,12 +811,12 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                             label=i18n(
                                 "以-分隔输入使用的卡号, 例如   0-1-2   使用卡0和卡1和卡2"
                             ),
-                            value=gpus,
+                            value=shared.gpus,
                             interactive=True,
                             visible=F0GPUVisible,
                         )
                         gpu_info9 = gr.Textbox(
-                            label=i18n("显卡信息"), value=gpu_info, visible=F0GPUVisible
+                            label=i18n("显卡信息"), value=shared.gpu_info, visible=F0GPUVisible
                         )
                     with gr.Column():
                         f0method8 = gr.Radio(
@@ -1400,7 +831,7 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                             label=i18n(
                                 "rmvpe卡号配置：以-分隔输入使用的不同进程卡号,例如0-0-1使用在卡0上跑2个进程并在卡1上跑1个进程"
                             ),
-                            value="%s-%s" % (gpus, gpus),
+                            value="%s-%s" % (shared.gpus, shared.gpus),
                             interactive=True,
                             visible=F0GPUVisible,
                         )
@@ -1449,7 +880,7 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                         maximum=40,
                         step=1,
                         label=i18n("每张显卡的batch_size"),
-                        value=default_batch_size,
+                        value=shared.default_batch_size,
                         interactive=True,
                     )
                     if_save_latest13 = gr.Radio(
@@ -1504,7 +935,7 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                         label=i18n(
                             "以-分隔输入使用的卡号, 例如   0-1-2   使用卡0和卡1和卡2"
                         ),
-                        value=gpus,
+                        value=shared.gpus,
                         interactive=True,
                     )
                     but3 = gr.Button(i18n("训练模型"), variant="primary")
@@ -1716,42 +1147,43 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                     api_name="ckpt_extract",
                 )
 
-        with gr.TabItem(i18n("Onnx导出")):
-            with gr.Row():
-                ckpt_dir = gr.Textbox(
-                    label=i18n("RVC模型路径"), value="", interactive=True
-                )
-            with gr.Row():
-                onnx_dir = gr.Textbox(
-                    label=i18n("Onnx输出路径"), value="", interactive=True
-                )
-            with gr.Row():
-                infoOnnx = gr.Label(label="info")
-            with gr.Row():
-                butOnnx = gr.Button(i18n("导出Onnx模型"), variant="primary")
-            butOnnx.click(
-                export_onnx, [ckpt_dir, onnx_dir], infoOnnx, api_name="export_onnx"
-            )
+        # with gr.TabItem(i18n("Onnx导出")):
+        #     with gr.Row():
+        #         ckpt_dir = gr.Textbox(
+        #             label=i18n("RVC模型路径"), value="", interactive=True
+        #         )
+        #     with gr.Row():
+        #         onnx_dir = gr.Textbox(
+        #             label=i18n("Onnx输出路径"), value="", interactive=True
+        #         )
+        #     with gr.Row():
+        #         infoOnnx = gr.Label(label="info")
+        #     with gr.Row():
+        #         butOnnx = gr.Button(i18n("导出Onnx模型"), variant="primary")
+        #     butOnnx.click(
+        #         export_onnx, [ckpt_dir, onnx_dir], infoOnnx, api_name="export_onnx"
+        #     )
 
-        tab_faq = i18n("常见问题解答")
-        with gr.TabItem(tab_faq):
-            try:
-                if tab_faq == "常见问题解答":
-                    with open("docs/cn/faq.md", "r", encoding="utf8") as f:
-                        info = f.read()
-                else:
-                    with open("docs/en/faq_en.md", "r", encoding="utf8") as f:
-                        info = f.read()
-                gr.Markdown(value=info)
-            except:
-                gr.Markdown(traceback.format_exc())
+        # tab_faq = i18n("常见问题解答")
+        # with gr.TabItem(tab_faq):
+        #     try:
+        #         if tab_faq == "常见问题解答":
+        #             with open("docs/cn/faq.md", "r", encoding="utf8") as f:
+        #                 info = f.read()
+        #         else:
+        #             with open("docs/en/faq_en.md", "r", encoding="utf8") as f:
+        #                 info = f.read()
+        #         gr.Markdown(value=info)
+        #     except:
+        #         gr.Markdown(traceback.format_exc())
+        create_faq_tab(i18n)
 
-    if config.iscolab:
+    if shared.config.iscolab:
         app.queue(max_size=1022).launch(share=True)
     else:
         app.queue(max_size=1022).launch(
             server_name="0.0.0.0",
-            inbrowser=not config.noautoopen,
-            server_port=config.listen_port,
+            inbrowser=not shared.config.noautoopen,
+            server_port=shared.config.listen_port,
             quiet=True,
         )
