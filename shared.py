@@ -111,6 +111,22 @@ for name in os.listdir(weight_root):
         names.append(name)
 index_paths = [""]  # Fix for gradio 5
 
+
+def lookup_indices(index_root):
+    # shared.index_paths
+    for root, dirs, files in os.walk(index_root, topdown=False):
+        for name in files:
+            if name.endswith(".index") and "trained" not in name:
+                index_paths.append("%s/%s" % (root, name))
+
+
+lookup_indices(index_root)
+lookup_indices(outside_index_root)
+uvr5_names = []
+for name in os.listdir(weight_uvr5_root):
+    if name.endswith(".pth") or "onnx" in name:
+        uvr5_names.append(name.replace(".pth", ""))
+
 sr_dict = {
     "32k": 32000,
     "40k": 40000,
