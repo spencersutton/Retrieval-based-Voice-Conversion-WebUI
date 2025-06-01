@@ -1,0 +1,5 @@
+/Dockerfile
+/docker-compose.yml
+/.venv
+/.mypy_cache
+__pycache__
