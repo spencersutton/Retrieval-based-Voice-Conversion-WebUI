@@ -3,6 +3,7 @@ import logging
 from typing import Any, Dict, List, Optional, Union
 import gradio as gr
 import librosa
+import resampy
 
 from configs.config import Config
 
@@ -22,6 +23,38 @@ from infer.lib.infer_pack.models import (
 )
 from infer.modules.vc.pipeline import Pipeline
 from infer.modules.vc.utils import *
+
+def resample_audio(
+    audio_array: np.ndarray,  # Your input audio array, potentially stereo
+    orig_sr: int,
+    target_sr: int,
+):
+    # Check if the audio is stereo and downmix to mono
+    if audio_array.ndim > 1 and audio_array.shape[1] > 1:
+        # print("Detected stereo audio, downmixing to mono.")
+        # Average the channels to create a mono signal
+        audio_mono = audio_array.mean(axis=1)
+    else:
+        # Already mono or 1D array
+        audio_mono = audio_array.flatten() # Ensure it's 1D in case it's (N, 1)
+
+    # print(f"Mono audio shape after downmixing: {audio_mono.shape}")
+
+    if audio_mono.size < 10: # A reasonable minimum length for resampling
+        raise ValueError(
+            f"Mono audio signal length ({audio_mono.size}) is too small to resample from {orig_sr} to {target_sr}. "
+            "Ensure the audio file contains actual sound data."
+        )
+
+    # Perform resampling on the mono signal
+    resampled_audio = resampy.resample(
+        audio_mono,
+        orig_sr,
+        target_sr
+    )
+    # print(f"Resampled audio shape: {resampled_audio.shape}")
+    return resampled_audio
+
 
 
 class VC:
@@ -161,7 +194,8 @@ class VC:
     def vc_single(
         self: "VC",
         sid: int,  # Speaker ID, typically an integer
-        input_audio_path: Optional[str],
+        # input_audio_path: Optional[str],
+        sr_and_audio: Tuple[int, np.ndarray],
         f0_up_key: int,
         f0_file: Optional[str],  # Path to F0 file, if provided
         f0_method: str,
@@ -174,11 +208,42 @@ class VC:
         protect: float,
         progress: gr.Progress = gr.Progress(),
     ):
-        if input_audio_path is None:
-            return "Audio is required", None
+        # if input_audio_path is None:
+        #     return "Audio is required", None
+        # if audio is None:
+        # return "Audio is required", None
         f0_up_key = int(f0_up_key)
         try:
-            audio = load_audio(input_audio_path, 16000)
+            original_sr, audio = sr_and_audio
+            # if audio.dtype != np.float32:
+            #     print(f"Converting audio from {audio.dtype} to np.float32")
+            #     audio = audio.astype(np.float32)
+            # if np.max(np.abs(audio)) > 1.0:
+            #     print("Normalizing audio to -1.0 to 1.0 range")
+            #     audio = audio / np.max(np.abs(audio))
+            
+            # print(f"Size of audio {audio.shape}")
+            
+            # # Check if the audio is stereo and downmix to mono
+            # if audio_array.ndim > 1 and audio_array.shape[1] > 1:
+            #     print("Detected stereo audio, downmixing to mono.")
+            #     # Average the channels to create a mono signal
+            #     audio_mono = audio_array.mean(axis=1)
+
+            # # audio = load_audio(input_audio_path, 16000)
+            if original_sr != 16000:
+                # print(f"Resampling audio from {original_sr} Hz to {16000} Hz")
+                audio = resample_audio(
+                    audio, original_sr, 16000
+                )
+            # else:
+            #     print(
+            #         f"Audio already at target sample rate of {resample_sr} Hz, no resampling needed."
+            #     )
+            # print(f"Audio input path: {input_audio_path}")
+            # print("Loading audio")
+            # audio = load_audio(input_audio_path, 16000)
+            # print("Loaded")
             audio_max: np.float64 = np.abs(audio).max() / 0.95
             if audio_max > 1:
                 audio /= audio_max
@@ -202,25 +267,25 @@ class VC:
                 file_index = ""
 
             audio_opt: np.ndarray = self.pipeline.pipeline(
-                self.hubert_model,
-                self.net_g,
-                sid,
-                audio,
-                input_audio_path,
-                times,
-                f0_up_key,
-                f0_method,
-                file_index,
-                index_rate,
-                self.if_f0,
-                filter_radius,
-                self.tgt_sr,
-                resample_sr,
-                rms_mix_rate,
-                self.version,
-                protect,
-                f0_file,
-                progress,
+                model=self.hubert_model,
+                net_g=self.net_g,
+                sid=sid,
+                audio=audio,
+                input_audio_path="NA",
+                times=times,
+                f0_up_key=f0_up_key,
+                f0_method=f0_method,
+                file_index=file_index,
+                index_rate=index_rate,
+                if_f0=self.if_f0,
+                filter_radius=filter_radius,
+                tgt_sr=self.tgt_sr,
+                resample_sr=resample_sr,
+                rms_mix_rate=rms_mix_rate,
+                version=self.version,
+                protect=protect,
+                f0_file=f0_file,
+                progress=progress,
             )
             if self.tgt_sr != resample_sr >= 16000:
                 tgt_sr = resample_sr

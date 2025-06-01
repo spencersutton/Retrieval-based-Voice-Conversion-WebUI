@@ -2,7 +2,7 @@ import os
 import sys
 import traceback
 import logging
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional, Tuple, Union
 from configs.config import Config
 from infer.lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid,
@@ -39,7 +39,7 @@ input_audio_path2wav = {}
 
 
 @lru_cache
-def cache_harvest_f0(input_audio_path, fs, f0max, f0min, frame_period):
+def cache_harvest_f0(input_audio_path: str, fs, f0max, f0min, frame_period):
     audio = input_audio_path2wav[input_audio_path]
     f0, t = pyworld.harvest(
         audio,
@@ -52,7 +52,9 @@ def cache_harvest_f0(input_audio_path, fs, f0max, f0min, frame_period):
     return f0
 
 
-def change_rms(data1, sr1, data2, sr2, rate):  # 1是输入音频，2是输出音频,rate是2的占比
+def change_rms(
+    data1: np.ndarray, sr1: int, data2: np.ndarray, sr2: int, rate: float
+):  # 1是输入音频，2是输出音频,rate是2的占比
     # print(data1.max(),data2.max())
     rms1 = librosa.feature.rms(
         y=data1, frame_length=sr1 // 2 * 2, hop_length=sr1 // 2
@@ -94,14 +96,14 @@ class Pipeline(object):
         self.device: str = config.device
 
     def get_f0(
-        self,
-        input_audio_path: str,
-        x: np.array,
-        p_len,
-        f0_up_key,
-        f0_method: Literal["pm", "harvest", "crepe", "rmvpe"],
-        filter_radius,
-        inp_f0=None,
+        self: "Pipeline",
+        # input_audio_path: str,
+        x: np.ndarray,
+        p_len: int,
+        f0_up_key: int,
+        f0_method: Literal["pm", "crepe", "rmvpe"],
+        # filter_radius: int,
+        inp_f0: Optional[np.ndarray] = None,
     ):
         global input_audio_path2wav
         time_step = self.window / self.sr * 1000
@@ -127,10 +129,11 @@ class Pipeline(object):
                     f0, [[pad_size, p_len - len(f0) - pad_size]], mode="constant"
                 )
         elif f0_method == "harvest":
-            input_audio_path2wav[input_audio_path] = x.astype(np.double)
-            f0 = cache_harvest_f0(input_audio_path, self.sr, f0_max, f0_min, 10)
-            if filter_radius > 2:
-                f0 = signal.medfilt(f0, 3)
+            # input_audio_path2wav[input_audio_path] = x.astype(np.double)
+            # f0 = cache_harvest_f0(input_audio_path, self.sr, f0_max, f0_min, 10)
+            # if filter_radius > 2:
+            #     f0 = signal.medfilt(f0, 3)
+            raise "Harvest is no longer supported!"
         elif f0_method == "crepe":
             model = "full"
             # Pick a batch size that doesn't cause memory errors on your gpu
@@ -206,7 +209,7 @@ class Pipeline(object):
             SynthesizerTrnMs768NSFsid_nono,
         ],
         sid: int,
-        audio0: np.ndarray,
+        audio: np.ndarray,
         pitch: Optional[torch.Tensor],
         pitchf: Optional[torch.Tensor],
         times: List[float],
@@ -216,7 +219,7 @@ class Pipeline(object):
         version: str,
         protect: float,
     ):  # ,file_index,file_big_npy
-        feats = torch.from_numpy(audio0)
+        feats = torch.from_numpy(audio)
         if self.is_half:
             feats = feats.half()
         else:
@@ -265,7 +268,7 @@ class Pipeline(object):
                 0, 2, 1
             )
         t1 = ttime()
-        p_len = audio0.shape[0] // self.window
+        p_len = audio.shape[0] // self.window
         if feats.shape[1] < p_len:
             p_len = feats.shape[1]
             if pitch is not None and pitchf is not None:
@@ -307,7 +310,7 @@ class Pipeline(object):
         input_audio_path: str,
         times: List[int],
         f0_up_key: int,
-        f0_method: Literal["pm", "harvest", "crepe", "rmvpe"],
+        f0_method: Literal["pm", "crepe", "rmvpe"],
         file_index: str,
         index_rate: float,
         if_f0: int,
@@ -319,7 +322,7 @@ class Pipeline(object):
         protect: float,
         f0_file=None,
         progress=gr.Progress(),
-    ):
+    ) -> np.ndarray:
         progress(0.01, desc="Initializing...")  # Initial progress
 
         if (
@@ -355,7 +358,7 @@ class Pipeline(object):
                     )[0][0]
                 )
         s = 0
-        audio_opt = []
+        audio_opt: List[np.ndarray] = []
         t = None
         t1 = ttime()
         audio_pad = np.pad(audio, (self.t_pad, self.t_pad), mode="reflect")
@@ -376,13 +379,13 @@ class Pipeline(object):
         if if_f0 == 1:
             progress(0.2, desc="Extracting F0...")  # Progress update
             pitch, pitchf = self.get_f0(
-                input_audio_path,
-                audio_pad,
-                p_len,
-                f0_up_key,
-                f0_method,
-                filter_radius,
-                inp_f0,
+                # input_audio_path,
+                x=audio_pad,
+                p_len=p_len,
+                f0_up_key=f0_up_key,
+                f0_method=f0_method,
+                # filter_radius=filter_radius,
+                inp_f0=inp_f0,
             )
             pitch = pitch[:p_len]
             pitchf = pitchf[:p_len]
@@ -461,18 +464,18 @@ class Pipeline(object):
         else:
             audio_opt.append(
                 self.vc(
-                    model,
-                    net_g,
-                    sid,
-                    audio_pad[t:],
-                    None,
-                    None,
-                    times,
-                    index,
-                    big_npy,
-                    index_rate,
-                    version,
-                    protect,
+                    model=model,
+                    net_g=net_g,
+                    sid=sid,
+                    audio=audio_pad[t:],
+                    pitch=None,
+                    pitchf=None,
+                    times=times,
+                    index=index,
+                    big_npy=big_npy,
+                    index_rate=index_rate,
+                    version=version,
+                    protect=protect,
                 )[self.t_pad_tgt : -self.t_pad_tgt]
             )
         audio_opt = np.concatenate(audio_opt)

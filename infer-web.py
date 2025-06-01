@@ -809,9 +809,7 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
     with gr.Tabs():
         with gr.TabItem(i18n("Inference")):
             with gr.Row():
-                model_dropdown = gr.Dropdown(
-                    label=i18n("Model"), choices=sorted(names)
-                )
+                model_dropdown = gr.Dropdown(label=i18n("Model"), choices=sorted(names))
                 with gr.Column():
                     refresh_btn = gr.Button(i18n("Refresh"), variant="primary")
                     unload_btn = gr.Button(i18n("Unload Model"), variant="primary")
@@ -836,15 +834,15 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                         with gr.Column():
                             vc_transform0 = gr.Slider(
                                 label="Pitch Offset",
-                                minimum=-24,  # Assuming a reasonable range for pitch shifting
-                                maximum=24,  # You can adjust these values as needed
-                                step=1,  # Semitones are typically whole numbers
+                                minimum=-24,
+                                maximum=24,
+                                step=1,
                                 value=0,
                             )
 
-                            input_audio0 = gr.Audio(
-                                label=i18n("Input Audio"),  # Updated label for clarity
-                                type="filepath",
+                            input_audio = gr.Audio(
+                                label=i18n("Input Audio"),
+                                type="numpy",
                             )
                             file_index1 = gr.Textbox(
                                 label=i18n(
@@ -861,9 +859,7 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                             )
                             # "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
                             f0method0 = gr.Radio(
-                                label=i18n(
-                                    "Pitch Method"
-                                ),
+                                label=i18n("Pitch Method"),
                                 choices=(
                                     ["pm", "harvest", "crepe", "rmvpe"]
                                     if config.dml == False
@@ -931,12 +927,13 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                                 outputs=[model_dropdown, file_index2],
                                 api_name="infer_refresh",
                             )
+
                 with gr.Group():
                     with gr.Column():
                         but0 = gr.Button(i18n("Convert"), variant="primary")
                         with gr.Row():
-                            vc_output1 = gr.Textbox(label=i18n("Log info"))
-                            vc_output2 = gr.Audio(
+                            vc_log_output = gr.Textbox(label=i18n("Log info"))
+                            vc_file_output = gr.Audio(
                                 label=i18n("输出音频(右下角三个点,点了可以下载)")
                             )
 
@@ -944,7 +941,7 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                             vc.vc_single,
                             [
                                 spk_item,
-                                input_audio0,
+                                input_audio,
                                 vc_transform0,
                                 f0_file,
                                 f0method0,
@@ -956,10 +953,138 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
                                 rms_mix_rate0,
                                 protect0,
                             ],
-                            [vc_output1, vc_output2],
+                            [vc_log_output, vc_file_output],
                             api_name="infer_convert",
                         )
-            with gr.TabItem(i18n("批量推理")):
+            with gr.TabItem(i18n("Realtime")):
+                with gr.Group():
+                    with gr.Row():
+                        with gr.Column():
+                            vc_transform0 = gr.Slider(
+                                label="Pitch Offset",
+                                minimum=-24,  # Assuming a reasonable range for pitch shifting
+                                maximum=24,  # You can adjust these values as needed
+                                step=1,  # Semitones are typically whole numbers
+                                value=0,
+                            )
+
+                            audio_in = gr.Audio(
+                                label=i18n("Input Audio"),  # Updated label for clarity
+                                type="numpy",
+                                sources="microphone",
+                            )
+                            audio_out = gr.Audio(
+                                label="Result", streaming=True, autoplay=True
+                            )
+                            file_index1 = gr.Textbox(
+                                label=i18n(
+                                    "特征检索库文件路径,为空则使用下拉的选择结果"
+                                ),
+                                placeholder="C:\\Users\\Desktop\\model_example.index",
+                                interactive=True,
+                            )
+                            file_index2 = gr.Dropdown(
+                                label=i18n("自动检测index路径,下拉式选择(dropdown)"),
+                                choices=sorted(index_paths),
+                                interactive=True,
+                                # value=lambda: None,
+                            )
+                            # "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
+                            f0method0 = gr.Radio(
+                                label=i18n("Pitch Method"),
+                                choices=(
+                                    ["pm", "harvest", "crepe", "rmvpe"]
+                                    if config.dml == False
+                                    else ["pm", "harvest", "rmvpe"]
+                                ),
+                                value="rmvpe",
+                                interactive=True,
+                            )
+
+                        with gr.Column():
+                            resample_sr0 = gr.Slider(
+                                minimum=0,
+                                maximum=48000,
+                                label=i18n("后处理重采样至最终采样率，0为不进行重采样"),
+                                value=0,
+                                step=1,
+                                interactive=True,
+                            )
+                            rms_mix_rate0 = gr.Slider(
+                                minimum=0,
+                                maximum=1,
+                                label=i18n(
+                                    "输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"
+                                ),
+                                value=0.25,
+                                interactive=True,
+                            )
+                            protect0 = gr.Slider(
+                                minimum=0,
+                                maximum=0.5,
+                                label=i18n(
+                                    "保护清辅音和呼吸声，防止电音撕裂等artifact，拉满0.5不开启，调低加大保护力度但可能降低索引效果"
+                                ),
+                                value=0.33,
+                                step=0.01,
+                                interactive=True,
+                            )
+                            filter_radius0 = gr.Slider(
+                                minimum=0,
+                                maximum=7,
+                                label=i18n(
+                                    ">=3则使用对harvest音高识别的结果使用中值滤波，数值为滤波半径，使用可以削弱哑音"
+                                ),
+                                value=3,
+                                step=1,
+                                interactive=True,
+                            )
+                            index_rate1 = gr.Slider(
+                                minimum=0,
+                                maximum=1,
+                                label=i18n("检索特征占比"),
+                                value=0.75,
+                                interactive=True,
+                            )
+                            f0_file = gr.File(
+                                label=i18n(
+                                    "F0曲线文件, 可选, 一行一个音高, 代替默认F0及升降调"
+                                ),
+                                visible=False,
+                            )
+
+                            refresh_btn.click(
+                                fn=change_choices,
+                                inputs=[],
+                                outputs=[model_dropdown, file_index2],
+                                api_name="infer_refresh",
+                            )
+                state = gr.State()
+                with gr.Group():
+                    with gr.Column():
+                        audio_in.stream(
+                            vc.vc_single,
+                            [
+                                spk_item,
+                                audio_in,
+                                vc_transform0,
+                                f0_file,
+                                f0method0,
+                                file_index1,
+                                file_index2,
+                                index_rate1,
+                                filter_radius0,
+                                resample_sr0,
+                                rms_mix_rate0,
+                                protect0,
+                            ],
+                            [vc_log_output, audio_out],
+                            time_limit=1,
+                            stream_every=0.1,
+                            concurrency_limit=30,
+                        )
+
+            with gr.TabItem(i18n("Batch")):
                 gr.Markdown(
                     value=i18n(
                         "批量转换, 输入待转换音频文件夹, 或上传多个音频文件, 在指定文件夹(默认opt)下输出转换的音频. "
