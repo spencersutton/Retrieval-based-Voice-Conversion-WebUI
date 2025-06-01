@@ -30,18 +30,33 @@ version_config_list: list[str] = [
     "v2/32k.json",
 ]
 
+from functools import wraps
+from typing import Type, TypeVar, Dict
 
-def singleton_variable(func: Callable[..., Any]) -> Callable[..., Any]:
+T = TypeVar("T")
+
+_singleton_instances: Dict[Type, object] = {}
+
+def singleton_class(cls: Type[T]) -> Type[T]:
+    @wraps(cls)
     def wrapper(*args, **kwargs):
-        if not wrapper.instance:
-            wrapper.instance = func(*args, **kwargs)
-        return wrapper.instance
-
-    wrapper.instance = None
-    return wrapper
+        if cls not in _singleton_instances:
+            _singleton_instances[cls] = cls(*args, **kwargs)
+        return _singleton_instances[cls]
+    return wrapper  # Type is preserved
 
 
-@singleton_variable
+# def singleton_variable(func: Callable[..., Any]) -> Callable[..., Any]:
+#     def wrapper(*args, **kwargs):
+#         if not wrapper.instance:
+#             wrapper.instance = func(*args, **kwargs)
+#         return wrapper.instance
+
+#     wrapper.instance = None
+#     return wrapper
+
+
+@singleton_class
 class Config:
     device: str
     is_half: bool

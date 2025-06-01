@@ -8,7 +8,6 @@ from shared import i18n
 def clean():
     return {"value": "", "__type__": "update"}
 
-
 def change_choices():
     names = []
     for name in os.listdir(shared.weight_root):
@@ -24,7 +23,6 @@ def change_choices():
         "__type__": "update",
     }
 
-
 def create_inference_tab(app: gr.Blocks):
     with gr.TabItem(i18n("Inference")):
         with gr.Row():
@@ -35,6 +33,12 @@ def create_inference_tab(app: gr.Blocks):
                 refresh_btn = gr.Button(
                     i18n("Refresh"), variant="primary"
                 )  # Use the shared button
+                refresh_btn.click(
+                    fn=change_choices,
+                    inputs=[],
+                    outputs=[model_dropdown, file_index2],
+                    api_name="infer_refresh",
+                )
                 unload_btn = gr.Button(i18n("Unload Model"), variant="primary")
             spk_item = gr.Slider(
                 minimum=0,
@@ -87,7 +91,6 @@ def create_inference_tab(app: gr.Blocks):
                             value="rmvpe",
                             interactive=True,
                         )
-
                     with gr.Column():
                         resample_sr0 = gr.Slider(
                             minimum=0,
@@ -177,7 +180,6 @@ def create_inference_tab(app: gr.Blocks):
             inputs=[
                 model_dropdown,
                 protect0,
-                # protect1,
             ],  # Use protect0 and protect1 from Basic/Batch tab
             outputs=[spk_item, protect0, file_index2],
             api_name="infer_change_voice",
@@ -187,8 +189,6 @@ def create_inference_tab(app: gr.Blocks):
             inputs=[
                 model_dropdown,
                 protect0,
-                # protect1,
             ],  # Use the components themselves to get their initial values
             outputs=[spk_item, protect0, file_index2],
         )
-        # return model_dropdown, spk_item, protect0, file_index2

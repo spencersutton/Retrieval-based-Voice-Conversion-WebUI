@@ -649,7 +649,7 @@ def change_info_(ckpt_path):
 F0GPUVisible = shared.config.dml == False
 
 
-def change_f0_method(f0method8):
+def change_f0_method(f0method8: str):
     if f0method8 == "rmvpe_gpu":
         visible = F0GPUVisible
     else:

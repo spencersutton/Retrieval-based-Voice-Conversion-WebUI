@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
 
-config = Config()
+config: Config = Config()
 vc = VC(config)
 
 
