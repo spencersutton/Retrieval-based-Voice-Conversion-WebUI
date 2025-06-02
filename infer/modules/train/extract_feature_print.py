@@ -86,10 +86,15 @@ if os.access(model_path, os.F_OK) == False:
         % model_path
     )
     exit(0)
-models, saved_cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(
-    [model_path],
-    suffix="",
-)
+
+from fairseq.data.dictionary import Dictionary
+from torch.serialization import safe_globals
+
+with safe_globals([Dictionary]):
+    models, saved_cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(
+        [model_path],
+        suffix="",
+    )
 model = models[0]
 model = model.to(device)
 printt("move model to %s" % device)

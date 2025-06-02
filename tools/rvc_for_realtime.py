@@ -16,6 +16,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchcrepe
+from fairseq.data.dictionary import Dictionary
+from torch.serialization import safe_globals
 
 from infer.lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid,
@@ -99,10 +101,14 @@ class RVC:
             )
 
             if last_rvc is None:
-                models, _, _ = fairseq.checkpoint_utils.load_model_ensemble_and_task(
-                    ["assets/hubert/hubert_base.pt"],
-                    suffix="",
-                )
+                with safe_globals([Dictionary]):
+
+                    models, _, _ = (
+                        fairseq.checkpoint_utils.load_model_ensemble_and_task(
+                            ["assets/hubert/hubert_base.pt"],
+                            suffix="",
+                        )
+                    )
                 hubert_model = models[0]
                 hubert_model = hubert_model.to(self.device)
                 if self.is_half:
