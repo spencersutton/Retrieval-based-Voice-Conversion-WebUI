@@ -24,6 +24,7 @@ from infer.lib.infer_pack.models import (
 from infer.modules.vc.pipeline import Pipeline
 from infer.modules.vc.utils import *
 
+
 def resample_audio(
     audio_array: np.ndarray,  # Your input audio array, potentially stereo
     orig_sr: int,
@@ -36,25 +37,20 @@ def resample_audio(
         audio_mono = audio_array.mean(axis=1)
     else:
         # Already mono or 1D array
-        audio_mono = audio_array.flatten() # Ensure it's 1D in case it's (N, 1)
+        audio_mono = audio_array.flatten()  # Ensure it's 1D in case it's (N, 1)
 
     # print(f"Mono audio shape after downmixing: {audio_mono.shape}")
 
-    if audio_mono.size < 10: # A reasonable minimum length for resampling
+    if audio_mono.size < 10:  # A reasonable minimum length for resampling
         raise ValueError(
             f"Mono audio signal length ({audio_mono.size}) is too small to resample from {orig_sr} to {target_sr}. "
             "Ensure the audio file contains actual sound data."
         )
 
     # Perform resampling on the mono signal
-    resampled_audio = resampy.resample(
-        audio_mono,
-        orig_sr,
-        target_sr
-    )
+    resampled_audio = resampy.resample(audio_mono, orig_sr, target_sr)
     # print(f"Resampled audio shape: {resampled_audio.shape}")
     return resampled_audio
-
 
 
 class VC:
@@ -194,8 +190,7 @@ class VC:
     def vc_single(
         self: "VC",
         sid: int,  # Speaker ID, typically an integer
-        # input_audio_path: Optional[str],
-        sr_and_audio: Tuple[int, np.ndarray],
+        sr_and_audio: Optional[Tuple[int, np.ndarray]],
         f0_up_key: int,
         f0_file: Optional[str],  # Path to F0 file, if provided
         f0_method: str,
@@ -207,43 +202,20 @@ class VC:
         rms_mix_rate: float,
         protect: float,
         progress: gr.Progress = gr.Progress(),
-    ):
+    ) -> Tuple[str, Optional[Tuple[int, np.ndarray]]]:
         # if input_audio_path is None:
         #     return "Audio is required", None
         # if audio is None:
         # return "Audio is required", None
         f0_up_key = int(f0_up_key)
         try:
-            original_sr, audio = sr_and_audio
-            # if audio.dtype != np.float32:
-            #     print(f"Converting audio from {audio.dtype} to np.float32")
-            #     audio = audio.astype(np.float32)
-            # if np.max(np.abs(audio)) > 1.0:
-            #     print("Normalizing audio to -1.0 to 1.0 range")
-            #     audio = audio / np.max(np.abs(audio))
-            
-            # print(f"Size of audio {audio.shape}")
-            
-            # # Check if the audio is stereo and downmix to mono
-            # if audio_array.ndim > 1 and audio_array.shape[1] > 1:
-            #     print("Detected stereo audio, downmixing to mono.")
-            #     # Average the channels to create a mono signal
-            #     audio_mono = audio_array.mean(axis=1)
+            if sr_and_audio is None:
+                return "Audio is required", None
 
-            # # audio = load_audio(input_audio_path, 16000)
+            original_sr, audio = sr_and_audio
             if original_sr != 16000:
                 # print(f"Resampling audio from {original_sr} Hz to {16000} Hz")
-                audio = resample_audio(
-                    audio, original_sr, 16000
-                )
-            # else:
-            #     print(
-            #         f"Audio already at target sample rate of {resample_sr} Hz, no resampling needed."
-            #     )
-            # print(f"Audio input path: {input_audio_path}")
-            # print("Loading audio")
-            # audio = load_audio(input_audio_path, 16000)
-            # print("Loaded")
+                audio = resample_audio(audio, original_sr, 16000)
             audio_max: np.float64 = np.abs(audio).max() / 0.95
             if audio_max > 1:
                 audio /= audio_max
@@ -304,7 +276,7 @@ class VC:
         except:
             info = traceback.format_exc()
             logger.warning(info)
-            return info, (None, None)
+            return f"Failed with error:\n{info}", None
 
     def vc_multi(
         self: "VC",

@@ -5,8 +5,10 @@ import gradio as gr
 import shared
 from shared import i18n
 
+
 def clean():
     return {"value": "", "__type__": "update"}
+
 
 def change_choices():
     names = []
@@ -23,6 +25,7 @@ def change_choices():
         "__type__": "update",
     }
 
+
 def create_inference_tab(app: gr.Blocks):
     with gr.TabItem(i18n("Inference")):
         with gr.Row():
@@ -33,36 +36,31 @@ def create_inference_tab(app: gr.Blocks):
                 refresh_btn = gr.Button(
                     i18n("Refresh"), variant="primary"
                 )  # Use the shared button
-                
-                unload_btn = gr.Button(i18n("Unload Model"), variant="primary")
-            spk_item = gr.Slider(
-                minimum=0,
-                maximum=2333,
-                step=1,
-                label=i18n("Speaker ID"),
-                value=0,
-                visible=False,
-                interactive=True,
-            )
-            unload_btn.click(
-                fn=clean,
-                inputs=[],
-                outputs=[model_dropdown],
-                api_name="infer_clean",
-            )
+
+                # unload_btn = gr.Button(i18n("Unload Model"), variant="primary")
+            with gr.Column(visible=False):
+                spk_item = gr.Slider(
+                    minimum=0,
+                    maximum=2333,
+                    step=1,
+                    label=i18n("Speaker"),
+                    value=0,
+                    visible=False,
+                    interactive=True,
+                )
 
         with gr.TabItem(i18n("Basic")):
             with gr.Group():
                 with gr.Row():
                     with gr.Column():
-                        vc_transform0 = gr.Slider(
+                        pitch_offset = gr.Slider(
                             label="Pitch Offset",
                             minimum=-24,
                             maximum=24,
                             step=1,
-                            value=0,
+                            value=shared.store_get("pitch_offset", 0),
                         )
-                        input_audio = gr.Audio(
+                        audio_input = gr.Audio(
                             label=i18n("Input Audio"),
                             type="numpy",
                         )
@@ -143,32 +141,101 @@ def create_inference_tab(app: gr.Blocks):
 
             with gr.Group():
                 with gr.Column():
-                    but0 = gr.Button(i18n("Convert"), variant="primary")
+                    convert_btn = gr.Button(i18n("Convert"), variant="primary")
+                    autoplay_checkbox = gr.Checkbox(label=i18n("Autoplay"), value=False)
                     with gr.Row():
                         vc_log_output = gr.Textbox(label=i18n("Log info"))
                         vc_file_output = gr.Audio(
-                            label=i18n("输出音频(右下角三个点,点了可以下载)")
+                            label=i18n("Output Audio"),
+                            # autoplay=True
                         )
 
-                    but0.click(
-                        shared.vc.vc_single,
-                        [
-                            spk_item,
-                            input_audio,
-                            vc_transform0,
-                            f0_file,
-                            f0method0,
-                            file_index1,
-                            file_index2,
-                            index_rate1,
-                            filter_radius0,
-                            resample_sr0,
-                            rms_mix_rate0,
-                            protect0,
-                        ],
-                        [vc_log_output, vc_file_output],
-                        api_name="infer_convert",
+                    def set_autoplay(x):
+                        return gr.update(autoplay=x)
+
+                    autoplay_checkbox.change(
+                        set_autoplay,
+                        [autoplay_checkbox],
+                        [vc_file_output],
+                        # api_name="infer_autoplay",
                     )
+
+        convert_btn.click(
+            shared.vc.vc_single,
+            [
+                spk_item,
+                audio_input,
+                pitch_offset,
+                f0_file,
+                f0method0,
+                file_index1,
+                file_index2,
+                index_rate1,
+                filter_radius0,
+                resample_sr0,
+                rms_mix_rate0,
+                protect0,
+            ],
+            [vc_log_output, vc_file_output],
+            api_name="infer_convert",
+        )
+
+        audio_input.stop_recording(
+            shared.vc.vc_single,
+            [
+                spk_item,
+                audio_input,
+                pitch_offset,
+                f0_file,
+                f0method0,
+                file_index1,
+                file_index2,
+                index_rate1,
+                filter_radius0,
+                resample_sr0,
+                rms_mix_rate0,
+                protect0,
+            ],
+            [vc_log_output, vc_file_output],
+        )
+
+        pitch_offset.input(
+            shared.vc.vc_single,
+            [
+                spk_item,
+                audio_input,
+                pitch_offset,
+                f0_file,
+                f0method0,
+                file_index1,
+                file_index2,
+                index_rate1,
+                filter_radius0,
+                resample_sr0,
+                rms_mix_rate0,
+                protect0,
+            ],
+            [vc_log_output, vc_file_output],
+        )
+
+        index_rate1.input(
+            shared.vc.vc_single,
+            [
+                spk_item,
+                audio_input,
+                pitch_offset,
+                f0_file,
+                f0method0,
+                file_index1,
+                file_index2,
+                index_rate1,
+                filter_radius0,
+                resample_sr0,
+                rms_mix_rate0,
+                protect0,
+            ],
+            [vc_log_output, vc_file_output],
+        )
 
         model_dropdown.change(
             fn=shared.vc.get_vc,
@@ -180,11 +247,11 @@ def create_inference_tab(app: gr.Blocks):
             api_name="infer_change_voice",
         )
         refresh_btn.click(
-                    fn=change_choices,
-                    inputs=[],
-                    outputs=[model_dropdown, file_index2],
-                    api_name="infer_refresh",
-                )
+            fn=change_choices,
+            inputs=[],
+            outputs=[model_dropdown, file_index2],
+            api_name="infer_refresh",
+        )
         app.load(
             fn=shared.vc.get_vc,
             inputs=[

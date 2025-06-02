@@ -1,6 +1,8 @@
 import logging
 import os
+import shelve
 import shutil
+from typing import Any, TypeVar
 import warnings
 from dotenv import load_dotenv
 import fairseq
@@ -132,3 +134,16 @@ sr_dict = {
     "40k": 40000,
     "48k": 48000,
 }
+
+
+T = TypeVar('T')
+def store_get(key: str, default: T, db_name: str = "shelve_store") -> T:
+    with shelve.open(db_name, writeback=True) as store:
+        if key in store:
+            return store[key]
+        else:
+            store[key] = default
+            return default
+def store_set(key: str, value: Any, db_name: str = "shelve_store"):
+    with shelve.open(db_name, writeback=True) as store:
+        store[key] = value
