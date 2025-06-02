@@ -1,6 +1,7 @@
 import os
 import platform
 import re
+import subprocess
 import faiss
 import gradio as gr
 from shared import i18n
@@ -126,6 +127,7 @@ def preprocess_dataset(
     shared.logger.info(log)
     yield log
 
+
 def parse_f0_feature_log(content: str) -> Tuple[int, int]:
     max_now: Optional[int] = 0
     max_all: Optional[int] = 1
@@ -149,14 +151,15 @@ def parse_f0_feature_log(content: str) -> Tuple[int, int]:
 
                 if max_now is None or current_now > max_now:
                     max_now = current_now
-                
+
                 if max_all is None or current_all > max_all:
                     max_all = current_all
             except ValueError:
                 print(f"Warning: Could not parse numbers from line: {line}")
-                pass 
+                pass
 
     return max_now, max_all
+
 
 # but2.click(extract_f0,[gpus6,np7,f0method8,if_f0_3,trainset_dir4],[info2])
 def extract_f0_feature(
@@ -169,11 +172,11 @@ def extract_f0_feature(
     gpus_rmvpe: str,
     progress: gr.Progress = gr.Progress(),
 ) -> Generator[str, None, None]:
-    
+
     def update_progress(content: str):
         now, all = parse_f0_feature_log(content)
-        progress(float(now) / all, desc=f"Found {now}/{all} features done")
-        
+        progress(float(now) / all, desc=f"{now}/{all} Features extracted...")
+
     gpus: List[str] = gpus.split("-")
     os.makedirs("%s/logs/%s" % (shared.now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir), "w")
@@ -244,9 +247,7 @@ def extract_f0_feature(
                     )
                 )
                 shared.logger.info("Execute: " + cmd)
-                p = Popen(
-                    cmd, shell=True, cwd=shared.now_dir
-                )
+                p = Popen(cmd, shell=True, cwd=shared.now_dir)
                 p.wait()
                 done = [True]
         while True:
@@ -383,6 +384,30 @@ def change_f0(if_f0_3: bool, sr2, version19):  # f0method8,pretrained_G14,pretra
     )
 
 
+def parse_epoch_from_train_log_line(line: str) -> Optional[int]:
+    """
+    Parse a single log line and extract the current epoch number if present.
+
+    Args:
+        line (bytes): A single log line in bytes.
+
+    Returns:
+        Optional[int]: The epoch number if found, otherwise None.
+    """
+
+    # Pattern 1: Train Epoch: X [...]
+    match = re.search(r"Train Epoch:\s*(\d+)", line)
+    if match:
+        return int(match.group(1))
+
+    # Pattern 2: ====> Epoch: X [...]
+    match = re.search(r"====> Epoch:\s*(\d+)", line)
+    if match:
+        return int(match.group(1))
+
+    return None
+
+
 def click_train(
     exp_dir1: str,
     sr2: int,
@@ -398,8 +423,9 @@ def click_train(
     if_cache_gpu17,
     if_save_every_weights18,
     version19,
+    progress=gr.Progress(),
 ):
-    # 生成filelist
+    # Generating file list
     exp_dir = "%s/logs/%s" % (shared.now_dir, exp_dir1)
     os.makedirs(exp_dir, exist_ok=True)
     gt_wavs_dir = "%s/0_gt_wavs" % (exp_dir)
@@ -536,9 +562,22 @@ def click_train(
             )
         )
     shared.logger.info("Execute: " + cmd)
-    p = Popen(cmd, shell=True, cwd=shared.now_dir)
-    p.wait()
-    return "Training finished. You can view the training log in the console or train.log in the experiment folder."
+    current_epoch = 0
+    # p = Popen(cmd, shell=True, cwd=shared.now_dir)
+    p = Popen(cmd, shell=True, cwd=shared.now_dir, stdout=subprocess.PIPE)
+    while True:
+        line = p.stdout.readline()
+        if not line:
+            break
+        # the real code does filtering here
+        # print(f"Line: {line}")
+        line: str = line.decode("utf-8", errors="ignore")
+        shared.logger.info(f"{line}")
+        current_epoch = parse_epoch_from_train_log_line(line) or current_epoch
+        progress(current_epoch / total_epoch11, desc="Training...")
+
+    return_code = p.wait()
+    return f"Training finished with exit code {return_code}. You can view the training log in the console or train.log in the experiment folder."
 
 
 def train_index(exp_dir1: str, version19: str, progress=gr.Progress()):
