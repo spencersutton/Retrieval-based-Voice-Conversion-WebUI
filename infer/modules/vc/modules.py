@@ -210,7 +210,7 @@ class VC:
             times = [0, 0, 0]
 
             if self.hubert_model is None:
-                torch.serialization.add_safe_globals([Dictionary])
+                # torch.serialization.add_safe_globals([Dictionary])
                 self.hubert_model = load_hubert(self.config)
 
             if file_index:

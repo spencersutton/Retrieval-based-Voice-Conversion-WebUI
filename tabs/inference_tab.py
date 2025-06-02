@@ -89,7 +89,7 @@ def create_inference_tab(app: gr.Blocks):
                     minimum=-24,
                     maximum=24,
                     step=1,
-                    value=shared.store_get("pitch_offset", 0),
+                    value=0,
                 )
                 resample_sr0 = gr.Slider(
                     minimum=0,

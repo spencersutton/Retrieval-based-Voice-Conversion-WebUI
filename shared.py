@@ -136,14 +136,14 @@ sr_dict = {
 }
 
 
-T = TypeVar('T')
-def store_get(key: str, default: T, db_name: str = "shelve_store") -> T:
-    with shelve.open(db_name, writeback=True) as store:
-        if key in store:
-            return store[key]
-        else:
-            store[key] = default
-            return default
-def store_set(key: str, value: Any, db_name: str = "shelve_store"):
-    with shelve.open(db_name, writeback=True) as store:
-        store[key] = value
+# T = TypeVar('T')
+# def store_get(key: str, default: T, db_name: str = "shelve_store") -> T:
+#     with shelve.open(db_name, writeback=True) as store:
+#         if key in store:
+#             return store[key]
+#         else:
+#             store[key] = default
+#             return default
+# def store_set(key: str, value: Any, db_name: str = "shelve_store"):
+#     with shelve.open(db_name, writeback=True) as store:
+#         store[key] = value
