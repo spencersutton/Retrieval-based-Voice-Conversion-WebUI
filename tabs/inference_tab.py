@@ -26,139 +26,147 @@ def change_choices():
     }
 
 
+pitch_methods = (
+    ["pm", "harvest", "crepe", "rmvpe"]
+    if shared.config.dml == False
+    else ["pm", "harvest", "rmvpe"]
+)
+
+
+def get_pitch_methods():
+    return pitch_methods
+
+
+def get_model_list() -> List[str]:
+    return sorted(shared.names)
+
+
 def create_inference_tab(app: gr.Blocks):
+
     with gr.TabItem(i18n("Inference")):
+        gr.api(
+            get_model_list,
+            api_name="get_model_list",
+        )
+        gr.api(get_pitch_methods, api_name="get_pitch_methods")
         with gr.Row():
-            model_dropdown = gr.Dropdown(
-                label=i18n("Model"), choices=sorted(shared.names)
-            )
             with gr.Column():
-                refresh_btn = gr.Button(
-                    i18n("Refresh"), variant="primary"
-                )  # Use the shared button
-
-                # unload_btn = gr.Button(i18n("Unload Model"), variant="primary")
-            with gr.Column(visible=False):
-                spk_item = gr.Slider(
-                    minimum=0,
-                    maximum=2333,
-                    step=1,
-                    label=i18n("Speaker"),
-                    value=0,
-                    visible=False,
-                    interactive=True,
+                model_dropdown = gr.Dropdown(
+                    label=i18n("Model"), choices=sorted(shared.names)
                 )
-
-        with gr.TabItem(i18n("Basic")):
-            with gr.Group():
-                with gr.Row():
-                    with gr.Column():
-                        pitch_offset = gr.Slider(
-                            label="Pitch Offset",
-                            minimum=-24,
-                            maximum=24,
-                            step=1,
-                            value=shared.store_get("pitch_offset", 0),
-                        )
-                        audio_input = gr.Audio(
-                            label=i18n("Input Audio"),
-                            type="numpy",
-                        )
-                        file_index1 = gr.Textbox(
-                            label=i18n("Manual Index File"),
-                            placeholder="/path/to/model_example.index",
-                            interactive=True,
-                        )
-                        file_index2 = gr.Dropdown(
-                            label=i18n("Auto Detected Index"),
-                            choices=sorted(shared.index_paths),
-                            interactive=True,
-                        )
-                        f0method0 = gr.Radio(
-                            label=i18n("Pitch Method"),
-                            choices=(
-                                ["pm", "harvest", "crepe", "rmvpe"]
-                                if shared.config.dml == False
-                                else ["pm", "harvest", "rmvpe"]
-                            ),
-                            value="rmvpe",
-                            interactive=True,
-                        )
-                    with gr.Column():
-                        resample_sr0 = gr.Slider(
-                            minimum=0,
-                            maximum=48000,
-                            label=i18n("Resample Rate (Skip if it is 0)"),
-                            value=0,
-                            step=1,
-                            interactive=True,
-                        )
-                        rms_mix_rate0 = gr.Slider(
-                            minimum=0,
-                            maximum=1,
-                            label=i18n(
-                                # "输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"
-                                "RMS Mix Rate"
-                            ),
-                            value=0.25,
-                            interactive=True,
-                        )
-                        protect0 = gr.Slider(
-                            minimum=0,
-                            maximum=0.5,
-                            label=i18n(
-                                # "保护清辅音和呼吸声，防止电音撕裂等artifact，拉满0.5不开启，调低加大保护力度但可能降低索引效果"
-                                "Protect 0 (Reduce Artifact)"
-                            ),
-                            value=0.33,
-                            step=0.01,
-                            interactive=True,
-                        )
-                        filter_radius0 = gr.Slider(
-                            minimum=0,
-                            maximum=7,
-                            label=i18n(
-                                # ">=3则使用对harvest音高识别的结果使用中值滤波，数值为滤波半径，使用可以削弱哑音"
-                                "Filter Radius (Legacy)"
-                            ),
-                            value=3,
-                            step=1,
-                            interactive=True,
-                        )
-                        index_rate1 = gr.Slider(
-                            minimum=0,
-                            maximum=1,
-                            label=i18n("检索特征占比"),
-                            value=0.75,
-                            interactive=True,
-                        )
-                        f0_file = gr.File(
-                            label=i18n(
-                                "F0曲线文件, 可选, 一行一个音高, 代替默认F0及升降调"
-                            ),
-                            visible=False,
-                        )
-
-            with gr.Group():
                 with gr.Column():
+                    refresh_btn = gr.Button(i18n("Refresh"), variant="primary")
+                with gr.Column(visible=False):
+                    spk_item = gr.Slider(
+                        minimum=0,
+                        maximum=2333,
+                        step=1,
+                        label=i18n("Speaker"),
+                        value=0,
+                        visible=False,
+                        interactive=True,
+                    )
+
+                with gr.TabItem(i18n("Basic")):
+                    audio_input = gr.Audio(
+                        label=i18n("Input Audio"),
+                        type="numpy",
+                    )
                     convert_btn = gr.Button(i18n("Convert"), variant="primary")
                     autoplay_checkbox = gr.Checkbox(label=i18n("Autoplay"), value=False)
-                    with gr.Row():
-                        vc_log_output = gr.Textbox(label=i18n("Log info"))
-                        vc_file_output = gr.Audio(
-                            label=i18n("Output Audio"),
-                            # autoplay=True
-                        )
 
-                    def set_autoplay(x):
-                        return gr.update(autoplay=x)
+                    vc_file_output = gr.Audio(
+                        label=i18n("Output Audio"),
+                    )
 
-                    autoplay_checkbox.change(
+                    def set_autoplay(x: bool):
+                        print(f"Set auto play: {x}")
+                        return {"autoplay": x, "__type__": "update"}
+
+                    autoplay_checkbox.input(
                         set_autoplay,
                         [autoplay_checkbox],
                         [vc_file_output],
-                        # api_name="infer_autoplay",
                     )
+
+            with gr.Column():
+                pitch_offset = gr.Slider(
+                    label="Pitch Offset",
+                    minimum=-24,
+                    maximum=24,
+                    step=1,
+                    value=shared.store_get("pitch_offset", 0),
+                )
+                resample_sr0 = gr.Slider(
+                    minimum=0,
+                    maximum=48000,
+                    label=i18n("Resample Rate (Skip if it is 0)"),
+                    value=0,
+                    step=1,
+                    interactive=True,
+                )
+                rms_mix_rate0 = gr.Slider(
+                    minimum=0,
+                    maximum=1,
+                    label=i18n(
+                        # "输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"
+                        "RMS Mix Rate"
+                    ),
+                    value=0.25,
+                    interactive=True,
+                )
+                protect0 = gr.Slider(
+                    minimum=0,
+                    maximum=0.5,
+                    label=i18n(
+                        # "保护清辅音和呼吸声，防止电音撕裂等artifact，拉满0.5不开启，调低加大保护力度但可能降低索引效果"
+                        "Protect 0 (Reduce Artifact)"
+                    ),
+                    value=0.33,
+                    step=0.01,
+                    interactive=True,
+                )
+                filter_radius0 = gr.Slider(
+                    minimum=0,
+                    maximum=7,
+                    label=i18n(
+                        # ">=3则使用对harvest音高识别的结果使用中值滤波，数值为滤波半径，使用可以削弱哑音"
+                        "Filter Radius (Legacy)"
+                    ),
+                    value=3,
+                    step=1,
+                    interactive=True,
+                    visible=False
+                )
+                index_rate1 = gr.Slider(
+                    minimum=0,
+                    maximum=1,
+                    label=i18n("检索特征占比"),
+                    value=0.75,
+                    interactive=True,
+                )
+                f0_file = gr.File(
+                    label=i18n("F0曲线文件, 可选, 一行一个音高, 代替默认F0及升降调"),
+                    visible=False,
+                )
+            with gr.Column():
+                file_index1 = gr.Textbox(
+                    label=i18n("Manual Index File"),
+                    placeholder="/path/to/model_example.index",
+                    interactive=True,
+                )
+                file_index2 = gr.Dropdown(
+                    label=i18n("Auto Detected Index"),
+                    choices=sorted(shared.index_paths),
+                    interactive=True,
+                )
+                f0method0 = gr.Radio(
+                    label=i18n("Pitch Method"),
+                    choices=pitch_methods,
+                    value="rmvpe",
+                    interactive=True,
+                )
+                vc_log_output = gr.Textbox(label=i18n("Log info"))
 
         convert_btn.click(
             shared.vc.vc_single,

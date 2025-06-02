@@ -16,8 +16,6 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
         create_vocal_tab()
         create_train_tab()
         create_ckpt_processing_tab()
-        # create_onnx_tab()
-        # create_faq_tab(i18n)
 
     if shared.config.iscolab:
         app.queue(max_size=1022).launch(share=True)
