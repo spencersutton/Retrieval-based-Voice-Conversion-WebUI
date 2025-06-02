@@ -102,7 +102,6 @@ class RVC:
 
             if last_rvc is None:
                 with safe_globals([Dictionary]):
-
                     models, _, _ = (
                         fairseq.checkpoint_utils.load_model_ensemble_and_task(
                             ["assets/hubert/hubert_base.pt"],
