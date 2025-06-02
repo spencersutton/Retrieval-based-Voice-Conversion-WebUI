@@ -2,20 +2,18 @@ FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 ARG DEBIAN_FRONTEND=noninteractive
 EXPOSE 7865
 
-WORKDIR /app
-
-COPY ./.python-version ./.python-version
-COPY ./pyproject.toml ./pyproject.toml
-COPY ./uv.lock ./uv.lock
 
 RUN apt-get update && apt-get install -y \
-    python3-pip \
-    python3-dev \
     curl ca-certificates \
     git \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app
+
+COPY ./.python-version ./.python-version
+COPY ./pyproject.toml ./pyproject.toml
+COPY ./uv.lock ./uv.lock
 # Download the latest installer
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
 
