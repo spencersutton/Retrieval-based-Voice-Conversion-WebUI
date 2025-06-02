@@ -33,12 +33,16 @@ pitch_methods = (
 )
 
 
-def get_pitch_methods():
+def get_pitch_methods() -> List[str]:
     return pitch_methods
 
 
 def get_model_list() -> List[str]:
     return sorted(shared.names)
+
+
+def get_index_paths() -> List[str]:
+    return sorted(shared.index_paths)
 
 
 def create_inference_tab(app: gr.Blocks):
@@ -49,6 +53,7 @@ def create_inference_tab(app: gr.Blocks):
             api_name="get_model_list",
         )
         gr.api(get_pitch_methods, api_name="get_pitch_methods")
+        gr.api(get_index_paths, api_name="get_index_paths")
         with gr.Row():
             with gr.Column():
                 model_dropdown = gr.Dropdown(
@@ -56,17 +61,6 @@ def create_inference_tab(app: gr.Blocks):
                 )
                 with gr.Column():
                     refresh_btn = gr.Button(i18n("Refresh"), variant="primary")
-                with gr.Column(visible=False):
-                    spk_item = gr.Slider(
-                        minimum=0,
-                        maximum=2333,
-                        step=1,
-                        label=i18n("Speaker"),
-                        value=0,
-                        visible=False,
-                        interactive=True,
-                    )
-
                 with gr.TabItem(i18n("Basic")):
                     audio_input = gr.Audio(
                         label=i18n("Input Audio"),
@@ -126,18 +120,6 @@ def create_inference_tab(app: gr.Blocks):
                     step=0.01,
                     interactive=True,
                 )
-                filter_radius0 = gr.Slider(
-                    minimum=0,
-                    maximum=7,
-                    label=i18n(
-                        # ">=3则使用对harvest音高识别的结果使用中值滤波，数值为滤波半径，使用可以削弱哑音"
-                        "Filter Radius (Legacy)"
-                    ),
-                    value=3,
-                    step=1,
-                    interactive=True,
-                    visible=False
-                )
                 index_rate1 = gr.Slider(
                     minimum=0,
                     maximum=1,
@@ -145,20 +127,13 @@ def create_inference_tab(app: gr.Blocks):
                     value=0.75,
                     interactive=True,
                 )
-                f0_file = gr.File(
-                    label=i18n("F0曲线文件, 可选, 一行一个音高, 代替默认F0及升降调"),
-                    visible=False,
-                )
             with gr.Column():
-                file_index1 = gr.Textbox(
-                    label=i18n("Manual Index File"),
-                    placeholder="/path/to/model_example.index",
-                    interactive=True,
-                )
                 file_index2 = gr.Dropdown(
-                    label=i18n("Auto Detected Index"),
+                    label=i18n("Index File"),
                     choices=sorted(shared.index_paths),
                     interactive=True,
+                    allow_custom_value=True,
+                    value="",
                 )
                 f0method0 = gr.Radio(
                     label=i18n("Pitch Method"),
@@ -171,15 +146,11 @@ def create_inference_tab(app: gr.Blocks):
         convert_btn.click(
             shared.vc.vc_single,
             [
-                spk_item,
                 audio_input,
                 pitch_offset,
-                f0_file,
                 f0method0,
-                file_index1,
                 file_index2,
                 index_rate1,
-                filter_radius0,
                 resample_sr0,
                 rms_mix_rate0,
                 protect0,
@@ -191,15 +162,11 @@ def create_inference_tab(app: gr.Blocks):
         audio_input.stop_recording(
             shared.vc.vc_single,
             [
-                spk_item,
                 audio_input,
                 pitch_offset,
-                f0_file,
                 f0method0,
-                file_index1,
                 file_index2,
                 index_rate1,
-                filter_radius0,
                 resample_sr0,
                 rms_mix_rate0,
                 protect0,
@@ -210,15 +177,11 @@ def create_inference_tab(app: gr.Blocks):
         pitch_offset.input(
             shared.vc.vc_single,
             [
-                spk_item,
                 audio_input,
                 pitch_offset,
-                f0_file,
                 f0method0,
-                file_index1,
                 file_index2,
                 index_rate1,
-                filter_radius0,
                 resample_sr0,
                 rms_mix_rate0,
                 protect0,
@@ -229,15 +192,11 @@ def create_inference_tab(app: gr.Blocks):
         index_rate1.input(
             shared.vc.vc_single,
             [
-                spk_item,
                 audio_input,
                 pitch_offset,
-                f0_file,
                 f0method0,
-                file_index1,
                 file_index2,
                 index_rate1,
-                filter_radius0,
                 resample_sr0,
                 rms_mix_rate0,
                 protect0,
@@ -251,7 +210,7 @@ def create_inference_tab(app: gr.Blocks):
                 model_dropdown,
                 protect0,
             ],  # Use protect0 and protect1 from Basic/Batch tab
-            outputs=[spk_item, protect0, file_index2],
+            outputs=[protect0, file_index2],
             api_name="infer_change_voice",
         )
         refresh_btn.click(
@@ -266,5 +225,5 @@ def create_inference_tab(app: gr.Blocks):
                 model_dropdown,
                 protect0,
             ],  # Use the components themselves to get their initial values
-            outputs=[spk_item, protect0, file_index2],
+            outputs=[protect0, file_index2],
         )

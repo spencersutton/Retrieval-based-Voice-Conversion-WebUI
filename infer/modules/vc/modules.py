@@ -1,6 +1,6 @@
 import traceback
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 import gradio as gr
 import librosa
 import resampy
@@ -75,9 +75,8 @@ class VC:
 
     def get_vc(self: "VC", sid: Optional[str], *to_return_protect):
         if sid is None or sid == "":
-
             logger.info("No SID")
-            return
+            return ()
         logger.info("Get sid: " + sid)
 
         to_return_protect0 = {
@@ -87,13 +86,6 @@ class VC:
             ),
             "__type__": "update",
         }
-        # to_return_protect1 = {
-        #     "visible": self.if_f0 != 0,
-        #     "value": (
-        #         to_return_protect[1] if self.if_f0 != 0 and to_return_protect else 0.33
-        #     ),
-        #     "__type__": "update",
-        # }
 
         if sid == "" or sid == []:
             if (
@@ -127,17 +119,11 @@ class VC:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
             return (
-                {"visible": False, "__type__": "update"},
                 {
                     "visible": True,
                     "value": to_return_protect0,
                     "__type__": "update",
                 },
-                # {
-                #     "visible": True,
-                #     "value": to_return_protect1,
-                #     "__type__": "update",
-                # },
                 "",
                 "",
             )
@@ -174,35 +160,37 @@ class VC:
         n_spk = self.cpt["config"][-3]
         index = {"value": get_index_path_from_model(sid), "__type__": "update"}
         logger.info("Select index: " + index["value"])
-
-        return (
+        res = (
             (
-                {"visible": True, "maximum": n_spk, "__type__": "update"},
                 to_return_protect0,
-                # to_return_protect1,
                 index,
-                # index,
             )
-            if to_return_protect
-            else {"visible": True, "maximum": n_spk, "__type__": "update"}
+            # if to_return_protect
+            # else {"visible": True, "maximum": n_spk, "__type__": "update"}
         )
+        logger.info(f"Result {res}")
+
+        return res
 
     def vc_single(
         self: "VC",
-        sid: int,  # Speaker ID, typically an integer
+        # sid: int,
         sr_and_audio: Optional[Tuple[int, np.ndarray]],
         f0_up_key: int,
-        f0_file: Optional[str],  # Path to F0 file, if provided
         f0_method: str,
-        file_index: Optional[str],  # Path to .index file from textbox
+        # file_index: Optional[str],  # Path to .index file from textbox
         file_index2: Optional[str],  # Path to .index file from dropdown
         index_rate: float,
-        filter_radius: int,  # Typically an integer for radius
+        # filter_radius: int,  # Typically an integer for radius
         resample_sr: int,  # Target sample rate, typically an integer
         rms_mix_rate: float,
         protect: float,
         progress: gr.Progress = gr.Progress(),
     ) -> Tuple[str, Optional[Tuple[int, np.ndarray]]]:
+        file_index = None
+        f0_file = None
+        sid = 0
+        filter_radius = 3
         # if input_audio_path is None:
         #     return "Audio is required", None
         # if audio is None:
