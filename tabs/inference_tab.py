@@ -39,7 +39,7 @@ def create_inference_tab(app: gr.Blocks):
                 minimum=0,
                 maximum=2333,
                 step=1,
-                label=i18n("请选择说话人id"),
+                label=i18n("Speaker ID"),
                 value=0,
                 visible=False,
                 interactive=True,

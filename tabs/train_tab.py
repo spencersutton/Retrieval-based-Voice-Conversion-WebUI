@@ -1,6 +1,7 @@
 import os
 import platform
 import re
+import shutil
 import subprocess
 import faiss
 import gradio as gr
@@ -126,6 +127,33 @@ def preprocess_dataset(
         log = f.read()
     shared.logger.info(log)
     yield log
+
+
+def preprocess_meta(
+    experiment_name: str,
+    audio_dir: str,
+    audio_files: Optional[List[str]],
+    sr: int,
+    n_p: int,
+    progress=gr.Progress(),
+):
+    save_dir = f"{audio_dir}/{experiment_name}"
+    os.makedirs(save_dir, exist_ok=True)
+    
+    if audio_files is not None:
+        for idx, audio_file in enumerate(audio_files):
+            audio_file_name = os.path.basename(audio_file)
+            shutil.copy(audio_file, f"{save_dir}/{audio_file_name}")
+            progress(idx / len(audio_files), "Copying files...")
+
+    for update in preprocess_dataset(
+        audio_dir=save_dir,
+        exp_dir=experiment_name,
+        sr=sr,
+        n_p=n_p,
+        progress=progress,
+    ):
+        yield update
 
 
 def parse_f0_feature_log(content: str) -> Tuple[int, int]:
@@ -756,15 +784,11 @@ def train1key(
 def create_train_tab():
 
     with gr.TabItem(i18n("Train")):
-        gr.Markdown(
-            value=i18n(
-                "step1: 填写实验配置. 实验数据放在logs下, 每个实验一个文件夹, 需手工输入实验名路径, 内含实验配置, 日志, 训练得到的模型文件. "
-            )
-        )
+        gr.Markdown(value=i18n("## Experiment Config"))
         with gr.Row():
             current_date = datetime.date.today()
             formatted_date = current_date.strftime("%Y-%m-%d")
-            exp_dir1 = gr.Textbox(
+            experiment_name = gr.Textbox(
                 label=i18n("Experiment Name"), value=f"experiment_{formatted_date}"
             )
             target_sr = gr.Radio(
@@ -794,16 +818,15 @@ def create_train_tab():
                 value=int(np.ceil(shared.config.n_cpu / 1.5)),
                 interactive=True,
             )
-        with gr.Group():  # 暂时单人的, 后面支持最多4人的#数据处理
-            gr.Markdown(
-                value=i18n(
-                    "step2a: 自动遍历训练文件夹下所有可解码成音频的文件并进行切片归一化, 在实验目录下生成2个wav文件夹; 暂时只支持单人训练. "
-                )
-            )
+        with gr.Group():
+            gr.Markdown(value=i18n("## Preprocess"))
             with gr.Row():
-                raw_input_dir = gr.Textbox(
+                audio_data_root = gr.Textbox(
                     label=i18n("Audio Directory"),
-                    value=i18n("/path/to/vocal"),
+                    value=i18n("./datasets"),
+                )
+                audio_files = gr.Files(
+                    type="filepath", label=i18n("Audio Files"), file_types=["audio"]
                 )
                 spk_id5 = gr.Slider(
                     minimum=0,
@@ -812,12 +835,21 @@ def create_train_tab():
                     label=i18n("Speaker ID"),
                     value=0,
                     interactive=True,
+                    visible=False,
                 )
-                preprocessing_btn = gr.Button(i18n("处理数据"), variant="primary")
+                preprocessing_btn = gr.Button(
+                    i18n("Preprocess Dataset"), variant="primary"
+                )
                 info1 = gr.Textbox(label=i18n("Info"), value="")
                 preprocessing_btn.click(
-                    preprocess_dataset,
-                    [raw_input_dir, exp_dir1, target_sr, cpu_count],
+                    preprocess_meta,
+                    [
+                        experiment_name,
+                        audio_data_root,
+                        audio_files,
+                        target_sr,
+                        cpu_count,
+                    ],
                     [info1],
                     api_name="train_preprocess",
                 )
@@ -874,7 +906,7 @@ def create_train_tab():
                         cpu_count,
                         f0method8,
                         if_f0_3,
-                        exp_dir1,
+                        experiment_name,
                         version19,
                         gpus_rmvpe,
                     ],
@@ -888,7 +920,7 @@ def create_train_tab():
                     minimum=1,
                     maximum=50,
                     step=1,
-                    label=i18n("保存频率save_every_epoch"),
+                    label=i18n("Save Frequency"),
                     value=5,
                     interactive=True,
                 )
@@ -896,7 +928,7 @@ def create_train_tab():
                     minimum=2,
                     maximum=1000,
                     step=1,
-                    label=i18n("总训练轮数total_epoch"),
+                    label=i18n("Total Epochs"),
                     value=20,
                     interactive=True,
                 )
@@ -904,12 +936,12 @@ def create_train_tab():
                     minimum=1,
                     maximum=40,
                     step=1,
-                    label=i18n("每张显卡的batch_size"),
+                    label=i18n("Batch Size per GPU"),
                     value=shared.default_batch_size,
                     interactive=True,
                 )
                 if_save_latest13 = gr.Radio(
-                    label=i18n("是否仅保存最新的ckpt文件以节省硬盘空间"),
+                    label=i18n("Only Save Latest Model"),
                     choices=[i18n("Yes"), i18n("No")],
                     value=i18n("No"),
                     interactive=True,
@@ -930,12 +962,12 @@ def create_train_tab():
                 )
             with gr.Row():
                 pretrained_G14 = gr.Textbox(
-                    label=i18n("加载预训练底模G路径"),
+                    label=i18n("Base Model G"),
                     value="assets/pretrained_v2/f0G40k.pth",
                     interactive=True,
                 )
                 pretrained_D15 = gr.Textbox(
-                    label=i18n("加载预训练底模D路径"),
+                    label=i18n("Base Model D"),
                     value="assets/pretrained_v2/f0D40k.pth",
                     interactive=True,
                 )
@@ -968,7 +1000,7 @@ def create_train_tab():
                 train_btn.click(
                     click_train,
                     [
-                        exp_dir1,
+                        experiment_name,
                         target_sr,
                         if_f0_3,
                         spk_id5,
@@ -986,14 +1018,14 @@ def create_train_tab():
                     info3,
                     api_name="train_start",
                 )
-                index_btn.click(train_index, [exp_dir1, version19], info3)
+                index_btn.click(train_index, [experiment_name, version19], info3)
                 one_click_btn.click(
                     train1key,
                     [
-                        exp_dir1,
+                        experiment_name,
                         target_sr,
                         if_f0_3,
-                        raw_input_dir,
+                        audio_data_root,
                         spk_id5,
                         cpu_count,
                         f0method8,
