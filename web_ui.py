@@ -9,6 +9,11 @@ from tabs.onnx_tab import create_onnx_tab
 from tabs.train_tab import create_train_tab
 from tabs.vocal_tab import create_vocal_tab
 
+import torch
+from fairseq.data.dictionary import Dictionary
+
+torch.serialization.add_safe_globals([Dictionary])
+
 with gr.Blocks(title="RVC WebUI Fork") as app:
     gr.Markdown("## RVC WebUI Fork")
     with gr.Tabs():
