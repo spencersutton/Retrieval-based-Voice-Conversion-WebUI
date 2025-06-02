@@ -11,6 +11,10 @@ from tabs.vocal_tab import create_vocal_tab
 
 import torch
 from fairseq.data.dictionary import Dictionary
+import fairseq
+torch.serialization.add_safe_globals({
+    'fairseq.data.dictionary.Dictionary': fairseq.data.dictionary.Dictionary
+})
 
 torch.serialization.add_safe_globals([Dictionary])
 
