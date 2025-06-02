@@ -37,9 +37,7 @@ def load_audio(file: str, sr: int) -> np.ndarray:
         # Requires the ffmpeg CLI and `ffmpeg-python` package to be installed.
         file = clean_path(file)  # 防止小白拷路径头尾带了空格和"和回车
         if os.path.exists(file) == False:
-            raise RuntimeError(
-                "You input a wrong audio path that does not exists, please fix it!"
-            )
+            raise RuntimeError(f"Wrong audio path: {file}")
         out, _ = (
             ffmpeg.input(file, threads=0)
             .output("-", format="f32le", acodec="pcm_f32le", ac=1, ar=sr)

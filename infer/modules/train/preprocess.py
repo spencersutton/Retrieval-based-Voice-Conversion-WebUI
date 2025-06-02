@@ -1,6 +1,7 @@
 import multiprocessing
 import os
 import sys
+from typing import List, Tuple
 
 from scipy import signal
 
@@ -33,7 +34,20 @@ def println(strr):
 
 
 class PreProcess:
-    def __init__(self, sr, exp_dir, per=3.7):
+    slicer: Slicer
+    sr: int
+    bh: np.ndarray
+    ah: np.ndarray
+    per: float
+    overlap: float
+    tail: float
+    max: float
+    alpha: float
+    exp_dir: str
+    gt_wavs_dir: str
+    wavs16k_dir: str
+
+    def __init__(self: "PreProcess", sr: int, exp_dir: str, per=3.7):
         self.slicer = Slicer(
             sr=sr,
             threshold=-42,
@@ -56,7 +70,9 @@ class PreProcess:
         os.makedirs(self.gt_wavs_dir, exist_ok=True)
         os.makedirs(self.wavs16k_dir, exist_ok=True)
 
-    def norm_write(self, tmp_audio, idx0, idx1):
+    def norm_write(
+        self: "PreProcess", tmp_audio: np.ndarray, idx0: int, idx1: int
+    ) -> None:
         tmp_max = np.abs(tmp_audio).max()
         if tmp_max > 2.5:
             print("%s-%s-%s-filtered" % (idx0, idx1, tmp_max))
@@ -78,7 +94,7 @@ class PreProcess:
             tmp_audio.astype(np.float32),
         )
 
-    def pipeline(self, path, idx0):
+    def pipeline(self: "PreProcess", path: str, idx0: int):
         try:
             audio = load_audio(path, self.sr)
             # zero phased digital filter cause pre-ringing noise...
@@ -104,11 +120,11 @@ class PreProcess:
         except:
             println("%s\t-> %s" % (path, traceback.format_exc()))
 
-    def pipeline_mp(self, infos):
+    def pipeline_mp(self: "PreProcess", infos: List[Tuple[str, int]]) -> None:
         for path, idx0 in infos:
             self.pipeline(path, idx0)
 
-    def pipeline_mp_inp_dir(self, inp_root, n_p):
+    def pipeline_mp_inp_dir(self: "PreProcess", inp_root: str, n_p: int) -> None:
         try:
             infos = [
                 ("%s/%s" % (inp_root, name), idx)
@@ -131,7 +147,7 @@ class PreProcess:
             println("Fail. %s" % traceback.format_exc())
 
 
-def preprocess_trainset(inp_root, sr, n_p, exp_dir, per):
+def preprocess_trainset(inp_root: str, sr: int, n_p: int, exp_dir: str, per: float):
     pp = PreProcess(sr, exp_dir, per)
     println("start preprocess")
     pp.pipeline_mp_inp_dir(inp_root, n_p)

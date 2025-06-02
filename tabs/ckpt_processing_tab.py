@@ -27,7 +27,6 @@ def change_info_(ckpt_path):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
 
 def create_ckpt_processing_tab():
-
     with gr.TabItem(i18n("ckpt处理")):
         with gr.Group():
             gr.Markdown(value=i18n("模型融合, 可用于测试音色融合"))
@@ -50,8 +49,8 @@ def create_ckpt_processing_tab():
                 )
                 if_f0_ = gr.Radio(
                     label=i18n("模型是否带音高指导"),
-                    choices=[i18n("是"), i18n("否")],
-                    value=i18n("是"),
+                    choices=[i18n("Yes"), i18n("No")],
+                    value=i18n("Yes"),
                     interactive=True,
                 )
                 info__ = gr.Textbox(

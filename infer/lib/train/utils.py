@@ -215,7 +215,7 @@ def latest_checkpoint_path(dir_path, regex="G_*.pth"):
     return x
 
 
-def plot_spectrogram_to_numpy(spectrogram):
+def plot_spectrogram_to_numpy(spectrogram) -> np.ndarray:
     global MATPLOTLIB_FLAG
     if not MATPLOTLIB_FLAG:
         import matplotlib
@@ -235,10 +235,35 @@ def plot_spectrogram_to_numpy(spectrogram):
     plt.tight_layout()
 
     fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    plt.close()
-    return data
+    # data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
+    # data = np.fromstring(fig.canvas.tostring_argb(), dtype=np.uint8, sep="")
+    # data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    # plt.close()
+    # return data
+    # --- Start of the fix ---
+    # 1. Get the ARGB string from the canvas
+    s_argb = fig.canvas.tostring_argb()
+
+    # 2. Convert the ARGB string to a NumPy array
+    #    np.frombuffer is preferred over the deprecated np.fromstring
+    img_argb_flat = np.frombuffer(s_argb, dtype=np.uint8)
+
+    # 3. Get canvas dimensions (height, width)
+    #    fig.canvas.get_width_height() returns (width, height)
+    #    [::-1] reverses it to (height, width)
+    height, width = fig.canvas.get_width_height()[::-1]
+
+    # 4. Reshape the flat array to (height, width, 4) for ARGB
+    img_argb = img_argb_flat.reshape(height, width, 4)
+
+    # 5. Extract the RGB channels from ARGB.
+    #    ARGB order means channels are Alpha, Red, Green, Blue.
+    #    We select channels 1, 2, and 3 (Red, Green, Blue).
+    img_rgb = img_argb[:, :, 1:4]
+    # --- End of the fix ---
+
+    plt.close(fig)
+    return img_rgb
 
 
 def plot_alignment_to_numpy(alignment, info=None):
@@ -284,7 +309,7 @@ def load_filepaths_and_text(filename, split="|"):
     except UnicodeDecodeError:
         with open(filename) as f:
             filepaths_and_text = [line.strip().split(split) for line in f]
-    
+
     return filepaths_and_text
 
 

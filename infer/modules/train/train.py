@@ -117,7 +117,7 @@ def main():
         children[i].join()
 
 
-def run(rank, n_gpus, hps, logger: logging.Logger):
+def run(rank, n_gpus: int, hps, logger: logging.Logger):
     global global_step
     if rank == 0:
         # logger = utils.get_logger(hps.model_dir)
@@ -260,7 +260,7 @@ def run(rank, n_gpus, hps, logger: logging.Logger):
         optim_d, gamma=hps.train.lr_decay, last_epoch=epoch_str - 2
     )
 
-    scaler = GradScaler(enabled=hps.train.fp16_run)
+    scaler = torch.amp.GradScaler("cuda", enabled=hps.train.fp16_run)
 
     cache = []
     for epoch in range(epoch_str, hps.train.epochs + 1):
@@ -426,7 +426,7 @@ def train_and_evaluate(
             # wave_lengths = wave_lengths.cuda(rank, non_blocking=True)
 
         # Calculate
-        with autocast(enabled=hps.train.fp16_run):
+        with torch.amp.autocast("cuda", enabled=hps.train.fp16_run):
             if hps.if_f0 == 1:
                 (
                     y_hat,
@@ -454,7 +454,7 @@ def train_and_evaluate(
             y_mel = commons.slice_segments(
                 mel, ids_slice, hps.train.segment_size // hps.data.hop_length
             )
-            with autocast(enabled=False):
+            with torch.amp.autocast("cuda", enabled=False):
                 y_hat_mel = mel_spectrogram_torch(
                     y_hat.float().squeeze(1),
                     hps.data.filter_length,
@@ -473,7 +473,7 @@ def train_and_evaluate(
 
             # Discriminator
             y_d_hat_r, y_d_hat_g, _, _ = net_d(wave, y_hat.detach())
-            with autocast(enabled=False):
+            with torch.amp.autocast(enabled=False, device_type="cuda"):
                 loss_disc, losses_disc_r, losses_disc_g = discriminator_loss(
                     y_d_hat_r, y_d_hat_g
                 )
@@ -483,10 +483,10 @@ def train_and_evaluate(
         grad_norm_d = commons.clip_grad_value_(net_d.parameters(), None)
         scaler.step(optim_d)
 
-        with autocast(enabled=hps.train.fp16_run):
+        with torch.amp.autocast(enabled=hps.train.fp16_run, device_type="cuda"):
             # Generator
             y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(wave, y_hat)
-            with autocast(enabled=False):
+            with torch.amp.autocast(enabled=False, device_type="cuda"):
                 loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
                 loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
                 loss_fm = feature_loss(fmap_r, fmap_g)
