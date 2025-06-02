@@ -6,7 +6,7 @@ import librosa
 import resampy
 
 from configs.config import Config
-
+from fairseq.data.dictionary import Dictionary
 logger = logging.getLogger(__name__)
 
 import numpy as np
@@ -210,6 +210,7 @@ class VC:
             times = [0, 0, 0]
 
             if self.hubert_model is None:
+                torch.serialization.add_safe_globals([Dictionary])
                 self.hubert_model = load_hubert(self.config)
 
             if file_index:
