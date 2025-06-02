@@ -36,4 +36,4 @@ RUN uv run tools/download_models.py
 COPY . .
 # VOLUME [ "/app/weights", "/app/opt" ]
 EXPOSE 7865
-CMD ["python",  "infer-web.py"]
+CMD ["python",  "web_ui.py"]
