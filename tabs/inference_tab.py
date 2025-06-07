@@ -158,61 +158,6 @@ def create_inference_tab(app: gr.Blocks):
             [vc_log_output, vc_file_output],
             api_name="infer_convert",
         )
-
-        audio_input.stop_recording(
-            shared.vc.vc_single,
-            [
-                audio_input,
-                pitch_offset,
-                f0method0,
-                file_index2,
-                index_rate1,
-                resample_sr0,
-                rms_mix_rate0,
-                protect0,
-            ],
-            [vc_log_output, vc_file_output],
-        )
-
-        pitch_offset.input(
-            shared.vc.vc_single,
-            [
-                audio_input,
-                pitch_offset,
-                f0method0,
-                file_index2,
-                index_rate1,
-                resample_sr0,
-                rms_mix_rate0,
-                protect0,
-            ],
-            [vc_log_output, vc_file_output],
-        )
-
-        index_rate1.input(
-            shared.vc.vc_single,
-            [
-                audio_input,
-                pitch_offset,
-                f0method0,
-                file_index2,
-                index_rate1,
-                resample_sr0,
-                rms_mix_rate0,
-                protect0,
-            ],
-            [vc_log_output, vc_file_output],
-        )
-
-        model_dropdown.change(
-            fn=shared.vc.get_vc,
-            inputs=[
-                model_dropdown,
-                protect0,
-            ],  # Use protect0 and protect1 from Basic/Batch tab
-            outputs=[protect0, file_index2],
-            api_name="infer_change_voice",
-        )
         refresh_btn.click(
             fn=change_choices,
             inputs=[],
