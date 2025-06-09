@@ -164,6 +164,15 @@ def create_inference_tab(app: gr.Blocks):
             outputs=[model_dropdown, file_index2],
             api_name="infer_refresh",
         )
+        model_dropdown.change(
+            fn=shared.vc.get_vc,
+            inputs=[
+                model_dropdown,
+                protect0,
+            ],  # Use protect0 and protect1 from Basic/Batch tab
+            outputs=[protect0, file_index2],
+            api_name="infer_change_voice",
+        )
         app.load(
             fn=shared.vc.get_vc,
             inputs=[
