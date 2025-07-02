@@ -13,9 +13,12 @@ from tabs.vocal_tab import create_vocal_tab
 
 from fairseq.data.dictionary import Dictionary
 torch.serialization.add_safe_globals([fairseq.data.dictionary.Dictionary])
+import git
+repo = git.Repo(search_parent_directories=True)
+
 
 with gr.Blocks(title="RVC WebUI Fork") as app:
-    gr.Markdown("## RVC WebUI Fork")
+    gr.Markdown(f"## RVC WebUI Fork ({repo.active_branch}) ({repo.head.object.hexsha[:7]})" )
     with gr.Tabs():
         create_inference_tab(app=app)
         create_vocal_tab()
