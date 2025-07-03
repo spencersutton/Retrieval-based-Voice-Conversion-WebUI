@@ -20,7 +20,11 @@ This fork aims to improve upon the [original RVC project](https://github.com/RVC
 
 ## Getting Started
 
-### Run with UV
+### Run on Google Colab
+
+Follow the instructions in the [notebook](https://colab.research.google.com/github/yamada-sexta/rvc-webgui-fork/blob/main/notebook/colab.ipynb).
+
+### Run locally
 
 > Install [uv](https://docs.astral.sh/uv/#installation) if you haven't already.
 
