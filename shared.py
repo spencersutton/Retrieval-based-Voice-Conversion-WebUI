@@ -103,7 +103,6 @@ gpus = "-".join([i[0] for i in gpu_infos])
 
 
 weight_root = os.getenv("weight_root")
-weight_uvr5_root = os.getenv("weight_uvr5_root")
 index_root = os.getenv("index_root")
 outside_index_root = os.getenv("outside_index_root")
 
@@ -124,10 +123,6 @@ def lookup_indices(index_root):
 
 lookup_indices(index_root)
 lookup_indices(outside_index_root)
-uvr5_names = []
-for name in os.listdir(weight_uvr5_root):
-    if name.endswith(".pth") or "onnx" in name:
-        uvr5_names.append(name.replace(".pth", ""))
 
 sr_dict = {
     "32k": 32000,
