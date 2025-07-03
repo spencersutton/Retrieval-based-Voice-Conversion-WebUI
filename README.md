@@ -24,6 +24,8 @@ uv run ./web_ui.py
 
 ### Docker Compose
 
+Create a `docker-compose.yml` similar to this:
+
 ```yml
 services:
   rvc-fork-server:
@@ -43,3 +45,17 @@ services:
       - ./data/logs:/app/logs
       - /app/logs/mute
 ```
+
+Then run
+
+```bash
+docker-compose up -d
+```
+
+Then visit `localhost:7865` in your browser.
+
+## Contributing
+
+We have a more open policy to contribution compared to the original.
+
+Please refer [this guid](./CONTRIBUTING.md) for more details.
