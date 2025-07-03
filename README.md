@@ -27,7 +27,7 @@ This fork aims to improve upon the [original RVC project](https://github.com/RVC
 ```bash
 git clone https://github.com/yamada-sexta/rvc-webgui-fork.git
 cd rvc-webgui-fork
-uv sync --lock
+uv sync --locked
 uv run ./tools/download_models.py
 uv run ./web_ui.py
 ```
