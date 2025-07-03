@@ -56,7 +56,7 @@ services:
       - /app/logs/mute
 ```
 
-Then run
+In the same directory run
 
 ```bash
 docker-compose up -d
