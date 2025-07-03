@@ -1,5 +1,15 @@
 # RVC WebGUI Fork
 
+<div align="center">
+
+[![License](https://img.shields.io/github/license/yamada-sexta/rvc-webgui-fork?style=for-the-badge)](https://github.com/yamada-sexta/rvc-webgui-fork/blob/main/THIRD_PARTY_NOTICES.md)
+[![GitHub stars](https://img.shields.io/github/stars/yamada-sexta/rvc-webgui-fork?style=for-the-badge)](https://github.com/yamada-sexta/rvc-webgui-fork/stargazers)
+[![GitHub last commit](https://img.shields.io/github/last-commit/yamada-sexta/rvc-webgui-fork?style=for-the-badge)](https://github.com/yamada-sexta/rvc-webgui-fork/commits/main)
+[![GitHub issues](https://img.shields.io/github/issues/yamada-sexta/rvc-webgui-fork?style=for-the-badge)](https://github.com/yamada-sexta/rvc-webgui-fork/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/yamada-sexta/rvc-webgui-fork?style=for-the-badge)](https://github.com/yamada-sexta/rvc-webgui-fork/pulls)
+
+</div>
+
 This fork aims to improve upon the [original RVC project](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI) with several enhancements:
 
 - Dependency Updates: All dependencies have been updated, and uv is used for package management, promising general performance improvements.
