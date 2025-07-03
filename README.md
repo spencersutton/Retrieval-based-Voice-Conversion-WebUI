@@ -14,6 +14,13 @@ This fork aims to improve upon the [original RVC project](https://github.com/RVC
 
 > Install [uv](https://docs.astral.sh/uv/#installation) if you haven't already.
 
+#### Clone the repo
+
+```bash
+git clone https://github.com/yamada-sexta/rvc-webgui-fork.git
+cd rvc-webgui-fork
+```
+
 ```bash
 uv sync --lock
 uv run ./tools/download_models.py
