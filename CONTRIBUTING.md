@@ -1,6 +1,6 @@
 # Contributing to RVC WebGUI Fork
 
-First off, thank you for considering contributing to this project! Your help is greatly appreciated. Every little bit helps, and credit will always be given.
+First off, thank you for considering contributing to this project! Your help is greatly appreciated. Every little bit helps.
 
 There are many ways to contribute, from writing tutorials or blog posts, improving the documentation, submitting bug reports and feature requests or writing code which can be incorporated into the main project.
 
@@ -15,6 +15,7 @@ Bugs are tracked as GitHub issues. Before opening a new issue, please perform a 
 When you are creating a bug report, please include as many details as possible. Fill out the required template; the information it asks for helps us resolve issues faster.
 
 Please include:
+
 - A clear and descriptive title for the issue.
 - Steps to reproduce the problem.
 - What you expected to happen.
@@ -27,6 +28,7 @@ Please include:
 If you have an idea for a new feature or an improvement to an existing one, please open an issue to discuss it. This allows us to coordinate our efforts and prevent duplication of work.
 
 When creating a feature request, please provide:
+
 - A clear and descriptive title.
 - A detailed description of the proposed functionality.
 - A step-by-step description of the proposed enhancement in as much detail as possible.
@@ -36,23 +38,12 @@ When creating a feature request, please provide:
 
 We love pull requests! Here's a quick guide:
 
-1.  Fork the repo and create your branch from `main`.
-2.  If you've added code that should be tested, please add tests.
-3.  Ensure your code is well-formatted and follows the project's style.
-4.  Issue that pull request!
-
-#### A Note on Changes
-
-- **UI and Translations:** Contributions to the WebUI and translations are welcome. Please try to keep your changes minimal and focused on a single objective.
-- **Core Algorithms:** The core voice conversion algorithms are generally maintained to stay close to the original RVC project. Changes to these algorithms will be carefully reviewed and may be rejected unless they are fixing a clear bug or a warning.
-- **Dependencies:** Changes to dependencies should be discussed in an issue first.
+- Fork the repo and create your branch from `main`.
+- If you've added code that should be tested, please add tests.
+- Issue that pull request!
 
 All changes need to be approved by the project maintainers, so your PR may be put on hold. We appreciate your patience.
 
-## Styleguides
-
-Please try to follow the coding style of the project to keep the codebase consistent. We use standard Python style guides (PEP 8).
-
-## Thank You!z
+## Thank You!
 
 Your contributions to open source, large or small, make projects like this possible. Thank you for taking the time to contribute.
