@@ -16,7 +16,7 @@ This fork aims to improve upon the [original RVC project](https://github.com/RVC
 
 ```bash
 uv sync --lock
-uv run tools/download_models.py
+uv run ./tools/download_models.py
 uv run ./web_ui.py
 ```
 
