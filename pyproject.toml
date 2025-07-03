@@ -1,7 +1,7 @@
 [project]
 name = "rvc-webgui-fork"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Fork of RVC WebGUI with many quality of life improvements"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
