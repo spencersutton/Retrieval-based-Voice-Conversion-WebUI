@@ -36,18 +36,20 @@ jobs:
       - name: Free Disk Space 
         run: |
           set -xe
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/share/swift
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/local/.ghcup
-          sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-          sudo rm -rf /opt/hostedtoolcache/
-          sudo rm -rf /usr/local/graalvm/
-          sudo rm -rf /usr/local/share/powershell
-          sudo rm -rf /usr/local/share/chromium
-          sudo rm -rf /usr/local/lib/node_modules
+          mkdir empty_dir
+          sudo rsync -a --delete empty_dir/ /usr/share/dotnet
+          sudo rsync -a --delete empty_dir/ /usr/share/swift
+          sudo rsync -a --delete empty_dir/ /usr/local/lib/android
+          sudo rsync -a --delete empty_dir/ /opt/ghc
+          sudo rsync -a --delete empty_dir/ /usr/local/.ghcup
+          sudo rsync -a --delete empty_dir/ "/usr/local/share/boost"
+          sudo rsync -a --delete empty_dir/ "$AGENT_TOOLSDIRECTORY"
+          sudo rsync -a --delete empty_dir/ /opt/hostedtoolcache/
+          sudo rsync -a --delete empty_dir/ /usr/local/graalvm/
+          sudo rsync -a --delete empty_dir/ /usr/local/share/powershell
+          sudo rsync -a --delete empty_dir/ /usr/local/share/chromium
+          sudo rsync -a --delete empty_dir/ /usr/local/lib/node_modules
+          rm -rf empty_dir
           # sudo docker image prune --all 
           APT_PARAMS='sudo apt -y -qq -o=Dpkg::Use-Pty=0'
           $APT_PARAMS remove -y '^dotnet-.*' '^llvm-.*' '^php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-* firefox powershell mono-devel libgl1-mesa-dri
@@ -57,7 +59,7 @@ jobs:
         run: |
           set -xe
           df -H
-          
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
