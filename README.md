@@ -43,9 +43,11 @@ Create a `docker-compose.yml` similar to this:
 ```yml
 services:
   rvc-fork-server:
-    build:
-      context: https://github.com/yamada-sexta/rvc-webgui-fork.git
-      dockerfile: Dockerfile
+    image: ghcr.io/yamada-sexta/rvc-webgui-fork:latest
+    # Or if you want the absolute latest version
+    # build:
+    #   context: https://github.com/yamada-sexta/rvc-webgui-fork.git
+    #   dockerfile: Dockerfile
     restart: "unless-stopped"
     shm_size: '16gb'
     runtime: nvidia
