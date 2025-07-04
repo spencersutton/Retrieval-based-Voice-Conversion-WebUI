@@ -50,11 +50,7 @@ jobs:
           sudo rsync -a --delete empty_dir/ /usr/local/share/chromium
           sudo rsync -a --delete empty_dir/ /usr/local/lib/node_modules
           rm -rf empty_dir
-          # sudo docker image prune --all 
-          APT_PARAMS='sudo apt -y -qq -o=Dpkg::Use-Pty=0'
-          $APT_PARAMS remove -y '^dotnet-.*' '^llvm-.*' '^php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-* firefox powershell mono-devel libgl1-mesa-dri
-          $APT_PARAMS autoremove --purge -y
-          $APT_PARAMS autoclean
+          
       - name: After Cleanup
         run: |
           set -xe
