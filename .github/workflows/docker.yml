@@ -28,20 +28,36 @@ jobs:
         id: vars
         run: echo "sha_short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: false
-          large-packages: true
-      - name: Remove more stuff
+      - name: Check Disk Space
+        run: | 
+          set xe
+          df -H
+      # From here https://gist.github.com/antiphishfish/1e3fbc3f64ef6f1ab2f47457d2da5d9d
+      - name: Free Disk Space 
         run: |
-                sudo rm -rf /opt/hostedtoolcache
-                sudo rm -rf /usr/local/share/powershell
-                sudo rm -rf /usr/local/share/chromium
-                sudo rm -rf /usr/local/lib/node_modules
-
+          set -xe
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /opt/hostedtoolcache/
+          sudo rm -rf /usr/local/graalvm/
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/node_modules
+          # sudo docker image prune --all 
+          APT_PARAMS='sudo apt -y -qq -o=Dpkg::Use-Pty=0'
+          $APT_PARAMS remove -y '^dotnet-.*' '^llvm-.*' '^php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-* firefox powershell mono-devel libgl1-mesa-dri
+          $APT_PARAMS autoremove --purge -y
+          $APT_PARAMS autoclean
+      - name: After Cleanup
+        run: |
+          set -xe
+          df -H
+          
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
