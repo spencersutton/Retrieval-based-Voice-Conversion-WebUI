@@ -42,7 +42,7 @@ jobs:
           sudo rsync -a --delete empty_dir/ /usr/local/lib/android
           sudo rsync -a --delete empty_dir/ /opt/ghc
           sudo rsync -a --delete empty_dir/ /usr/local/.ghcup
-          sudo rsync -a --delete empty_dir/ "/usr/local/share/boost"
+          sudo rsync -a --delete empty_dir/ /usr/local/share/boost
           sudo rsync -a --delete empty_dir/ "$AGENT_TOOLSDIRECTORY"
           sudo rsync -a --delete empty_dir/ /opt/hostedtoolcache/
           sudo rsync -a --delete empty_dir/ /usr/local/graalvm/
