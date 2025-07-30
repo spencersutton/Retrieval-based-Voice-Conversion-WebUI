@@ -2,6 +2,7 @@ from io import BytesIO
 import os
 import sys
 import traceback
+from typing import Literal, Tuple, Union
 from infer.lib import jit
 from infer.lib.jit.get_synthesizer import get_synthesizer
 from time import time as ttime
@@ -9,7 +10,8 @@ import fairseq
 import faiss
 import numpy as np
 import parselmouth
-import pyworld
+
+# import pyworld
 import scipy.signal as signal
 import torch
 import torch.nn as nn
@@ -44,10 +46,10 @@ class RVC:
         self,
         key,
         formant,
-        pth_path,
-        index_path,
+        pth_path: str,
+        index_path: str,
         index_rate,
-        n_cpu,
+        n_cpu: int,
         inp_q,
         opt_q,
         config: Config,
@@ -207,7 +209,9 @@ class RVC:
             printt("Index search enabled")
         self.index_rate = new_index_rate
 
-    def get_f0_post(self, f0):
+    def get_f0_post(
+        self, f0: Union[np.ndarray, torch.Tensor]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         if not torch.is_tensor(f0):
             f0 = torch.from_numpy(f0)
         f0 = f0.float().to(self.device).squeeze()
@@ -220,7 +224,13 @@ class RVC:
         f0_coarse = torch.round(f0_mel).long()
         return f0_coarse, f0
 
-    def get_f0(self, x, f0_up_key, n_cpu, method="harvest"):
+    def get_f0(
+        self,
+        x: torch.Tensor,
+        f0_up_key: int,
+        n_cpu: Union[int, str],
+        method: Literal["rmvpe", "crepe", "fcpe", "pm"] = "rmvpe",
+    ):
         n_cpu = int(n_cpu)
         if method == "crepe":
             return self.get_f0_crepe(x, f0_up_key)
@@ -247,17 +257,17 @@ class RVC:
             f0 = f0[:p_len]
             f0 *= pow(2, f0_up_key / 12)
             return self.get_f0_post(f0)
-        if n_cpu == 1:
-            f0, t = pyworld.harvest(
-                x.astype(np.double),
-                fs=16000,
-                f0_ceil=1100,
-                f0_floor=50,
-                frame_period=10,
-            )
-            f0 = signal.medfilt(f0, 3)
-            f0 *= pow(2, f0_up_key / 12)
-            return self.get_f0_post(f0)
+        # if n_cpu == 1:
+        #     f0, t = pyworld.harvest(
+        #         x.astype(np.double),
+        #         fs=16000,
+        #         f0_ceil=1100,
+        #         f0_floor=50,
+        #         frame_period=10,
+        #     )
+        #     f0 = signal.medfilt(f0, 3)
+        #     f0 *= pow(2, f0_up_key / 12)
+        #     return self.get_f0_post(f0)
         f0bak = np.zeros(x.shape[0] // 160 + 1, dtype=np.float64)
         length = len(x)
         part_length = 160 * ((length // 160 - 1) // n_cpu + 1)
@@ -291,7 +301,7 @@ class RVC:
         f0bak *= pow(2, f0_up_key / 12)
         return self.get_f0_post(f0bak)
 
-    def get_f0_crepe(self, x, f0_up_key):
+    def get_f0_crepe(self, x: torch.Tensor, f0_up_key: int):
         if "privateuseone" in str(
             self.device
         ):  ###不支持dml，cpu又太慢用不成，拿fcpe顶替
