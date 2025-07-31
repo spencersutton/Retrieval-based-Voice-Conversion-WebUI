@@ -531,6 +531,7 @@ def update_devices(state: UiState, hostapi_name: Optional[str] = None):
 
     print(state)
 
+
 def set_devices(
     state: UiState,
     input_device: Optional[str] = None,
@@ -612,6 +613,71 @@ class MainWindow(Adw.ApplicationWindow):
         # Initial population of devices
         self.reload_device(None)
 
+        # --- Model .pth File Input ---
+        self.model_path_row = Adw.EntryRow(title="Model Path (.pth)")
+        model_browse_btn = Gtk.Button(icon_name="document-open-symbolic")
+        model_browse_btn.connect("clicked", self.on_open_model_path_clicked)
+        self.model_path_row.add_suffix(model_browse_btn)
+        main_group.add(self.model_path_row)
+
+        # --- Index .index File Input ---
+        self.index_path_row = Adw.EntryRow(title="Index File Path (.index)")
+        index_browse_btn = Gtk.Button(icon_name="document-open-symbolic")
+        index_browse_btn.connect("clicked", self.on_open_index_path_clicked)
+        self.index_path_row.add_suffix(index_browse_btn)
+        main_group.add(self.index_path_row)
+
+    def on_open_model_path_clicked(self, widget):
+        """Handler to open a file chooser for the .pth model file."""
+        self._show_file_chooser(
+            "Select Model File",
+            self.model_path_row,
+            pattern="*.pth",
+            mime="application/octet-stream",  # A generic mime type
+        )
+
+    def on_open_index_path_clicked(self, widget):
+        """Handler to open a file chooser for the .index file."""
+        self._show_file_chooser(
+            "Select Index File",
+            self.index_path_row,
+            pattern="*.index",
+            mime="application/octet-stream",  # A generic mime type
+        )
+
+    def _show_file_chooser(
+        self, title: str, entry_row: Adw.EntryRow, pattern: str, mime: str
+    ):
+        """Generic method to create and show a Gtk.FileChooserDialog."""
+        # Create a filter for the specific file type
+        file_filter = Gtk.FileFilter()
+        file_filter.set_name(f"Files ({pattern})")
+        file_filter.add_pattern(pattern)
+        file_filter.add_mime_type(mime)
+
+        # Create a filter for all files
+        all_files_filter = Gtk.FileFilter()
+        all_files_filter.set_name("All Files")
+        all_files_filter.add_pattern("*")
+
+        filters = Gio.ListStore(item_type=Gtk.FileFilter)
+        filters.append(file_filter)
+        filters.append(all_files_filter)
+
+        dialog = Gtk.FileDialog(
+            title=title, default_filter=file_filter, filters=filters
+        )
+
+        # Handle the dialog response
+        def on_response(dialog, response):
+            if response == Gtk.ResponseType.ACCEPT:
+                file_path = dialog.get_file().get_path()
+                entry_row.set_text(file_path)
+            dialog.destroy()
+
+        # dialog.connect("response", on_response)
+        dialog.open(parent=self, callback=on_response)
+
     def reload_device(self, button: Gtk.Button | None):
         update_devices(self.state)
         input_devices: List[str] = self.state.input_devices
@@ -650,7 +716,8 @@ class MainWindow(Adw.ApplicationWindow):
             print(f"🔊 Output device selected: {device_name}")
             # set_devices(device_name)
             set_devices(state=self.state, output_device=device_name)
-            
+
+
 class MyApp(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -661,8 +728,9 @@ class MyApp(Adw.Application):
         self.win.present()
 
 
-css_provider = Gtk.CssProvider()
-css_provider.load_from_path("gtk.css")
+if __name__ == "__main__":
+    css_provider = Gtk.CssProvider()
+    css_provider.load_from_path("gtk.css")
 
-app = MyApp(application_id="com.example.GtkRVC")
-app.run(sys.argv)
+    app = MyApp(application_id="com.example.GtkRVC")
+    app.run(sys.argv)
