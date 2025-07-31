@@ -536,33 +536,100 @@ def set_devices(state: UiState, input_device, output_device):
     ]
     printt("Input device: %s:%s", str(sd.default.device[0]), input_device)
     printt("Output device: %s:%s", str(sd.default.device[1]), output_device)
+class MainWindow(Adw.ApplicationWindow):
+    state: UiState = UiState()
 
-
-class MainWindow(Gtk.ApplicationWindow):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        GLib.set_application_name(GUI_TITLE)
+        self.set_default_size(500, 300)
+        # Note: The title is now set on the HeaderBar, not the window.
 
-        self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.main_box.set_css_classes(["main-box"])
-        self.set_child(self.main_box)
+        # 1. Create the ToolbarView as the main container
+        toolbar_view = Adw.ToolbarView()
+        self.set_content(toolbar_view)
 
-        action = Gio.SimpleAction.new("about", None)
-        self.add_action(action)
+        # 2. Create the HeaderBar and add it to the ToolbarView's top
+        header = Adw.HeaderBar()
+        header.set_title_widget(Adw.WindowTitle(title=GUI_TITLE))
+        toolbar_view.add_top_bar(header)
+        
+        # --- Reload Button ---
+        self.reload_device_btn = Gtk.Button(label="Reload")
+        self.reload_device_btn.set_icon_name("view-refresh-symbolic")
+        self.reload_device_btn.connect("clicked", self.reload_device)
+        header.pack_start(self.reload_device_btn)
 
-        self.button = Gtk.Button(label="Hello")
-        self.main_box.append(self.button)
-        self.button.connect("clicked", self.hello)
+        # 3. Create your page content as before
+        main_group = Adw.PreferencesGroup()
+        page = Adw.PreferencesPage()
+        page.add(main_group)
 
-        self.set_default_size(600, 250)
-        self.set_title(GUI_TITLE)
+        # 4. Set the page as the main content of the ToolbarView
+        toolbar_view.set_content(page)
 
-    def hello(self, button: Gtk.Button):
-        # print("hello!")
+        # --- Input Device Dropdown ---
+        # (The rest of the code for creating rows and dropdowns is identical)
+        self.input_devices_list = Gtk.StringList()
+        self.input_dropdown = Gtk.DropDown(
+            model=self.input_devices_list,
+            valign=Gtk.Align.CENTER
+        )
+        self.input_dropdown.connect("notify::selected-item", self.on_input_device_changed)
+        
+        input_row = Adw.ActionRow(title="Input Device")
+        input_row.add_suffix(self.input_dropdown)
+        main_group.add(input_row)
 
-        state = UiState()
-        update_devices(state)
+        # --- Output Device Dropdown ---
+        self.output_devices_list = Gtk.StringList()
+        self.output_dropdown = Gtk.DropDown(
+            model=self.output_devices_list,
+            valign=Gtk.Align.CENTER
+        )
+        self.output_dropdown.connect("notify::selected-item", self.on_output_device_changed)
+        
+        output_row = Adw.ActionRow(title="Output Device")
+        output_row.add_suffix(self.output_dropdown)
+        main_group.add(output_row)
+        
+        # Initial population of devices
+        self.reload_device(None)
+    def reload_device(self, button: Gtk.Button | None):
+        update_devices(self.state)
+        input_devices: List[str] = self.state.input_devices
+        output_devices: List[str] = self.state.output_devices
+
+        # Clear existing models
+        while self.input_devices_list.get_n_items() > 0:
+            self.input_devices_list.remove(0)
+        while self.output_devices_list.get_n_items() > 0:
+            self.output_devices_list.remove(0)
+            
+        # Populate models with new devices
+        for device in input_devices:
+            self.input_devices_list.append(device)
+        for device in output_devices:
+            self.output_devices_list.append(device)
+            
+        # Set a default selection
+        if self.input_devices_list.get_n_items() > 0:
+            self.input_dropdown.set_selected(0)
+        if self.output_devices_list.get_n_items() > 0:
+            self.output_dropdown.set_selected(0)
+
+    def on_input_device_changed(self, dropdown: Gtk.DropDown, _param):
+        selected_item = dropdown.get_selected_item()
+        if selected_item is not None:
+            device_name = selected_item.get_string()
+            print(f"🎤 Input device selected: {device_name}")
+
+    def on_output_device_changed(self, dropdown: Gtk.DropDown, _param):
+        selected_item = dropdown.get_selected_item()
+        if selected_item is not None:
+            device_name = selected_item.get_string()
+            print(f"🔊 Output device selected: {device_name}")
+
 
 
 class MyApp(Adw.Application):
