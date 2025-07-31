@@ -492,40 +492,6 @@ def get_device_channels():
     return min(max_input_channels, max_output_channels, 2)
 
 
-# def update_devices(state: UiState, hostapi_name: Optional[str] = None):
-#     """Get devices"""
-#     sd._terminate()
-#     sd._initialize()
-
-#     devices = sd.query_devices()
-#     hostapis = sd.query_hostapis()
-
-#     for hostapi in hostapis:
-#         for device_idx in hostapi["devices"]:
-#             devices[device_idx]["hostapi_name"] = hostapi["name"]
-
-#     state.hostapis = [hostapi["name"] for hostapi in hostapis]
-
-#     if hostapi_name not in state.hostapis:
-#         hostapi_name = state.hostapis[0]
-
-#     for d in devices:
-#         # Filter for devices matching the selected host API
-#         if d.get("hostapi_name") == hostapi_name:
-#             # Use .get() for a safe fallback from index to name
-#             device_identifier = d.get("index", d["name"])
-#             # Add to input lists if it's an input device
-#             if d["max_input_channels"] > 0:
-#                 state.input_devices.append(d["name"])
-#                 state.input_devices_indices.append(device_identifier)
-#             # Add to output lists if it's an output device
-#             if d["max_output_channels"] > 0:
-#                 state.output_devices.append(d["name"])
-#                 state.output_devices_indices.append(device_identifier)
-
-#     print(state)
-
-
 def update_devices(state: UiState, hostapi_name: Optional[str] = None):
     """Get devices"""
     sd._terminate()
@@ -537,9 +503,9 @@ def update_devices(state: UiState, hostapi_name: Optional[str] = None):
         # print(f"Hostapi: {hostapi}")
         for device_idx in hostapi["devices"]:
             devices[device_idx]["hostapi_name"] = hostapi["name"]
-            
+
     state.hostapis = [hostapi["name"] for hostapi in hostapis]
-    
+
     if hostapi_name not in state.hostapis:
         hostapi_name = state.hostapis[0]
     state.input_devices = [
@@ -565,24 +531,32 @@ def update_devices(state: UiState, hostapi_name: Optional[str] = None):
 
     print(state)
 
-
-def set_devices(state: UiState, input_device, output_device):
+def set_devices(
+    state: UiState,
+    input_device: Optional[str] = None,
+    output_device: Optional[str] = None,
+):
     """Set devices"""
-    sd.default.device[0] = state.input_devices_indices[
-        state.input_devices.index(input_device)
-    ]
-    sd.default.device[1] = state.output_devices_indices[
-        state.output_devices.index(output_device)
-    ]
-    printt("Input device: %s:%s", str(sd.default.device[0]), input_device)
-    printt("Output device: %s:%s", str(sd.default.device[1]), output_device)
+    if input_device is not None:
+        sd.default.device[0] = state.input_devices_indices[
+            state.input_devices.index(input_device)
+        ]
+        printt("Input device: %s:%s", str(sd.default.device[0]), input_device)
+
+    if output_device is not None:
+        sd.default.device[1] = state.output_devices_indices[
+            state.output_devices.index(output_device)
+        ]
+        printt("Output device: %s:%s", str(sd.default.device[1]), output_device)
+
+
 class MainWindow(Adw.ApplicationWindow):
     state: UiState = UiState()
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.set_default_size(500, 500)
-        # self.set_siz
         # Note: The title is now set on the HeaderBar, not the window.
 
         # 1. Create the ToolbarView as the main container
@@ -593,7 +567,7 @@ class MainWindow(Adw.ApplicationWindow):
         header = Adw.HeaderBar()
         header.set_title_widget(Adw.WindowTitle(title=GUI_TITLE))
         toolbar_view.add_top_bar(header)
-        
+
         # --- Reload Button ---
         self.reload_device_btn = Gtk.Button(label="Reload")
         self.reload_device_btn.set_icon_name("view-refresh-symbolic")
@@ -612,11 +586,12 @@ class MainWindow(Adw.ApplicationWindow):
         # (The rest of the code for creating rows and dropdowns is identical)
         self.input_devices_list = Gtk.StringList()
         self.input_dropdown = Gtk.DropDown(
-            model=self.input_devices_list,
-            valign=Gtk.Align.CENTER
+            model=self.input_devices_list, valign=Gtk.Align.CENTER
         )
-        self.input_dropdown.connect("notify::selected-item", self.on_input_device_changed)
-        
+        self.input_dropdown.connect(
+            "notify::selected-item", self.on_input_device_changed
+        )
+
         input_row = Adw.ActionRow(title="Input Device")
         input_row.add_suffix(self.input_dropdown)
         main_group.add(input_row)
@@ -624,18 +599,19 @@ class MainWindow(Adw.ApplicationWindow):
         # --- Output Device Dropdown ---
         self.output_devices_list = Gtk.StringList()
         self.output_dropdown = Gtk.DropDown(
-            model=self.output_devices_list,
-            valign=Gtk.Align.CENTER
+            model=self.output_devices_list, valign=Gtk.Align.CENTER
         )
-        self.output_dropdown.connect("notify::selected-item", self.on_output_device_changed)
-        
+        self.output_dropdown.connect(
+            "notify::selected-item", self.on_output_device_changed
+        )
+
         output_row = Adw.ActionRow(title="Output Device")
         output_row.add_suffix(self.output_dropdown)
         main_group.add(output_row)
-        
+
         # Initial population of devices
         self.reload_device(None)
-        
+
     def reload_device(self, button: Gtk.Button | None):
         update_devices(self.state)
         input_devices: List[str] = self.state.input_devices
@@ -646,13 +622,13 @@ class MainWindow(Adw.ApplicationWindow):
             self.input_devices_list.remove(0)
         while self.output_devices_list.get_n_items() > 0:
             self.output_devices_list.remove(0)
-            
+
         # Populate models with new devices
         for device in input_devices:
             self.input_devices_list.append(device)
         for device in output_devices:
             self.output_devices_list.append(device)
-            
+
         # Set a default selection
         if self.input_devices_list.get_n_items() > 0:
             self.input_dropdown.set_selected(0)
@@ -665,14 +641,16 @@ class MainWindow(Adw.ApplicationWindow):
             device_name = selected_item.get_string()
             print(f"🎤 Input device selected: {device_name}")
 
+            set_devices(state=self.state, input_device=device_name)
+
     def on_output_device_changed(self, dropdown: Gtk.DropDown, _param):
         selected_item = dropdown.get_selected_item()
         if selected_item is not None:
             device_name = selected_item.get_string()
             print(f"🔊 Output device selected: {device_name}")
-
-
-
+            # set_devices(device_name)
+            set_devices(state=self.state, output_device=device_name)
+            
 class MyApp(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
