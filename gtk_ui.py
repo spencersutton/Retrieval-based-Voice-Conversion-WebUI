@@ -6,7 +6,7 @@ import time
 import shutil
 import multiprocessing
 from multiprocessing import Queue, cpu_count
-from typing import List, Literal, Optional
+from typing import Callable, List, Literal, Optional
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -95,7 +95,7 @@ class GUIConfig:
     index_rate: float = 0.0
     n_cpu: int = min(n_cpu, 4)
     f0method: Literal["harvest", "crepe", "rmvpe", "fcpe"] = "fcpe"
-    sg_hostapi: str = ""
+    # sg_hostapi: str = ""
     sg_input_device: str = ""
     sg_output_device: str = ""
     samplerate: int = -1
@@ -139,6 +139,7 @@ class VCState:
         last_state: Optional["VCState"] = None,
     ):
         torch.cuda.empty_cache()
+        rvc_config.use_jit = False
 
         self.rvc = rvc_for_realtime.RVC(
             gui_config.pitch,
@@ -575,6 +576,17 @@ class MainWindow(Adw.ApplicationWindow):
         self.reload_device_btn.connect("clicked", self.reload_device)
         header.pack_start(self.reload_device_btn)
 
+        # --- NEW: Start/Stop Button and Spinner ---
+        self.header_spinner = Gtk.Spinner()
+        header.pack_end(self.header_spinner)
+
+        self.start_stop_btn = Gtk.Button(label="Start")
+        self.start_stop_btn.set_icon_name("media-playback-start-symbolic")
+        # "suggested-action" makes it the primary (often blue) button
+        self.start_stop_btn.get_style_context().add_class("suggested-action")
+        self.start_stop_btn.connect("clicked", self.on_start_stop_clicked)
+        header.pack_end(self.start_stop_btn)
+
         # 3. Create your page content as before
         main_group = Adw.PreferencesGroup()
         page = Adw.PreferencesPage()
@@ -629,24 +641,36 @@ class MainWindow(Adw.ApplicationWindow):
 
     def on_open_model_path_clicked(self, widget):
         """Handler to open a file chooser for the .pth model file."""
+        def s(file:str):
+            self.state.gui_config.pth_path = file
         self._show_file_chooser(
             "Select Model File",
             self.model_path_row,
             pattern="*.pth",
             mime="application/octet-stream",  # A generic mime type
+            on_file_path=s
         )
 
     def on_open_index_path_clicked(self, widget):
         """Handler to open a file chooser for the .index file."""
+        
+        def s(file:str):
+            self.state.gui_config.index_path = file
         self._show_file_chooser(
             "Select Index File",
             self.index_path_row,
             pattern="*.index",
             mime="application/octet-stream",  # A generic mime type
+            on_file_path=s
         )
 
     def _show_file_chooser(
-        self, title: str, entry_row: Adw.EntryRow, pattern: str, mime: str
+        self,
+        title: str,
+        entry_row: Adw.EntryRow,
+        pattern: str,
+        mime: str,
+        on_file_path: Optional[Callable],
     ):
         """Generic method to create and show a Gtk.FileChooserDialog."""
         # Create a filter for the specific file type
@@ -669,11 +693,26 @@ class MainWindow(Adw.ApplicationWindow):
         )
 
         # Handle the dialog response
-        def on_response(dialog, response):
-            if response == Gtk.ResponseType.ACCEPT:
-                file_path = dialog.get_file().get_path()
-                entry_row.set_text(file_path)
-            dialog.destroy()
+        def on_response(dialog: Gtk.FileDialog, result):
+            # if response == Gtk.ResponseType.ACCEPT:
+            #     file_path = dialog.get_file().get_path()
+            #     entry_row.set_text(file_path)
+            # dialog.get_data
+            try:
+                file = dialog.open_finish(result)
+                if file is not None:
+                    file_path = file.get_path()
+                    print(f"File path is {file_path}")
+                    entry_row.set_text(file_path)
+                    # self.state.gui_config.
+                    # on_file_path()
+                    if on_file_path is not None:
+                        on_file_path(file_path)
+                # Handle loading file from here
+            except GLib.Error as error:
+                print(f"Error opening file: {error.message}")
+
+            # dialog.destroy()
 
         # dialog.connect("response", on_response)
         dialog.open(parent=self, callback=on_response)
@@ -716,6 +755,30 @@ class MainWindow(Adw.ApplicationWindow):
             print(f"🔊 Output device selected: {device_name}")
             # set_devices(device_name)
             set_devices(state=self.state, output_device=device_name)
+
+    def on_start_stop_clicked(self, widget):
+        if self.state.stream is None:
+            # --- START SEQUENCE ---
+            # 1. Enter loading state: disable buttons and start spinner
+            # self.start_stop_btn.set_sensitive(False)
+            # self.reload_device_btn.set_sensitive(False)
+            # self.header_spinner.start()
+
+            # # 2. Run blocking function in a background thread
+            # thread = threading.Thread(target=self._start_vc_thread)
+            # thread.daemon = True
+            # thread.start()
+            self.state.start_vc()
+        else:
+            # --- STOP SEQUENCE ---
+            # 1. Call the stop function (assumed to be fast)
+            self.state.stop_stream()
+
+            # 2. Revert button to "Start" state
+            self.start_stop_btn.set_label("Start")
+            self.start_stop_btn.set_icon_name("media-playback-start-symbolic")
+            self.is_running = False
+            self.reload_device_btn.set_sensitive(True)
 
 
 class MyApp(Adw.Application):
