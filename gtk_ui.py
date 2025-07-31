@@ -8,7 +8,6 @@ import multiprocessing
 from multiprocessing import Queue, cpu_count
 from typing import List, Literal, Optional
 import gi
-from typer import Option
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -262,14 +261,18 @@ class UiState:
         if self.stream is not None:
             print("Already started...")
             return
+        if self.vc_state is None:
+            print("No VC state!")
+            return
 
         self.stream = sd.Stream(
             callback=self.audio_callback,
-            blocksize=self.block_frame,
+            blocksize=self.vc_state.block_frame,
             samplerate=self.gui_config.samplerate,
             channels=self.gui_config.channels,
             dtype="float32",
         )
+
         self.stream.start()
 
     def stop_stream(self):
@@ -294,6 +297,11 @@ class UiState:
         """
         Processing audio
         """
+        if self.vc_state is None:
+            print("VC State isn't initialized...")
+            return
+
+        state = self.vc_state
 
         start_time = time.perf_counter()
 
@@ -302,82 +310,90 @@ class UiState:
         if self.gui_config.threshold > -60:
             input_data = np.append(self.rms_buffer, input_data)
             rms = librosa.feature.rms(
-                y=input_data, frame_length=4 * self.zc, hop_length=self.zc
+                y=input_data,
+                frame_length=4 * state.zc,
+                hop_length=state.zc,
             )[:, 2:]
-            self.rms_buffer[:] = input_data[-4 * self.zc :]
+            state.rms_buffer[:] = input_data[-4 * self.zc :]
             input_data = input_data[2 * self.zc - self.zc // 2 :]
             db_threshold = (
                 librosa.amplitude_to_db(rms, ref=1.0)[0] < self.gui_config.threshold
             )
             for i in range(db_threshold.shape[0]):
                 if db_threshold[i]:
-                    input_data[i * self.zc : (i + 1) * self.zc] = 0
+                    input_data[i * state.zc : (i + 1) * self.zc] = 0
             input_data = input_data[self.zc // 2 :]
 
-        self.input_wav[: -self.block_frame] = self.input_wav[self.block_frame :].clone()
-        self.input_wav[-input_data.shape[0] :] = torch.from_numpy(input_data).to(
+        state.input_wav[: -state.block_frame] = state.input_wav[
+            state.block_frame :
+        ].clone()
+        state.input_wav[-input_data.shape[0] :] = torch.from_numpy(input_data).to(
             self.config.device
         )
-        self.input_wav_res[: -self.block_frame_16k] = self.input_wav_res[
-            self.block_frame_16k :
+        state.input_wav_res[: -state.block_frame_16k] = state.input_wav_res[
+            state.block_frame_16k :
         ].clone()
 
         # input noise reduction and resampling
         if self.gui_config.I_noise_reduce:
-            self.input_wav_denoise[: -self.block_frame] = self.input_wav_denoise[
-                self.block_frame :
+            state.input_wav_denoise[: -state.block_frame] = state.input_wav_denoise[
+                state.block_frame :
             ].clone()
-            input_wav = self.input_wav[-self.sola_buffer_frame - self.block_frame :]
-            input_wav = self.tg(
-                input_wav.unsqueeze(0), self.input_wav.unsqueeze(0)
+            input_wav = state.input_wav[-state.sola_buffer_frame - state.block_frame :]
+            input_wav = state.tg(
+                input_wav.unsqueeze(0), state.input_wav.unsqueeze(0)
             ).squeeze(0)
-            input_wav[: self.sola_buffer_frame] *= self.fade_in_window
-            input_wav[: self.sola_buffer_frame] += self.nr_buffer * self.fade_out_window
-            self.input_wav_denoise[-self.block_frame :] = input_wav[: self.block_frame]
-            self.nr_buffer[:] = input_wav[self.block_frame :]
-            self.input_wav_res[-self.block_frame_16k - 160 :] = self.resampler(
-                self.input_wav_denoise[-self.block_frame - 2 * self.zc :]
+            input_wav[: state.sola_buffer_frame] *= state.fade_in_window
+            input_wav[: state.sola_buffer_frame] += (
+                state.nr_buffer * state.fade_out_window
+            )
+            state.input_wav_denoise[-state.block_frame :] = input_wav[
+                : state.block_frame
+            ]
+            state.nr_buffer[:] = input_wav[state.block_frame :]
+            state.input_wav_res[-state.block_frame_16k - 160 :] = state.resampler(
+                state.input_wav_denoise[-state.block_frame - 2 * state.zc :]
             )[160:]
         else:
-            self.input_wav_res[-160 * (input_data.shape[0] // self.zc + 1) :] = (
-                self.resampler(self.input_wav[-input_data.shape[0] - 2 * self.zc :])[
+            state.input_wav_res[-160 * (input_data.shape[0] // state.zc + 1) :] = (
+                state.resampler(state.input_wav[-input_data.shape[0] - 2 * state.zc :])[
                     160:
                 ]
             )
         # infer
         if self.function == "vc":
-            infer_wav = self.rvc.infer(
-                self.input_wav_res,
-                self.block_frame_16k,
-                self.skip_head,
-                self.return_length,
-                self.gui_config.f0method,
+            infer_wav = state.rvc.infer(
+                state.input_wav_res,
+                state.block_frame_16k,
+                state.skip_head,
+                state.return_length,
+                state.gui_config.f0method,
             )
-            if self.resampler2 is not None:
-                infer_wav = self.resampler2(infer_wav)
+            if state.resampler2 is not None:
+                infer_wav = state.resampler2(infer_wav)
         elif self.gui_config.I_noise_reduce:
-            infer_wav = self.input_wav_denoise[self.extra_frame :].clone()
+            infer_wav = state.input_wav_denoise[self.extra_frame :].clone()
         else:
-            infer_wav = self.input_wav[self.extra_frame :].clone()
+            infer_wav = state.input_wav[state.extra_frame :].clone()
         # output noise reduction
         if self.gui_config.O_noise_reduce and self.function == "vc":
-            self.output_buffer[: -self.block_frame] = self.output_buffer[
-                self.block_frame :
+            state.output_buffer[: -state.block_frame] = state.output_buffer[
+                state.block_frame :
             ].clone()
-            self.output_buffer[-self.block_frame :] = infer_wav[-self.block_frame :]
-            infer_wav = self.tg(
-                infer_wav.unsqueeze(0), self.output_buffer.unsqueeze(0)
+            state.output_buffer[-state.block_frame :] = infer_wav[-state.block_frame :]
+            infer_wav = state.tg(
+                infer_wav.unsqueeze(0), state.output_buffer.unsqueeze(0)
             ).squeeze(0)
         # volume envelop mixing
         if self.gui_config.rms_mix_rate < 1 and self.function == "vc":
             if self.gui_config.I_noise_reduce:
-                input_wav = self.input_wav_denoise[self.extra_frame :]
+                input_wav = state.input_wav_denoise[state.extra_frame :]
             else:
-                input_wav = self.input_wav[self.extra_frame :]
+                input_wav = state.input_wav[state.extra_frame :]
             rms1 = librosa.feature.rms(
                 y=input_wav[: infer_wav.shape[0]].cpu().numpy(),
-                frame_length=4 * self.zc,
-                hop_length=self.zc,
+                frame_length=4 * state.zc,
+                hop_length=state.zc,
             )
             rms1 = torch.from_numpy(rms1).to(self.config.device)
             rms1 = F.interpolate(
@@ -388,8 +404,8 @@ class UiState:
             )[0, 0, :-1]
             rms2 = librosa.feature.rms(
                 y=infer_wav[:].cpu().numpy(),
-                frame_length=4 * self.zc,
-                hop_length=self.zc,
+                frame_length=4 * state.zc,
+                hop_length=state.zc,
             )
             rms2 = torch.from_numpy(rms2).to(self.config.device)
             rms2 = F.interpolate(
@@ -404,13 +420,13 @@ class UiState:
             )
         # SOLA algorithm from https://github.com/yxlllc/DDSP-SVC
         conv_input = infer_wav[
-            None, None, : self.sola_buffer_frame + self.sola_search_frame
+            None, None, : state.sola_buffer_frame + state.sola_search_frame
         ]
-        cor_nom = F.conv1d(conv_input, self.sola_buffer[None, None, :])
+        cor_nom = F.conv1d(conv_input, state.sola_buffer[None, None, :])
         cor_den = torch.sqrt(
             F.conv1d(
                 conv_input**2,
-                torch.ones(1, 1, self.sola_buffer_frame, device=self.config.device),
+                torch.ones(1, 1, state.sola_buffer_frame, device=self.config.device),
             )
             + 1e-8
         )
@@ -422,22 +438,22 @@ class UiState:
         printt("sola_offset = %d", int(sola_offset))
         infer_wav = infer_wav[sola_offset:]
         if "privateuseone" in str(self.config.device) or not self.gui_config.use_pv:
-            infer_wav[: self.sola_buffer_frame] *= self.fade_in_window
-            infer_wav[: self.sola_buffer_frame] += (
-                self.sola_buffer * self.fade_out_window
+            infer_wav[: state.sola_buffer_frame] *= state.fade_in_window
+            infer_wav[: state.sola_buffer_frame] += (
+                state.sola_buffer * state.fade_out_window
             )
         else:
-            infer_wav[: self.sola_buffer_frame] = phase_vocoder(
-                self.sola_buffer,
-                infer_wav[: self.sola_buffer_frame],
-                self.fade_out_window,
-                self.fade_in_window,
+            infer_wav[: state.sola_buffer_frame] = phase_vocoder(
+                state.sola_buffer,
+                infer_wav[: state.sola_buffer_frame],
+                state.fade_out_window,
+                state.fade_in_window,
             )
-        self.sola_buffer[:] = infer_wav[
-            self.block_frame : self.block_frame + self.sola_buffer_frame
+        state.sola_buffer[:] = infer_wav[
+            state.block_frame : state.block_frame + state.sola_buffer_frame
         ]
         output_data[:] = (
-            infer_wav[: self.block_frame]
+            infer_wav[: state.block_frame]
             .repeat(self.gui_config.channels, 1)
             .t()
             .cpu()
