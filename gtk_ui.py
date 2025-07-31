@@ -492,36 +492,76 @@ def get_device_channels():
     return min(max_input_channels, max_output_channels, 2)
 
 
+# def update_devices(state: UiState, hostapi_name: Optional[str] = None):
+#     """Get devices"""
+#     sd._terminate()
+#     sd._initialize()
+
+#     devices = sd.query_devices()
+#     hostapis = sd.query_hostapis()
+
+#     for hostapi in hostapis:
+#         for device_idx in hostapi["devices"]:
+#             devices[device_idx]["hostapi_name"] = hostapi["name"]
+
+#     state.hostapis = [hostapi["name"] for hostapi in hostapis]
+
+#     if hostapi_name not in state.hostapis:
+#         hostapi_name = state.hostapis[0]
+
+#     for d in devices:
+#         # Filter for devices matching the selected host API
+#         if d.get("hostapi_name") == hostapi_name:
+#             # Use .get() for a safe fallback from index to name
+#             device_identifier = d.get("index", d["name"])
+#             # Add to input lists if it's an input device
+#             if d["max_input_channels"] > 0:
+#                 state.input_devices.append(d["name"])
+#                 state.input_devices_indices.append(device_identifier)
+#             # Add to output lists if it's an output device
+#             if d["max_output_channels"] > 0:
+#                 state.output_devices.append(d["name"])
+#                 state.output_devices_indices.append(device_identifier)
+
+#     print(state)
+
+
 def update_devices(state: UiState, hostapi_name: Optional[str] = None):
     """Get devices"""
     sd._terminate()
     sd._initialize()
-
     devices = sd.query_devices()
+    # print(f"devices: {devices}")
     hostapis = sd.query_hostapis()
-
     for hostapi in hostapis:
+        # print(f"Hostapi: {hostapi}")
         for device_idx in hostapi["devices"]:
             devices[device_idx]["hostapi_name"] = hostapi["name"]
-
+            
     state.hostapis = [hostapi["name"] for hostapi in hostapis]
-
+    
     if hostapi_name not in state.hostapis:
         hostapi_name = state.hostapis[0]
-
-    for d in devices:
-        # Filter for devices matching the selected host API
-        if d.get("hostapi_name") == hostapi_name:
-            # Use .get() for a safe fallback from index to name
-            device_identifier = d.get("index", d["name"])
-            # Add to input lists if it's an input device
-            if d["max_input_channels"] > 0:
-                state.input_devices.append(d["name"])
-                state.input_devices_indices.append(device_identifier)
-            # Add to output lists if it's an output device
-            if d["max_output_channels"] > 0:
-                state.output_devices.append(d["name"])
-                state.output_devices_indices.append(device_identifier)
+    state.input_devices = [
+        d["name"]
+        for d in devices
+        if d["max_input_channels"] > 0 and d["hostapi_name"] == hostapi_name
+    ]
+    state.output_devices = [
+        d["name"]
+        for d in devices
+        if d["max_output_channels"] > 0 and d["hostapi_name"] == hostapi_name
+    ]
+    state.input_devices_indices = [
+        d["index"] if "index" in d else d["name"]
+        for d in devices
+        if d["max_input_channels"] > 0 and d["hostapi_name"] == hostapi_name
+    ]
+    state.output_devices_indices = [
+        d["index"] if "index" in d else d["name"]
+        for d in devices
+        if d["max_output_channels"] > 0 and d["hostapi_name"] == hostapi_name
+    ]
 
     print(state)
 
@@ -538,11 +578,11 @@ def set_devices(state: UiState, input_device, output_device):
     printt("Output device: %s:%s", str(sd.default.device[1]), output_device)
 class MainWindow(Adw.ApplicationWindow):
     state: UiState = UiState()
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.set_default_size(500, 300)
+        self.set_default_size(500, 500)
+        # self.set_siz
         # Note: The title is now set on the HeaderBar, not the window.
 
         # 1. Create the ToolbarView as the main container
@@ -595,6 +635,7 @@ class MainWindow(Adw.ApplicationWindow):
         
         # Initial population of devices
         self.reload_device(None)
+        
     def reload_device(self, button: Gtk.Button | None):
         update_devices(self.state)
         input_devices: List[str] = self.state.input_devices
