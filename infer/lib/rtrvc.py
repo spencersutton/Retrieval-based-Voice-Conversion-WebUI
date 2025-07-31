@@ -2,14 +2,15 @@ from io import BytesIO
 import os
 import sys
 import traceback
-from typing import Literal, Tuple, Union
+from typing import Literal, Optional, Tuple, Union, cast
 from infer.lib import jit
 from infer.lib.jit.get_synthesizer import get_synthesizer
 from time import time as ttime
 import fairseq
 import faiss
 import numpy as np
-import parselmouth
+
+# import parselmouth
 
 # import pyworld
 import scipy.signal as signal
@@ -21,7 +22,7 @@ from torchaudio.transforms import Resample
 
 now_dir = os.getcwd()
 sys.path.append(now_dir)
-from multiprocessing import Manager as M
+from multiprocessing import Manager as M, Queue
 
 from configs.config import Config
 
@@ -42,21 +43,24 @@ def printt(strr, *args):
 # config.device=torch.device("cpu")########强制cpu测试
 # config.is_half=False########强制cpu测试
 class RVC:
+    tgt_sr: int
+    f0_up_key: int
+
     def __init__(
         self,
-        key,
-        formant,
+        key: int,
+        formant: float,
         pth_path: str,
         index_path: str,
         index_rate,
         n_cpu: int,
-        inp_q,
-        opt_q,
+        inp_q: Queue,
+        opt_q: Queue,
         config: Config,
-        last_rvc=None,
+        last_rvc: Optional["RVC"] = None,
     ) -> None:
         """
-        初始化
+        Initialization for realtime RVC object
         """
         try:
             if config.dml == True:
@@ -196,13 +200,13 @@ class RVC:
         except:
             printt(traceback.format_exc())
 
-    def change_key(self, new_key):
+    def change_key(self, new_key: int):
         self.f0_up_key = new_key
 
-    def change_formant(self, new_formant):
+    def change_formant(self, new_formant: float):
         self.formant_shift = new_formant
 
-    def change_index_rate(self, new_index_rate):
+    def change_index_rate(self, new_index_rate: float):
         if new_index_rate != 0 and self.index_rate == 0:
             self.index = faiss.read_index(self.index_path)
             self.big_npy = self.index.reconstruct_n(0, self.index.ntotal)
@@ -231,32 +235,34 @@ class RVC:
         n_cpu: Union[int, str],
         method: Literal["rmvpe", "crepe", "fcpe", "pm"] = "rmvpe",
     ):
-        n_cpu = int(n_cpu)
+        n_cpu: int = cast(int, int(n_cpu))
         if method == "crepe":
             return self.get_f0_crepe(x, f0_up_key)
         if method == "rmvpe":
             return self.get_f0_rmvpe(x, f0_up_key)
         if method == "fcpe":
             return self.get_f0_fcpe(x, f0_up_key)
-        x = x.cpu().numpy()
-        if method == "pm":
-            p_len = x.shape[0] // 160 + 1
-            f0_min = 65
-            l_pad = int(np.ceil(1.5 / f0_min * 16000))
-            r_pad = l_pad + 1
-            s = parselmouth.Sound(np.pad(x, (l_pad, r_pad)), 16000).to_pitch_ac(
-                time_step=0.01,
-                voicing_threshold=0.6,
-                pitch_floor=f0_min,
-                pitch_ceiling=1100,
-            )
-            assert np.abs(s.t1 - 1.5 / f0_min) < 0.001
-            f0 = s.selected_array["frequency"]
-            if len(f0) < p_len:
-                f0 = np.pad(f0, (0, p_len - len(f0)))
-            f0 = f0[:p_len]
-            f0 *= pow(2, f0_up_key / 12)
-            return self.get_f0_post(f0)
+        x: np.ndarray = x.cpu().numpy()
+
+        # if method == "pm":
+        #     p_len = x.shape[0] // 160 + 1
+        #     f0_min = 65
+        #     l_pad = int(np.ceil(1.5 / f0_min * 16000))
+        #     r_pad = l_pad + 1
+        #     s = parselmouth.Sound(np.pad(x, (l_pad, r_pad)), 16000).to_pitch_ac(
+        #         time_step=0.01,
+        #         voicing_threshold=0.6,
+        #         pitch_floor=f0_min,
+        #         pitch_ceiling=1100,
+        #     )
+        #     assert np.abs(s.t1 - 1.5 / f0_min) < 0.001
+        #     f0 = s.selected_array["frequency"]
+        #     if len(f0) < p_len:
+        #         f0 = np.pad(f0, (0, p_len - len(f0)))
+        #     f0 = f0[:p_len]
+        #     f0 *= pow(2, f0_up_key / 12)
+        #     return self.get_f0_post(f0)
+
         # if n_cpu == 1:
         #     f0, t = pyworld.harvest(
         #         x.astype(np.double),
@@ -271,7 +277,7 @@ class RVC:
         f0bak = np.zeros(x.shape[0] // 160 + 1, dtype=np.float64)
         length = len(x)
         part_length = 160 * ((length // 160 - 1) // n_cpu + 1)
-        n_cpu = (length // 160 - 1) // (part_length // 160) + 1
+        n_cpu: int = (length // 160 - 1) // (part_length // 160) + 1
         ts = ttime()
         res_f0 = mm.dict()
         for idx in range(n_cpu):
@@ -282,7 +288,7 @@ class RVC:
                 self.inp_q.put(
                     (idx, x[part_length * idx - 320 : tail], res_f0, n_cpu, ts)
                 )
-        while 1:
+        while True:
             res_ts = self.opt_q.get()
             if res_ts == ts:
                 break
@@ -325,7 +331,9 @@ class RVC:
         f0 *= pow(2, f0_up_key / 12)
         return self.get_f0_post(f0)
 
-    def get_f0_rmvpe(self, x, f0_up_key):
+    def get_f0_rmvpe(
+        self, x: torch.Tensor, f0_up_key: int
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         if hasattr(self, "model_rmvpe") == False:
             from infer.lib.rmvpe import RMVPE
 
@@ -340,7 +348,9 @@ class RVC:
         f0 *= pow(2, f0_up_key / 12)
         return self.get_f0_post(f0)
 
-    def get_f0_fcpe(self, x, f0_up_key):
+    def get_f0_fcpe(
+        self, x: torch.Tensor, f0_up_key: int
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         if hasattr(self, "model_fcpe") == False:
             from torchfcpe import spawn_bundled_infer_model
 
@@ -362,7 +372,7 @@ class RVC:
     def infer(
         self,
         input_wav: torch.Tensor,
-        block_frame_16k,
+        block_frame_16k: int,
         skip_head,
         return_length,
         f0method,

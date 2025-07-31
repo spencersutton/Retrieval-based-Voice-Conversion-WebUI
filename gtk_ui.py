@@ -95,7 +95,7 @@ class GUIConfig:
     rms_mix_rate: float = 0.0
     index_rate: float = 0.0
     n_cpu: int = min(n_cpu, 4)
-    f0method: Literal["pm", "harvest", "crepe", "rmvpe", "fcpe"] = "fcpe"
+    f0method: Literal["harvest", "crepe", "rmvpe", "fcpe"] = "fcpe"
     sg_hostapi: str = ""
     sg_input_device: str = ""
     sg_output_device: str = ""
@@ -133,8 +133,14 @@ class VCState:
 
     tg: TorchGate
 
-    def __init__(self, gui_config: GUIConfig, rvc_config: Config):
+    def __init__(
+        self,
+        gui_config: GUIConfig,
+        rvc_config: Config,
+        last_state: Optional["VCState"] = None,
+    ):
         torch.cuda.empty_cache()
+
         self.rvc = rvc_for_realtime.RVC(
             gui_config.pitch,
             gui_config.formant,
@@ -145,7 +151,7 @@ class VCState:
             inp_q,
             opt_q,
             rvc_config,
-            self.rvc if hasattr(self, "rvc") else None,
+            last_state.rvc if last_state else None,
         )
 
         gui_config.samplerate = (
@@ -153,6 +159,87 @@ class VCState:
             if gui_config.sr_type == "sr_model"
             else get_device_samplerate()
         )
+
+        gui_config.channels = get_device_channels()
+
+        self.zc = gui_config.samplerate // 100
+        self.block_frame = (
+            int(np.round(gui_config.block_time * gui_config.samplerate / self.zc))
+            * self.zc
+        )
+
+        self.block_frame_16k = 160 * self.block_frame // self.zc
+
+        self.crossfade_frame = (
+            int(np.round(gui_config.crossfade_time * gui_config.samplerate / self.zc))
+            * self.zc
+        )
+        self.sola_buffer_frame = min(self.crossfade_frame, 4 * self.zc)
+        self.sola_search_frame = self.zc
+        self.extra_frame = (
+            int(np.round(gui_config.extra_time * gui_config.samplerate / self.zc))
+            * self.zc
+        )
+
+        self.input_wav = torch.zeros(
+            self.extra_frame
+            + self.crossfade_frame
+            + self.sola_search_frame
+            + self.block_frame,
+            device=rvc_config.device,
+            dtype=torch.float32,
+        )
+
+        self.input_wav_denoise: torch.Tensor = self.input_wav.clone()
+        self.input_wav_res = torch.zeros(
+            160 * self.input_wav.shape[0] // self.zc,
+            device=rvc_config.device,
+            dtype=torch.float32,
+        )
+        self.rms_buffer = np.zeros(4 * self.zc, dtype="float32")
+        self.sola_buffer = torch.zeros(
+            self.sola_buffer_frame, device=rvc_config.device, dtype=torch.float32
+        )
+
+        self.nr_buffer = self.sola_buffer.clone()
+        self.output_buffer = self.input_wav.clone()
+        self.skip_head = self.extra_frame // self.zc
+
+        self.return_length = (
+            self.block_frame + self.sola_buffer_frame + self.sola_search_frame
+        ) // self.zc
+        self.fade_in_window: torch.Tensor = (
+            torch.sin(
+                0.5
+                * np.pi
+                * torch.linspace(
+                    0.0,
+                    1.0,
+                    steps=self.sola_buffer_frame,
+                    device=rvc_config.device,
+                    dtype=torch.float32,
+                )
+            )
+            ** 2
+        )
+
+        self.fade_out_window: torch.Tensor = 1 - self.fade_in_window
+        self.resampler = tat.Resample(
+            orig_freq=gui_config.samplerate,
+            new_freq=16000,
+            dtype=torch.float32,
+        ).to(rvc_config.device)
+        if self.rvc.tgt_sr != gui_config.samplerate:
+            self.resampler2 = tat.Resample(
+                orig_freq=self.rvc.tgt_sr,
+                new_freq=gui_config.samplerate,
+                dtype=torch.float32,
+            ).to(rvc_config.device)
+        else:
+            self.resampler2 = None
+        self.tg = TorchGate(
+            sr=gui_config.samplerate, n_fft=4 * self.zc, prop_decrease=0.9
+        ).to(rvc_config.device)
 
 
 class UiState:
@@ -163,6 +250,8 @@ class UiState:
     output_devices: List[str] = []
     input_devices_indices: List[int] = []
     output_devices_indices: List[int] = []
+
+    vc_state: Optional[VCState] = None
 
     def __init__(self) -> None:
         self.gui_config = GUIConfig()
@@ -190,6 +279,10 @@ class UiState:
         self.stream.abort()
         self.stream.close()
         self.stream = None
+
+    def start_vc(self):
+        self.vc_state = VCState(self.gui_config, self.config, self.vc_state)
+        self.start_stream()
 
     def __str__(self):
         json_output = json.dumps(self, indent=4, cls=StateEncoder)
