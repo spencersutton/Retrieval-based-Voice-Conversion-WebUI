@@ -15,7 +15,6 @@ import gradio as gr
 
 logger = logging.getLogger(__name__)
 
-from functools import lru_cache
 from time import time as ttime
 from fairseq.models.hubert.hubert import (
     HubertModel as FairseqHubertModel,
@@ -24,7 +23,6 @@ import faiss
 import librosa
 import numpy as np
 import parselmouth
-import pyworld
 import torch
 import torch.nn.functional as F
 import torchcrepe
@@ -36,20 +34,6 @@ sys.path.append(now_dir)
 bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
 
 input_audio_path2wav = {}
-
-
-@lru_cache
-def cache_harvest_f0(input_audio_path: str, fs, f0max, f0min, frame_period):
-    audio = input_audio_path2wav[input_audio_path]
-    f0, t = pyworld.harvest(
-        audio,
-        fs=fs,
-        f0_ceil=f0max,
-        f0_floor=f0min,
-        frame_period=frame_period,
-    )
-    f0 = pyworld.stonemask(audio, f0, t, fs)
-    return f0
 
 
 def change_rms(
