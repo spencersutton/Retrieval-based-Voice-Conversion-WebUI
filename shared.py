@@ -106,9 +106,10 @@ else:
 gpus = "-".join([i[0] for i in gpu_infos])
 
 
-weight_root = os.getenv("weight_root")
-index_root = os.getenv("index_root")
-outside_index_root = os.getenv("outside_index_root")
+weight_root = os.getenv("WEIGHT_ROOT", "assets/weights")
+index_root = os.getenv("INDEX_ROOT", "logs")
+outside_index_root = os.getenv("OUTSIDE_INDEX_ROOT", "assets/indices")
+rmvpe_root= os.getenv("RMVPE_ROOT", "assets/rmvpe")
 
 names = []
 for name in os.listdir(weight_root):

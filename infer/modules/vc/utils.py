@@ -4,6 +4,7 @@ from typing import List, Tuple, Union
 from fairseq import checkpoint_utils
 from configs.config import Config
 from fairseq.models.hubert.hubert import HubertModel
+import shared
 
 def get_index_path_from_model(sid: str) -> str:
     return next(
@@ -11,7 +12,7 @@ def get_index_path_from_model(sid: str) -> str:
             f
             for f in [
                 os.path.join(root, name)
-                for root, _, files in os.walk(os.getenv("index_root"), topdown=False)
+                for root, _, files in os.walk(shared.index_root, topdown=False)
                 for name in files
                 if name.endswith(".index") and "trained" not in name
             ]
