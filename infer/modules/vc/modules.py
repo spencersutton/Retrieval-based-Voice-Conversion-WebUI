@@ -2,11 +2,9 @@ import traceback
 import logging
 from typing import Any, Dict, List, Literal, Optional, Union
 import gradio as gr
-import librosa
 import resampy
 
 from configs.config import Config
-from fairseq.data.dictionary import Dictionary
 logger = logging.getLogger(__name__)
 
 import numpy as np
@@ -75,8 +73,11 @@ class VC:
 
     def get_vc(self: "VC", sid: Optional[str], *to_return_protect):
         if sid is None or sid == "":
-            logger.info("No SID")
-            return ()
+            logger.warning("No SID")
+            return (
+            {"visible": True, "value": 0.5, "__type__": "update"},
+            {"choices": [], "value": "", "__type__": "update"}
+        )
         logger.info("Get sid: " + sid)
 
         to_return_protect0 = {

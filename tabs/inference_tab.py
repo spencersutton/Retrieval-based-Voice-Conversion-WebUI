@@ -9,7 +9,6 @@ from shared import PITCH_METHODS, PitchMethod, i18n
 def clean():
     return {"value": "", "__type__": "update"}
 
-
 def change_choices():
     names = []
     for name in os.listdir(shared.weight_root):
@@ -57,9 +56,24 @@ def create_inference_tab(app: gr.Blocks):
         gr.api(get_index_paths, api_name="get_index_paths")
         with gr.Row():
             with gr.Column():
-                model_dropdown = gr.Dropdown(
-                    label=i18n("Model"), choices=sorted(shared.names)
-                )
+                model_list = sorted(shared.names)
+                if not model_list:
+                    # If no models are found, display a Textbox with a message
+                    gr.Textbox(
+                        label=i18n("Model"),
+                        value=i18n("No models found."),
+                        interactive=False,
+                        visible=True,
+                    )
+                    model_dropdown = gr.Dropdown(
+                        label=i18n("Model"), choices=[], visible=False
+                    )
+                else:
+                    # If models are found, display the Dropdown
+                    model_dropdown = gr.Dropdown(
+                        label=i18n("Model"), choices=model_list, visible=True
+                    )
+
                 with gr.Column():
                     refresh_btn = gr.Button(i18n("Refresh"), variant="primary")
                 with gr.TabItem(i18n("Basic")):

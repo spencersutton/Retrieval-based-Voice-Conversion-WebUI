@@ -116,7 +116,6 @@ for name in os.listdir(weight_root):
         names.append(name)
 index_paths = [""]  # Fix for gradio 5
 
-
 def lookup_indices(index_root):
     # shared.index_paths
     for root, dirs, files in os.walk(index_root, topdown=False):
