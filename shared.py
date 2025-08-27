@@ -5,11 +5,19 @@ PitchMethod = Literal["pm", "harvest", "crepe", "rmvpe"]
 PITCH_METHODS: list[PitchMethod] = ["pm", "harvest", "crepe", "rmvpe", "fcpe"]
 
 import logging
+
 import os
 import shutil
 
 import warnings
 from dotenv import load_dotenv
+
+
+load_dotenv()
+logging.getLogger("numba").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger('fairseq').setLevel(logging.WARNING)
+
 import fairseq
 import torch
 
@@ -17,9 +25,7 @@ from configs.config import Config
 from i18n.i18n import I18nAuto
 from infer.modules.vc.modules import VC
 
-load_dotenv()
-logging.getLogger("numba").setLevel(logging.WARNING)
-logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 logger = logging.getLogger(__name__)
 now_dir = os.getcwd()

@@ -5,8 +5,17 @@ import sys
 import traceback
 import logging
 from typing import List, Literal, Optional, Tuple, Union
+import warnings
+# Use a context manager to suppress the warning during import
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore",
+        message="pkg_resources is deprecated as an API.*",
+        category=UserWarning,
+        module='pyworld',  # Optional, but adds precision
+    )
+    import pyworld
 
-import pyworld
 from configs.config import Config
 from infer.lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid,

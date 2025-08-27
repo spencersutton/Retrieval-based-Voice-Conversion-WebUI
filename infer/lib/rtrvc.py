@@ -3,8 +3,17 @@ import os
 import sys
 import traceback
 from typing import Literal, Optional, Tuple, Union, cast
-
-import pyworld
+import warnings
+# Use a context manager to suppress the warning during import
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore",
+        message="pkg_resources is deprecated as an API.*",
+        category=UserWarning,
+        module='pyworld',  # Optional, but adds precision
+    )
+    import pyworld
+# import pyworld
 from infer.lib import jit
 from infer.lib.jit.get_synthesizer import get_synthesizer
 from time import time as ttime

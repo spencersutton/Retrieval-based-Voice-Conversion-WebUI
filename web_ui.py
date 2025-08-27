@@ -1,6 +1,7 @@
+
+import shared
 import fairseq
 import torch
-import shared
 import gradio as gr
 import git
 from tabs.ckpt_processing_tab import create_ckpt_processing_tab
