@@ -48,7 +48,7 @@ if config.dml == True:
     fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
 i18n = I18nAuto()
 logger.info(i18n)
-# get gpt count
+# Get GPU count
 ngpu = torch.cuda.device_count()
 gpu_infos: list[str] = []
 mem: list[int] = []
