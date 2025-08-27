@@ -182,8 +182,8 @@ class VC:
         f0_method: str,
         file_index: Optional[str],  # Path to .index file from dropdown
         index_rate: float,
-        # filter_radius: int,  # Typically an integer for radius
-        resample_sr: int,  # Target sample rate, typically an integer
+        # filter_radius: int,
+        resample_sr: int,  # Target sample rate
         rms_mix_rate: float,
         protect: float,
         progress: gr.Progress = gr.Progress(),
@@ -248,3 +248,18 @@ class VC:
             info = traceback.format_exc()
             logger.warning(info)
             return f"Failed with error:\n{info}", None
+
+    def vc_realtime(
+        self: "VC",
+        sr_and_audio: Optional[Tuple[int, np.ndarray]],
+        f0_up_key: int,
+        f0_method: str,
+        file_index: Optional[str],  # Path to .index file from dropdown
+        index_rate: float,
+        # filter_radius: int, 
+        resample_sr: int,  # Target sample rate
+        rms_mix_rate: float,
+        protect: float,
+        # progress: gr.Progress = gr.Progress(),
+    ):
+        pass
