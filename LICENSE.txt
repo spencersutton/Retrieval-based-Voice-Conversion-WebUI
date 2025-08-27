@@ -1,5 +1,6 @@
 MIT License
 
+Copyright (c) 2025 Yamada Sexta
 Copyright (c) 2023 liujing04
 Copyright (c) 2023 源文雨
 Copyright (c) 2023 Ftps
