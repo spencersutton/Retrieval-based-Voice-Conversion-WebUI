@@ -5,6 +5,7 @@ import gradio as gr
 import resampy
 
 from configs.config import Config
+
 logger = logging.getLogger(__name__)
 
 import numpy as np
@@ -24,7 +25,7 @@ from infer.modules.vc.utils import *
 
 
 def resample_audio(
-    audio_array: np.ndarray,  # Your input audio array, potentially stereo
+    audio_array: np.ndarray,
     orig_sr: int,
     target_sr: int,
 ):
@@ -75,9 +76,9 @@ class VC:
         if sid is None or sid == "":
             logger.warning("No SID")
             return (
-            {"visible": True, "value": 0.5, "__type__": "update"},
-            {"choices": [], "value": "", "__type__": "update"}
-        )
+                {"visible": True, "value": 0.5, "__type__": "update"},
+                {"choices": [], "value": "", "__type__": "update"},
+            )
         logger.info("Get sid: " + sid)
 
         to_return_protect0 = {
@@ -128,7 +129,7 @@ class VC:
                 "",
                 "",
             )
-        person = f'{shared.weight_root}/{sid}'
+        person = f"{shared.weight_root}/{sid}"
         logger.info(f"Loading: {person}")
 
         self.cpt = torch.load(person, map_location="cpu", weights_only=False)
@@ -175,12 +176,10 @@ class VC:
 
     def vc_single(
         self: "VC",
-        # sid: int,
         sr_and_audio: Optional[Tuple[int, np.ndarray]],
         f0_up_key: int,
         f0_method: str,
-        # file_index: Optional[str],  # Path to .index file from textbox
-        file_index2: Optional[str],  # Path to .index file from dropdown
+        file_index: Optional[str],  # Path to .index file from dropdown
         index_rate: float,
         # filter_radius: int,  # Typically an integer for radius
         resample_sr: int,  # Target sample rate, typically an integer
@@ -192,10 +191,6 @@ class VC:
         f0_file = None
         sid = 0
         filter_radius = 3
-        # if input_audio_path is None:
-        #     return "Audio is required", None
-        # if audio is None:
-        # return "Audio is required", None
         f0_up_key = int(f0_up_key)
         try:
             if sr_and_audio is None:
@@ -209,23 +204,9 @@ class VC:
             if audio_max > 1:
                 audio /= audio_max
             times = [0, 0, 0]
-
             if self.hubert_model is None:
-                # torch.serialization.add_safe_globals([Dictionary])
                 self.hubert_model = load_hubert(self.config)
-
-            if file_index:
-                file_index = (
-                    file_index.strip(" ")
-                    .strip('"')
-                    .strip("\n")
-                    .strip('"')
-                    .strip(" ")
-                    .replace("trained", "added")
-                )
-            elif file_index2:
-                file_index = file_index2
-            else:
+            if file_index is None:
                 file_index = ""
 
             audio_opt: np.ndarray = self.pipeline.pipeline(
@@ -254,13 +235,12 @@ class VC:
             else:
                 tgt_sr = self.tgt_sr
             index_info = (
-                "Index:\n%s." % file_index
+                f"Using Index: \n{file_index}"
                 if os.path.exists(file_index)
                 else "Index not used."
             )
             return (
-                "Success.\n%s\nTime:\nnpy: %.2fs, f0: %.2fs, infer: %.2fs."
-                % (index_info, *times),
+                f"Success.\n{index_info}\nTime:\nnpy: {times[0]:.2f}s, f0: {times[1]:.2f}s, infer: {times[2]:.2f}s.",
                 (tgt_sr, audio_opt),
             )
         except:
