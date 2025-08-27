@@ -22,7 +22,7 @@ This fork aims to improve upon the [original RVC project](https://github.com/RVC
 
 ### Run on Google Colab
 
-Follow the instructions on this [notebook](https://colab.research.google.com/github/yamada-sexta/rvc-webgui-fork/blob/main/notebook/colab.ipynb).
+Follow instructions on this [notebook](https://colab.research.google.com/github/yamada-sexta/rvc-webgui-fork/blob/main/notebook/colab.ipynb).
 
 ### Run locally
 
