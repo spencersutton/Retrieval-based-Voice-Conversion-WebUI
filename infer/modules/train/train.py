@@ -43,7 +43,7 @@ import torch.multiprocessing as mp
 from torch.nn import functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 
 from infer.lib.infer_pack import commons
 from infer.lib.train.data_utils import (
@@ -123,8 +123,8 @@ def run(rank, n_gpus: int, hps, logger: logging.Logger):
         # logger = utils.get_logger(hps.model_dir)
         logger.info(hps)
         # utils.check_git_hash(hps.model_dir)
-        writer = SummaryWriter(log_dir=hps.model_dir)
-        writer_eval = SummaryWriter(log_dir=os.path.join(hps.model_dir, "eval"))
+        # writer = SummaryWriter(log_dir=hps.model_dir)
+        # writer_eval = SummaryWriter(log_dir=os.path.join(hps.model_dir, "eval"))
 
     dist.init_process_group(
         backend="gloo", init_method="env://", world_size=n_gpus, rank=rank

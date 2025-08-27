@@ -2,7 +2,6 @@ FROM nvidia/cuda:12.2.2-devel-ubuntu22.04
 ARG DEBIAN_FRONTEND=noninteractive
 EXPOSE 7865
 
-
 RUN apt-get update && apt-get install -y \
     curl ca-certificates \
     git \

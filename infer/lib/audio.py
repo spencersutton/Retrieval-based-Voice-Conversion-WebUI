@@ -1,10 +1,7 @@
-import platform, os
-import ffmpeg
+import platform
 import numpy as np
 import av
-import traceback
 import re
-
 
 def wav2(input_path: str, output_path: str, format: str):
     inp = av.open(input_path, "rb")
@@ -28,25 +25,27 @@ def wav2(input_path: str, output_path: str, format: str):
     out.close()
     inp.close()
 
-
 def load_audio(file: str, sr: int) -> np.ndarray:
     try:
-        # https://github.com/openai/whisper/blob/main/whisper/audio.py#L26
-        # This launches a subprocess to decode audio while down-mixing and resampling as necessary.
-        # Requires the ffmpeg CLI and `ffmpeg-python` package to be installed.
-        file = clean_path(file)  # 防止小白拷路径头尾带了空格和"和回车
-        if os.path.exists(file) == False:
-            raise RuntimeError(f"Wrong audio path: {file}")
-        out, _ = (
-            ffmpeg.input(file, threads=0)
-            .output("-", format="f32le", acodec="pcm_f32le", ac=1, ar=sr)
-            .run(cmd=["ffmpeg", "-nostdin"], capture_stdout=True, capture_stderr=True)
-        )
-    except Exception as e:
-        traceback.print_exc()
-        raise RuntimeError(f"Failed to load audio: {e}")
+        with av.open(file, 'r') as container:
+            # Get the first audio stream
+            stream = next(s for s in container.streams if s.type == 'audio')
+            
+            # Set the output format: single channel, float32, and the target sample rate
+            stream.layout = 'mono'
+            stream.format = 'flt'
+            stream.rate = sr
 
-    return np.frombuffer(out, np.float32).flatten()
+            audio_data = []
+            for frame in container.decode(stream):
+                # Convert the PyAV frame to a NumPy array and append
+                audio_data.append(frame.to_ndarray())
+            
+            # Concatenate all the frames into a single NumPy array
+            return np.concatenate(audio_data, axis=1).flatten()
+    except Exception as e:
+        # A more specific error might be raised by av.open or during decoding
+        raise RuntimeError(f"Failed to load audio with PyAV: {e}")
 
 
 def clean_path(path_str: str) -> str:
