@@ -13,8 +13,6 @@ import pyworld
 
 from infer.lib.audio import load_audio
 
-logging.getLogger("numba").setLevel(logging.WARNING)
-
 n_part = int(sys.argv[1])
 i_part = int(sys.argv[2])
 i_gpu = sys.argv[3]

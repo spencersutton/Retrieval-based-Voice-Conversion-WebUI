@@ -13,8 +13,6 @@ import pyworld
 
 from infer.lib.audio import load_audio
 
-logging.getLogger("numba").setLevel(logging.WARNING)
-
 exp_dir = sys.argv[1]
 import torch_directml
 

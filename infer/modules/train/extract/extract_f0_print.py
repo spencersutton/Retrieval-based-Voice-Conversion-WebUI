@@ -13,7 +13,6 @@ import pyworld
 
 from infer.lib.audio import load_audio
 
-logging.getLogger("numba").setLevel(logging.WARNING)
 from multiprocessing import Process
 
 exp_dir = sys.argv[1]

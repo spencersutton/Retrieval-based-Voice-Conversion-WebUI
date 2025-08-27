@@ -2,7 +2,6 @@ import platform, os
 import ffmpeg
 import numpy as np
 import av
-from io import BytesIO
 import traceback
 import re
 
