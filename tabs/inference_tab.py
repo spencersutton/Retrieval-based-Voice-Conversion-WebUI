@@ -3,7 +3,7 @@ from typing import List
 import gradio as gr
 
 import shared
-from shared import i18n
+from shared import PITCH_METHODS, PitchMethod, i18n
 
 
 def clean():
@@ -26,15 +26,16 @@ def change_choices():
     }
 
 
-pitch_methods = (
-    ["pm", "harvest", "crepe", "rmvpe"]
-    if shared.config.dml == False
-    else ["pm", "harvest", "rmvpe"]
-)
+def get_pitch_methods() -> List[PitchMethod]:
+    if not hasattr(shared.config, "dml"):
+        # Handle cases where shared.config.dml might not exist
+        return PITCH_METHODS
 
-
-def get_pitch_methods() -> List[str]:
-    return pitch_methods
+    return (
+        [method for method in PITCH_METHODS if method != "crepe"]
+        if shared.config.dml
+        else PITCH_METHODS
+    )
 
 
 def get_model_list() -> List[str]:
@@ -137,7 +138,7 @@ def create_inference_tab(app: gr.Blocks):
                 )
                 f0method0 = gr.Radio(
                     label=i18n("Pitch Method"),
-                    choices=pitch_methods,
+                    choices=get_pitch_methods(),
                     value="rmvpe",
                     interactive=True,
                 )
