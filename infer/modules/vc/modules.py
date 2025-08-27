@@ -92,7 +92,8 @@ class VC:
         if sid == "" or sid == []:
             if (
                 self.hubert_model is not None
-            ):  # 考虑到轮询, 需要加个判断看是否 sid 是由有模型切换到无模型的
+            ):  
+                # 考虑到轮询, 需要加个判断看是否 sid 是由有模型切换到无模型的
                 logger.info("Clean model cache")
                 del (self.net_g, self.n_spk, self.hubert_model, self.tgt_sr)  # ,cpt
                 self.hubert_model = self.net_g = self.n_spk = self.hubert_model = (
@@ -100,7 +101,7 @@ class VC:
                 ) = None
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
-                ###楼下不这么折腾清理不干净
+                # You just have to follow this instruction to clear it.
                 self.if_f0 = self.cpt.get("f0", 1)
                 self.version = self.cpt.get("version", "v1")
                 if self.version == "v1":
@@ -159,7 +160,7 @@ class VC:
             self.net_g = self.net_g.float()
 
         self.pipeline = Pipeline(self.tgt_sr, self.config)
-        n_spk = self.cpt["config"][-3]
+        # n_spk = self.cpt["config"][-3]
         index = {"value": get_index_path_from_model(sid), "__type__": "update"}
         logger.info("Select index: " + index["value"])
         res = (
@@ -214,14 +215,14 @@ class VC:
                 net_g=self.net_g,
                 sid=sid,
                 audio=audio,
-                input_audio_path="NA",
+                # input_audio_path="NA",
                 times=times,
                 f0_up_key=f0_up_key,
                 f0_method=f0_method,
                 file_index=file_index,
                 index_rate=index_rate,
                 if_f0=self.if_f0,
-                filter_radius=filter_radius,
+                # filter_radius=filter_radius,
                 tgt_sr=self.tgt_sr,
                 resample_sr=resample_sr,
                 rms_mix_rate=rms_mix_rate,
@@ -247,82 +248,3 @@ class VC:
             info = traceback.format_exc()
             logger.warning(info)
             return f"Failed with error:\n{info}", None
-
-    def vc_multi(
-        self: "VC",
-        sid: int,
-        dir_path: str,
-        opt_root: str,
-        paths: List[Union[str, Any]],  # Paths can be strings or gradio File objects
-        f0_up_key: Union[int, float],
-        f0_method: str,
-        file_index: Optional[str],
-        file_index2: Optional[str],
-        index_rate: float,
-        filter_radius: int,
-        resample_sr: int,
-        rms_mix_rate: float,
-        protect: float,
-        format1: str,
-    ):
-        try:
-            dir_path = (
-                dir_path.strip(" ").strip('"').strip("\n").strip('"').strip(" ")
-            )  # 防止小白拷路径头尾带了空格和"和回车
-            opt_root = opt_root.strip(" ").strip('"').strip("\n").strip('"').strip(" ")
-            os.makedirs(opt_root, exist_ok=True)
-            try:
-                if dir_path != "":
-                    paths = [
-                        os.path.join(dir_path, name) for name in os.listdir(dir_path)
-                    ]
-                else:
-                    paths = [path.name for path in paths]
-            except:
-                traceback.print_exc()
-                paths = [path.name for path in paths]
-            infos = []
-            for path in paths:
-                info, opt = self.vc_single(
-                    sid,
-                    path,
-                    f0_up_key,
-                    None,
-                    f0_method,
-                    file_index,
-                    file_index2,
-                    # file_big_npy,
-                    index_rate,
-                    filter_radius,
-                    resample_sr,
-                    rms_mix_rate,
-                    protect,
-                )
-                if "Success" in info:
-                    try:
-                        tgt_sr, audio_opt = opt
-                        if format1 in ["wav", "flac"]:
-                            sf.write(
-                                "%s/%s.%s"
-                                % (opt_root, os.path.basename(path), format1),
-                                audio_opt,
-                                tgt_sr,
-                            )
-                        else:
-                            path = "%s/%s.%s" % (
-                                opt_root,
-                                os.path.basename(path),
-                                format1,
-                            )
-                            with BytesIO() as wavf:
-                                sf.write(wavf, audio_opt, tgt_sr, format="wav")
-                                wavf.seek(0, 0)
-                                with open(path, "wb") as outf:
-                                    wav2(wavf, outf, format1)
-                    except:
-                        info += traceback.format_exc()
-                infos.append("%s->%s" % (os.path.basename(path), info))
-                yield "\n".join(infos)
-            yield "\n".join(infos)
-        except:
-            yield traceback.format_exc()

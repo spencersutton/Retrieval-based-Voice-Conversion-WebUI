@@ -26,7 +26,6 @@ from infer.lib.infer_pack.models import (
 
 import gradio as gr
 
-
 logger = logging.getLogger(__name__)
 
 from time import time as ttime
@@ -48,7 +47,6 @@ sys.path.append(now_dir)
 bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
 
 input_audio_path2wav = {}
-
 
 _wav_cache = {}  # holds np.ndarray -> key mapping
 def _hash_array(arr: np.ndarray) -> str:
@@ -326,14 +324,14 @@ class Pipeline(object):
         ],
         sid: int,
         audio: np.ndarray,
-        input_audio_path: str,
+        # input_audio_path: str,
         times: List[int],
         f0_up_key: int,
         f0_method: shared.PitchMethod,
         file_index: str,
         index_rate: float,
         if_f0: int,
-        filter_radius: int,
+        # filter_radius: int,
         tgt_sr: int,
         resample_sr: int,
         rms_mix_rate: float,
