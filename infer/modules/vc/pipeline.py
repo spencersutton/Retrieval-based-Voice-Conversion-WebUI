@@ -189,11 +189,11 @@ class Pipeline(object):
             feats = model.final_proj(logits[0]) if version == "v1" else logits[0]
         if protect < 0.5 and pitch is not None and pitchf is not None:
             feats0 = feats.clone()
-        if (
-            not isinstance(index, type(None))
-            and not isinstance(big_npy, type(None))
-            and index_rate != 0
-        ):
+            #    not isinstance(index, type(None))
+            # and not isinstance(big_npy, type(None))
+            # and index_rate != 0
+            
+        if index is not None and big_npy is not None and index_rate != 0:
             npy = feats[0].cpu().numpy()
             if self.is_half:
                 npy = npy.astype("float32")
