@@ -26,6 +26,12 @@ ENV PATH="/root/.local/bin/:$PATH"
 # Copy from the cache instead of linking since it's a mounted volume
 ENV UV_LINK_MODE=copy
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    pkg-config \
+    libcairo2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN uv sync --locked
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
