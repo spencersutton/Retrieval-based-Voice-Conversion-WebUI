@@ -10,9 +10,7 @@ from tabs.inference_tab import create_inference_tab
 from tabs.train_tab import create_train_tab
 from tabs.vocal_tab import create_vocal_tab
 
-
 torch.serialization.add_safe_globals([fairseq.data.dictionary.Dictionary])
-
 
 with gr.Blocks(title="RVC WebUI Fork") as app:
     repo = git.Repo(search_parent_directories=True)

@@ -3,6 +3,8 @@ import os
 import sys
 import traceback
 from typing import Literal, Optional, Tuple, Union, cast
+
+import pyworld
 from infer.lib import jit
 from infer.lib.jit.get_synthesizer import get_synthesizer
 from time import time as ttime
@@ -10,7 +12,7 @@ import fairseq
 import faiss
 import numpy as np
 
-# import parselmouth
+import parselmouth
 
 # import pyworld
 import scipy.signal as signal
@@ -19,6 +21,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchcrepe
 from torchaudio.transforms import Resample
+
+from shared import PitchMethod
 
 now_dir = os.getcwd()
 sys.path.append(now_dir)
@@ -233,7 +237,7 @@ class RVC:
         x: torch.Tensor,
         f0_up_key: int,
         n_cpu: Union[int, str],
-        method: Literal["rmvpe", "crepe", "fcpe", "pm"] = "rmvpe",
+        method: PitchMethod = "rmvpe",
     ):
         n_cpu: int = cast(int, int(n_cpu))
         if method == "crepe":
@@ -244,36 +248,36 @@ class RVC:
             return self.get_f0_fcpe(x, f0_up_key)
         x: np.ndarray = x.cpu().numpy()
 
-        # if method == "pm":
-        #     p_len = x.shape[0] // 160 + 1
-        #     f0_min = 65
-        #     l_pad = int(np.ceil(1.5 / f0_min * 16000))
-        #     r_pad = l_pad + 1
-        #     s = parselmouth.Sound(np.pad(x, (l_pad, r_pad)), 16000).to_pitch_ac(
-        #         time_step=0.01,
-        #         voicing_threshold=0.6,
-        #         pitch_floor=f0_min,
-        #         pitch_ceiling=1100,
-        #     )
-        #     assert np.abs(s.t1 - 1.5 / f0_min) < 0.001
-        #     f0 = s.selected_array["frequency"]
-        #     if len(f0) < p_len:
-        #         f0 = np.pad(f0, (0, p_len - len(f0)))
-        #     f0 = f0[:p_len]
-        #     f0 *= pow(2, f0_up_key / 12)
-        #     return self.get_f0_post(f0)
+        if method == "pm":
+            p_len = x.shape[0] // 160 + 1
+            f0_min = 65
+            l_pad = int(np.ceil(1.5 / f0_min * 16000))
+            r_pad = l_pad + 1
+            s = parselmouth.Sound(np.pad(x, (l_pad, r_pad)), 16000).to_pitch_ac(
+                time_step=0.01,
+                voicing_threshold=0.6,
+                pitch_floor=f0_min,
+                pitch_ceiling=1100,
+            )
+            assert np.abs(s.t1 - 1.5 / f0_min) < 0.001
+            f0 = s.selected_array["frequency"]
+            if len(f0) < p_len:
+                f0 = np.pad(f0, (0, p_len - len(f0)))
+            f0 = f0[:p_len]
+            f0 *= pow(2, f0_up_key / 12)
+            return self.get_f0_post(f0)
 
-        # if n_cpu == 1:
-        #     f0, t = pyworld.harvest(
-        #         x.astype(np.double),
-        #         fs=16000,
-        #         f0_ceil=1100,
-        #         f0_floor=50,
-        #         frame_period=10,
-        #     )
-        #     f0 = signal.medfilt(f0, 3)
-        #     f0 *= pow(2, f0_up_key / 12)
-        #     return self.get_f0_post(f0)
+        if n_cpu == 1:
+            f0, t = pyworld.harvest(
+                x.astype(np.double),
+                fs=16000,
+                f0_ceil=1100,
+                f0_floor=50,
+                frame_period=10,
+            )
+            f0 = signal.medfilt(f0, 3)
+            f0 *= pow(2, f0_up_key / 12)
+            return self.get_f0_post(f0)
         f0bak = np.zeros(x.shape[0] // 160 + 1, dtype=np.float64)
         length = len(x)
         part_length = 160 * ((length // 160 - 1) // n_cpu + 1)

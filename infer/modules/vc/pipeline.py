@@ -1,8 +1,12 @@
+from functools import lru_cache
+import hashlib
 import os
 import sys
 import traceback
 import logging
 from typing import List, Literal, Optional, Tuple, Union
+
+import pyworld
 from configs.config import Config
 from infer.lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid,
@@ -12,6 +16,7 @@ from infer.lib.infer_pack.models import (
 )
 
 import gradio as gr
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +40,25 @@ bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
 
 input_audio_path2wav = {}
 
+
+_wav_cache = {}  # holds np.ndarray -> key mapping
+def _hash_array(arr: np.ndarray) -> str:
+    """Hash an ndarray to use as cache key."""
+    return hashlib.sha1(arr.view(np.uint8)).hexdigest()
+
+@lru_cache(maxsize=64)
+def cache_harvest_f0_cached(key: str, fs: int, f0max: int, f0min: int, frame_period: float):
+    # the actual waveform is stored in a global dict keyed by hash
+    audio = _wav_cache[key]
+    f0, t = pyworld.harvest(
+        audio,
+        fs=fs,
+        f0_ceil=f0max,
+        f0_floor=f0min,
+        frame_period=frame_period,
+    )
+    f0 = pyworld.stonemask(audio, f0, t, fs)
+    return f0
 
 def change_rms(
     data1: np.ndarray, sr1: int, data2: np.ndarray, sr2: int, rate: float
@@ -61,6 +85,7 @@ def change_rms(
 
 
 class Pipeline(object):
+    import shared
     def __init__(self, tgt_sr: int, config: Config) -> "Pipeline":
         self.x_pad, self.x_query, self.x_center, self.x_max, self.is_half = (
             config.x_pad,
@@ -81,12 +106,11 @@ class Pipeline(object):
 
     def get_f0(
         self: "Pipeline",
-        # input_audio_path: str,
         x: np.ndarray,
         p_len: int,
         f0_up_key: int,
-        f0_method: Literal["pm", "crepe", "rmvpe"],
-        # filter_radius: int,
+        f0_method: shared.PitchMethod,
+        filter_radius: int = 3,
         inp_f0: Optional[np.ndarray] = None,
     ):
         global input_audio_path2wav
@@ -113,11 +137,12 @@ class Pipeline(object):
                     f0, [[pad_size, p_len - len(f0) - pad_size]], mode="constant"
                 )
         elif f0_method == "harvest":
-            # input_audio_path2wav[input_audio_path] = x.astype(np.double)
-            # f0 = cache_harvest_f0(input_audio_path, self.sr, f0_max, f0_min, 10)
-            # if filter_radius > 2:
-            #     f0 = signal.medfilt(f0, 3)
-            raise "Harvest is no longer supported!"
+            key = _hash_array(x.astype(np.double))
+            _wav_cache[key] = x.astype(np.double)
+            f0 = cache_harvest_f0_cached(key, self.sr, f0_max, f0_min, 10)
+            if filter_radius > 2:
+                f0 = signal.medfilt(f0, 3)
+
         elif f0_method == "crepe":
             model = "full"
             # Pick a batch size that doesn't cause memory errors on your gpu
@@ -294,7 +319,7 @@ class Pipeline(object):
         input_audio_path: str,
         times: List[int],
         f0_up_key: int,
-        f0_method: Literal["pm", "crepe", "rmvpe"],
+        f0_method: shared.PitchMethod,
         file_index: str,
         index_rate: float,
         if_f0: int,

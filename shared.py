@@ -1,8 +1,13 @@
+from typing import Any, Literal, TypeVar
+# Define the allowed strings as a Literal type
+PitchMethod = Literal["pm", "harvest", "crepe", "rmvpe"]
+# Define the array of strings
+PITCH_METHODS: list[PitchMethod] = ["pm", "harvest", "crepe", "rmvpe", "fcpe"]
+
 import logging
 import os
-import shelve
 import shutil
-from typing import Any, TypeVar
+
 import warnings
 from dotenv import load_dotenv
 import fairseq
@@ -35,7 +40,6 @@ vc = VC(config)
 
 
 if config.dml == True:
-
     def forward_dml(ctx, x, scale):
         ctx.scale = scale
         res = x.clone().detach()
@@ -44,7 +48,7 @@ if config.dml == True:
     fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
 i18n = I18nAuto()
 logger.info(i18n)
-# 判断是否有能用来训练和加速推理的N卡
+# get gpt count
 ngpu = torch.cuda.device_count()
 gpu_infos: list[str] = []
 mem: list[int] = []
@@ -130,15 +134,3 @@ sr_dict = {
     "48k": 48000,
 }
 
-
-# T = TypeVar('T')
-# def store_get(key: str, default: T, db_name: str = "shelve_store") -> T:
-#     with shelve.open(db_name, writeback=True) as store:
-#         if key in store:
-#             return store[key]
-#         else:
-#             store[key] = default
-#             return default
-# def store_set(key: str, value: Any, db_name: str = "shelve_store"):
-#     with shelve.open(db_name, writeback=True) as store:
-#         store[key] = value
