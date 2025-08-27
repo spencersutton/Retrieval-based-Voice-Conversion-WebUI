@@ -824,7 +824,24 @@ def create_train_tab():
             gr.Markdown(value=i18n("## Preprocess"))
 
             spk_id5 = gr.Slider(
+                minimum=0,
+                maximum=4,
+                step=1,
+                label=i18n("Speaker ID"),
+                value=0,
+                interactive=True,
+                visible=False,
             )
+
+            with gr.Row():
+                with gr.Column():
+                    audio_data_root = gr.Textbox(
+                        label=i18n("Audio Directory"),
+                        value=i18n("./datasets"),
+                    )
+                    audio_files = gr.Files(
+                        type="filepath", label=i18n("Audio Files"), file_types=["audio"]
+                    )
                 with gr.Column():
                     preprocessing_btn = gr.Button(i18n("Preprocess"), variant="primary")
                     info1 = gr.Textbox(label=i18n("Info"), value="")
