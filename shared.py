@@ -1,4 +1,5 @@
 from typing import Any, Literal, TypeVar
+
 # Define the allowed strings as a Literal type
 PitchMethod = Literal["pm", "harvest", "crepe", "rmvpe"]
 # Define the array of strings
@@ -16,7 +17,9 @@ from dotenv import load_dotenv
 load_dotenv()
 logging.getLogger("numba").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger('fairseq').setLevel(logging.WARNING)
+logging.getLogger("fairseq").setLevel(logging.WARNING)
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+
 
 import fairseq
 import torch
@@ -24,7 +27,6 @@ import torch
 from configs.config import Config
 from i18n.i18n import I18nAuto
 from infer.modules.vc.modules import VC
-
 
 
 logger = logging.getLogger(__name__)
@@ -46,6 +48,7 @@ vc = VC(config)
 
 
 if config.dml == True:
+
     def forward_dml(ctx, x, scale):
         ctx.scale = scale
         res = x.clone().detach()
@@ -115,13 +118,14 @@ gpus = "-".join([i[0] for i in gpu_infos])
 weight_root = os.getenv("WEIGHT_ROOT", "assets/weights")
 index_root = os.getenv("INDEX_ROOT", "logs")
 outside_index_root = os.getenv("OUTSIDE_INDEX_ROOT", "assets/indices")
-rmvpe_root= os.getenv("RMVPE_ROOT", "assets/rmvpe")
+rmvpe_root = os.getenv("RMVPE_ROOT", "assets/rmvpe")
 
 names = []
 for name in os.listdir(weight_root):
     if name.endswith(".pth"):
         names.append(name)
 index_paths = [""]  # Fix for gradio 5
+
 
 def lookup_indices(index_root):
     # shared.index_paths
@@ -139,4 +143,3 @@ sr_dict = {
     "40k": 40000,
     "48k": 48000,
 }
-
