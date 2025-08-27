@@ -2,7 +2,7 @@ import os
 import sys
 import traceback
 import logging
-from typing import List, Literal, Optional, Tuple, Union, TypeAlias
+from typing import List, Optional, Union, TypeAlias
 
 from configs.config import Config
 from infer.lib.infer_pack.models import (
