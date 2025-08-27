@@ -2376,11 +2376,8 @@ dependencies = [
     { name = "librosa" },
     { name = "numpy" },
     { name = "onnxruntime-gpu", marker = "sys_platform != 'darwin'" },
-    { name = "pillow" },
     { name = "poluvr", extra = ["gpu"] },
     { name = "praat-parselmouth" },
-    { name = "pygobject" },
-    { name = "pygobject-stubs" },
     { name = "python-dotenv" },
     { name = "pyworld" },
     { name = "pyyaml" },
@@ -2406,6 +2403,12 @@ dependencies = [
     { name = "werkzeug" },
 ]
 
+[package.optional-dependencies]
+gtk = [
+    { name = "pygobject" },
+    { name = "pygobject-stubs" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "av", specifier = ">=14.4.0" },
@@ -2424,11 +2427,10 @@ requires-dist = [
     { name = "librosa", specifier = ">=0.11.0" },
     { name = "numpy", specifier = ">=1.23.5" },
     { name = "onnxruntime-gpu", marker = "sys_platform != 'darwin'", specifier = ">=1.22.0" },
-    { name = "pillow", specifier = ">=9.1.1" },
     { name = "poluvr", extras = ["gpu"], specifier = ">=1.9.0" },
     { name = "praat-parselmouth", specifier = ">=0.4.2" },
-    { name = "pygobject", specifier = ">=3.52.3" },
-    { name = "pygobject-stubs", specifier = ">=2.13.0" },
+    { name = "pygobject", marker = "extra == 'gtk'", specifier = ">=3.52.3" },
+    { name = "pygobject-stubs", marker = "extra == 'gtk'", specifier = ">=2.13.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyworld", specifier = ">=0.3.5" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -2453,6 +2455,7 @@ requires-dist = [
     { name = "uvicorn", specifier = ">=0.21.1" },
     { name = "werkzeug", specifier = ">=2.2.3" },
 ]
+provides-extras = ["gtk"]
 
 [[package]]
 name = "sacrebleu"
