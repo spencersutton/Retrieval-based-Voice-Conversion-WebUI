@@ -168,7 +168,9 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path)
     )
 
 
-def save_checkpoint_d(combd, sbd, optimizer, learning_rate: float, iteration, checkpoint_path):
+def save_checkpoint_d(
+    combd, sbd, optimizer, learning_rate: float, iteration, checkpoint_path
+):
     logger.info(
         "Saving model and optimizer state at epoch {} to {}".format(
             iteration, checkpoint_path
@@ -442,7 +444,7 @@ def get_hparams_from_file(config_path):
     return hparams
 
 
-def check_git_hash(model_dir):
+def check_git_hash(model_dir: str):
     source_dir = os.path.dirname(os.path.realpath(__file__))
     if not os.path.exists(os.path.join(source_dir, ".git")):
         logger.warning(

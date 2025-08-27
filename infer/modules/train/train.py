@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import logging
@@ -118,12 +119,12 @@ def main():
         children[i].join()
 
 
-def run(rank, n_gpus: int, hps, logger: logging.Logger):
+def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
     global global_step
     if rank == 0:
-        # logger = utils.get_logger(hps.model_dir)
+        logger = utils.get_logger(hps.model_dir)
         logger.info(hps)
-        # utils.check_git_hash(hps.model_dir)
+        utils.check_git_hash(hps.model_dir)
         # writer = SummaryWriter(log_dir=hps.model_dir)
         # writer_eval = SummaryWriter(log_dir=os.path.join(hps.model_dir, "eval"))
 
@@ -302,18 +303,28 @@ def run(rank, n_gpus: int, hps, logger: logging.Logger):
                 None,
                 cache,
             )
-        scheduler_g.step()
-        scheduler_d.step()
+        # scheduler_g.step()
+        # scheduler_d.step()
 
 
 def train_and_evaluate(
-    rank, epoch, hps, nets, optims, schedulers, scaler, loaders, logger, writers, cache
+    rank,
+    epoch: int,
+    hps,
+    nets,
+    optims,
+    schedulers,
+    scaler,
+    loaders,
+    logger,
+    writers,
+    cache,
 ):
     net_g, net_d = nets
     optim_g, optim_d = optims
     train_loader, eval_loader = loaders
-    if writers is not None:
-        writer, writer_eval = writers
+    # if writers is not None:
+    #     writer, writer_eval = writers
 
     train_loader.batch_sampler.set_epoch(epoch)
     global global_step
@@ -406,6 +417,7 @@ def train_and_evaluate(
     # Run steps
     epoch_recorder = EpochRecorder()
     for batch_idx, info in data_iterator:
+        # print(f"BATCH_IDX: {batch_idx}")
         # Data
         ## Unpack
         if hps.if_f0 == 1:
@@ -492,6 +504,7 @@ def train_and_evaluate(
         scaler.unscale_(optim_d)
         grad_norm_d = commons.clip_grad_value_(net_d.parameters(), None)
         scaler.step(optim_d)
+        schedulers[1].step()
 
         with torch.amp.autocast(enabled=hps.train.fp16_run, device_type="cuda"):
             # Generator
@@ -507,6 +520,7 @@ def train_and_evaluate(
         scaler.unscale_(optim_g)
         grad_norm_g = commons.clip_grad_value_(net_g.parameters(), None)
         scaler.step(optim_g)
+        schedulers[0].step()
         scaler.update()
 
         if rank == 0:
@@ -551,6 +565,8 @@ def train_and_evaluate(
                 scalar_dict.update(
                     {"loss/d_g/{}".format(i): v for i, v in enumerate(losses_disc_g)}
                 )
+
+                print(f"SCALAR_DICT: {json.dumps({k: v.item() if isinstance(v, torch.Tensor) else v for k, v in scalar_dict.items()})}")
                 # image_dict = {
                 #     "slice/mel_org": utils.plot_spectrogram_to_numpy(
                 #         y_mel[0].data.cpu().numpy()

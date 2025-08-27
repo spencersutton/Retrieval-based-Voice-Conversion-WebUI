@@ -498,7 +498,7 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
         assert len(self.batches) * self.batch_size == self.num_samples
         return iter(self.batches)
 
-    def _bisect(self, x, lo=0, hi=None):
+    def _bisect(self, x: torch.Tensor, lo=0, hi=None):
         if hi is None:
             hi = len(self.boundaries) - 1
 

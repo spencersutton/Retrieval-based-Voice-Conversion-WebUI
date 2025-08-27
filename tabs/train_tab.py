@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import faiss
 import gradio as gr
+import pandas as pd
 from shared import i18n
 import datetime
 import shared
@@ -436,6 +437,9 @@ def parse_epoch_from_train_log_line(line: str) -> Optional[int]:
     return None
 
 
+scalar_history = []
+
+
 def click_train(
     exp_dir1: str,
     sr2: int,
@@ -593,6 +597,7 @@ def click_train(
     current_epoch = 0
     # p = Popen(cmd, shell=True, cwd=shared.now_dir)
     p = Popen(cmd, shell=True, cwd=shared.now_dir, stdout=subprocess.PIPE)
+    scalar_count = 0
     while True:
         line = p.stdout.readline()
         if not line:
@@ -601,11 +606,35 @@ def click_train(
         # print(f"Line: {line}")
         line: str = line.decode("utf-8", errors="ignore")
         shared.logger.info(f"{line}")
+
+        if line.startswith("SCALAR_DICT: "):
+            try:
+                scalar_dict: dict = json.loads(line.replace("SCALAR_DICT: ", ""))
+                scalar_dict["index"] = scalar_count
+                scalar_count += 1
+
+                # Step 1: Append the dictionary to the history
+                scalar_history.append(scalar_dict)
+
+                # Step 2: Convert the history list to a pandas DataFrame
+                df = pd.DataFrame(scalar_history)
+                # Returning the plot data will update the plot component
+                # The yield statement is necessary to update the Gradio UI in real-time
+                # within a loop.
+                print(f"history: {scalar_history}")
+                yield "", df  # Yielding the empty string updates info3, and plot_data updates the plot
+            except _:
+                # continue
+                pass
+
         current_epoch = parse_epoch_from_train_log_line(line) or current_epoch
         progress(current_epoch / total_epoch11, desc="Training...")
 
     return_code = p.wait()
-    return f"Training finished with exit code {return_code}. You can view the training log in the console or train.log in the experiment folder."
+    # return f"Training finished with exit code {return_code}. You can view the training log in the console or train.log in the experiment folder."
+    yield "Training finished with exit code {return_code}.", pd.DataFrame(
+        scalar_history
+    )
 
 
 def train_index(exp_dir1: str, version19: str, progress=gr.Progress()):
@@ -1005,7 +1034,13 @@ def create_train_tab():
                 train_btn = gr.Button(i18n("Train"), variant="primary")
                 index_btn = gr.Button(i18n("Extra Feature Index"), variant="primary")
                 one_click_btn = gr.Button(i18n("Train Everything"), variant="primary")
-                info3 = gr.Textbox(label=i18n("Info"), value="", max_lines=10)
+
+                training_plot = gr.LinePlot(
+                    label=i18n("Training Metrics"),
+                    x="index",  # Use the DataFrame's index as the x-axis (epochs)
+                    y=["loss/g/total", "loss/d/total"],
+                )
+                training_info = gr.Textbox(label=i18n("Info"), value="", max_lines=10)
                 train_btn.click(
                     click_train,
                     [
@@ -1024,10 +1059,12 @@ def create_train_tab():
                         if_save_every_weights18,
                         model_version,
                     ],
-                    info3,
+                    [training_info, training_plot],
                     api_name="train_start",
                 )
-                index_btn.click(train_index, [experiment_name, model_version], info3)
+                index_btn.click(
+                    train_index, [experiment_name, model_version], training_info
+                )
                 one_click_btn.click(
                     one_click_training,
                     [
@@ -1050,6 +1087,6 @@ def create_train_tab():
                         model_version,
                         gpus_rmvpe,
                     ],
-                    info3,
+                    training_info,
                     api_name="train_start_all",
                 )
