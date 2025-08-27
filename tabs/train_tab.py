@@ -139,7 +139,7 @@ def preprocess_meta(
 ):
     save_dir = f"{audio_dir}/{experiment_name}"
     os.makedirs(save_dir, exist_ok=True)
-    
+
     if audio_files is not None:
         for idx, audio_file in enumerate(audio_files):
             audio_file_name = os.path.basename(audio_file)
@@ -715,7 +715,7 @@ def train_index(exp_dir1: str, version19: str, progress=gr.Progress()):
     yield "\n".join(infos)
 
 
-def train1key(
+def one_click_training(
     exp_dir1,
     sr2,
     if_f0_3,
@@ -784,81 +784,64 @@ def train1key(
 def create_train_tab():
 
     with gr.TabItem(i18n("Train")):
-        gr.Markdown(value=i18n("## Experiment Config"))
-        with gr.Row():
-            current_date = datetime.date.today()
-            formatted_date = current_date.strftime("%Y-%m-%d")
-            experiment_name = gr.Textbox(
-                label=i18n("Experiment Name"), value=f"experiment_{formatted_date}"
-            )
-            target_sr = gr.Radio(
-                label=i18n("Target Sample Rate"),
-                choices=["40k", "48k"],
-                value="48k",
-                interactive=True,
-            )
-            if_f0_3 = gr.Radio(
-                label=i18n("Enable Pitch Guidance"),
-                choices=[True, False],
-                value=True,
-                interactive=True,
-            )
-            version19 = gr.Radio(
-                label=i18n("Version"),
-                choices=["v1", "v2"],
-                value="v2",
-                interactive=True,
-                visible=True,
-            )
-            cpu_count = gr.Slider(
-                minimum=0,
-                maximum=shared.config.n_cpu,
-                step=1,
-                label=i18n("CPU Process Count"),
-                value=int(np.ceil(shared.config.n_cpu / 1.5)),
-                interactive=True,
-            )
+        with gr.Group():
+            gr.Markdown(value=i18n("## Experiment Config"))
+            with gr.Row():
+                current_date = datetime.date.today()
+                formatted_date = current_date.strftime("%Y-%m-%d")
+                experiment_name = gr.Textbox(
+                    label=i18n("Experiment Name"), value=f"experiment_{formatted_date}"
+                )
+                target_sr = gr.Radio(
+                    label=i18n("Target Sample Rate"),
+                    choices=["40k", "48k"],
+                    value="48k",
+                    interactive=True,
+                )
+                if_f0_3 = gr.Radio(
+                    label=i18n("Pitch Guidance"),
+                    choices=[True, False],
+                    value=True,
+                    interactive=True,
+                )
+                version19 = gr.Radio(
+                    label=i18n("Version"),
+                    choices=["v1", "v2"],
+                    value="v2",
+                    interactive=True,
+                    visible=True,
+                )
+                cpu_count = gr.Slider(
+                    minimum=0,
+                    maximum=shared.config.n_cpu,
+                    step=1,
+                    label=i18n("CPU Process Count"),
+                    value=int(np.ceil(shared.config.n_cpu / 1.5)),
+                    interactive=True,
+                )
+
         with gr.Group():
             gr.Markdown(value=i18n("## Preprocess"))
-            with gr.Row():
-                audio_data_root = gr.Textbox(
-                    label=i18n("Audio Directory"),
-                    value=i18n("./datasets"),
-                )
-                audio_files = gr.Files(
-                    type="filepath", label=i18n("Audio Files"), file_types=["audio"]
-                )
-                spk_id5 = gr.Slider(
-                    minimum=0,
-                    maximum=4,
-                    step=1,
-                    label=i18n("Speaker ID"),
-                    value=0,
-                    interactive=True,
-                    visible=False,
-                )
-                preprocessing_btn = gr.Button(
-                    i18n("Preprocess Dataset"), variant="primary"
-                )
-                info1 = gr.Textbox(label=i18n("Info"), value="")
-                preprocessing_btn.click(
-                    preprocess_meta,
-                    [
-                        experiment_name,
-                        audio_data_root,
-                        audio_files,
-                        target_sr,
-                        cpu_count,
-                    ],
-                    [info1],
-                    api_name="train_preprocess",
-                )
-        with gr.Group():
-            gr.Markdown(
-                value=i18n(
-                    "step2b: 使用CPU提取音高(如果模型带音高), 使用GPU提取特征(选择卡号)"
-                )
+
+            spk_id5 = gr.Slider(
             )
+                with gr.Column():
+                    preprocessing_btn = gr.Button(i18n("Preprocess"), variant="primary")
+                    info1 = gr.Textbox(label=i18n("Info"), value="")
+                    preprocessing_btn.click(
+                        preprocess_meta,
+                        [
+                            experiment_name,
+                            audio_data_root,
+                            audio_files,
+                            target_sr,
+                            cpu_count,
+                        ],
+                        [info1],
+                        api_name="train_preprocess",
+                    )
+        with gr.Group():
+            gr.Markdown(value=i18n("## Extract Pitch"))
             with gr.Row():
                 with gr.Column():
                     gpus6 = gr.Textbox(
@@ -875,10 +858,21 @@ def create_train_tab():
                         visible=F0GPUVisible,
                     )
                 with gr.Column():
+                    gr.Markdown(
+                        value=i18n(
+                            """### Select pitch extraction algorithm:
+                              
+                - PM speeds up vocal input.
+                
+                - DIO speeds up high-quality speech on weaker CPUs.
+                
+                - Harvest is higher quality but slower.
+                
+                - RMVPE is the best and slightly CPU/GPU-intensive."""
+                        )
+                    )
                     f0method8 = gr.Radio(
-                        label=i18n(
-                            "选择音高提取算法:输入歌声可用pm提速,高质量语音但CPU差可用dio提速,harvest质量更好但慢,rmvpe效果最好且微吃CPU/GPU"
-                        ),
+                        label="Method",
                         choices=["pm", "harvest", "dio", "rmvpe", "rmvpe_gpu"],
                         value="rmvpe_gpu",
                         interactive=True,
@@ -891,30 +885,31 @@ def create_train_tab():
                         interactive=True,
                         visible=F0GPUVisible,
                     )
-                but2 = gr.Button(i18n("Extract Feature"), variant="primary")
-                info2 = gr.Textbox(label=i18n("Info"), value="", max_lines=8)
-                f0method8.change(
-                    fn=change_f0_method,
-                    inputs=[f0method8],
-                    outputs=[gpus_rmvpe],
-                )
-                # progress = gr.Progress()
-                but2.click(
-                    extract_f0_feature,
-                    [
-                        gpus6,
-                        cpu_count,
-                        f0method8,
-                        if_f0_3,
-                        experiment_name,
-                        version19,
-                        gpus_rmvpe,
-                    ],
-                    [info2],
-                    api_name="train_extract_f0_feature",
-                )
+                with gr.Column():
+                    extract_f0_btn = gr.Button(i18n("Extract"), variant="primary")
+                    info2 = gr.Textbox(label=i18n("Info"), value="", max_lines=8)
+                    f0method8.change(
+                        fn=change_f0_method,
+                        inputs=[f0method8],
+                        outputs=[gpus_rmvpe],
+                    )
+                    # progress = gr.Progress()
+                    extract_f0_btn.click(
+                        extract_f0_feature,
+                        [
+                            gpus6,
+                            cpu_count,
+                            f0method8,
+                            if_f0_3,
+                            experiment_name,
+                            version19,
+                            gpus_rmvpe,
+                        ],
+                        [info2],
+                        api_name="train_extract_f0_feature",
+                    )
         with gr.Group():
-            gr.Markdown(value=i18n("step3: 填写训练设置, 开始训练模型和索引"))
+            gr.Markdown(value=i18n("## Training Config"))
             with gr.Row():
                 save_epoch10 = gr.Slider(
                     minimum=1,
@@ -947,15 +942,13 @@ def create_train_tab():
                     interactive=True,
                 )
                 if_cache_gpu17 = gr.Radio(
-                    label=i18n(
-                        "是否缓存所有训练集至显存. 10min以下小数据可缓存以加速训练, 大数据缓存会炸显存也加不了多少速"
-                    ),
+                    label=i18n("Cache Data to GPU (Recommend for Data < 10 mins)"),
                     choices=[i18n("Yes"), i18n("No")],
                     value=i18n("No"),
                     interactive=True,
                 )
                 if_save_every_weights18 = gr.Radio(
-                    label=i18n("是否在每次保存时间点将最终小模型保存至weights文件夹"),
+                    label=i18n("Save Finalized Model Every Time"),
                     choices=[i18n("Yes"), i18n("No")],
                     value=i18n("No"),
                     interactive=True,
@@ -1020,7 +1013,7 @@ def create_train_tab():
                 )
                 index_btn.click(train_index, [experiment_name, version19], info3)
                 one_click_btn.click(
-                    train1key,
+                    one_click_training,
                     [
                         experiment_name,
                         target_sr,
