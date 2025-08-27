@@ -43,6 +43,7 @@ import torch.multiprocessing as mp
 from torch.nn import functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
+
 # from torch.utils.tensorboard import SummaryWriter
 
 from infer.lib.infer_pack import commons
@@ -283,7 +284,8 @@ def run(rank, n_gpus: int, hps, logger: logging.Logger):
                 scaler,
                 [train_loader, None],
                 logger,
-                [writer, writer_eval],
+                # [writer, writer_eval],
+                None,
                 cache,
             )
         else:
@@ -549,23 +551,23 @@ def train_and_evaluate(
                 scalar_dict.update(
                     {"loss/d_g/{}".format(i): v for i, v in enumerate(losses_disc_g)}
                 )
-                image_dict = {
-                    "slice/mel_org": utils.plot_spectrogram_to_numpy(
-                        y_mel[0].data.cpu().numpy()
-                    ),
-                    "slice/mel_gen": utils.plot_spectrogram_to_numpy(
-                        y_hat_mel[0].data.cpu().numpy()
-                    ),
-                    "all/mel": utils.plot_spectrogram_to_numpy(
-                        mel[0].data.cpu().numpy()
-                    ),
-                }
-                utils.summarize(
-                    writer=writer,
-                    global_step=global_step,
-                    images=image_dict,
-                    scalars=scalar_dict,
-                )
+                # image_dict = {
+                #     "slice/mel_org": utils.plot_spectrogram_to_numpy(
+                #         y_mel[0].data.cpu().numpy()
+                #     ),
+                #     "slice/mel_gen": utils.plot_spectrogram_to_numpy(
+                #         y_hat_mel[0].data.cpu().numpy()
+                #     ),
+                #     "all/mel": utils.plot_spectrogram_to_numpy(
+                #         mel[0].data.cpu().numpy()
+                #     ),
+                # }
+                # utils.summarize(
+                #     writer=writer,
+                #     global_step=global_step,
+                #     images=image_dict,
+                #     scalars=scalar_dict,
+                # )
         global_step += 1
     # /Run steps
 

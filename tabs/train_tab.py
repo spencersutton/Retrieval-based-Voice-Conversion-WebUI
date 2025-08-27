@@ -798,13 +798,13 @@ def create_train_tab():
                     value="48k",
                     interactive=True,
                 )
-                if_f0_3 = gr.Radio(
+                use_f0 = gr.Radio(
                     label=i18n("Pitch Guidance"),
                     choices=[True, False],
                     value=True,
                     interactive=True,
                 )
-                version19 = gr.Radio(
+                model_version = gr.Radio(
                     label=i18n("Version"),
                     choices=["v1", "v2"],
                     value="v2",
@@ -822,8 +822,7 @@ def create_train_tab():
 
         with gr.Group():
             gr.Markdown(value=i18n("## Preprocess"))
-
-            spk_id5 = gr.Slider(
+            spk_id = gr.Slider(
                 minimum=0,
                 maximum=4,
                 step=1,
@@ -917,9 +916,9 @@ def create_train_tab():
                             gpus6,
                             cpu_count,
                             f0method8,
-                            if_f0_3,
+                            use_f0,
                             experiment_name,
-                            version19,
+                            model_version,
                             gpus_rmvpe,
                         ],
                         [info2],
@@ -928,7 +927,7 @@ def create_train_tab():
         with gr.Group():
             gr.Markdown(value=i18n("## Training Config"))
             with gr.Row():
-                save_epoch10 = gr.Slider(
+                save_epoch = gr.Slider(
                     minimum=1,
                     maximum=50,
                     step=1,
@@ -936,7 +935,7 @@ def create_train_tab():
                     value=5,
                     interactive=True,
                 )
-                total_epoch11 = gr.Slider(
+                total_epoch = gr.Slider(
                     minimum=2,
                     maximum=1000,
                     step=1,
@@ -944,7 +943,7 @@ def create_train_tab():
                     value=20,
                     interactive=True,
                 )
-                batch_size12 = gr.Slider(
+                batch_size = gr.Slider(
                     minimum=1,
                     maximum=40,
                     step=1,
@@ -983,17 +982,17 @@ def create_train_tab():
                 )
                 target_sr.change(
                     change_sr2,
-                    [target_sr, if_f0_3, version19],
+                    [target_sr, use_f0, model_version],
                     [pretrained_G14, pretrained_D15],
                 )
-                version19.change(
+                model_version.change(
                     change_version19,
-                    [target_sr, if_f0_3, version19],
+                    [target_sr, use_f0, model_version],
                     [pretrained_G14, pretrained_D15, target_sr],
                 )
-                if_f0_3.change(
+                use_f0.change(
                     change_f0,
-                    [if_f0_3, target_sr, version19],
+                    [use_f0, target_sr, model_version],
                     [f0method8, gpus_rmvpe, pretrained_G14, pretrained_D15],
                 )
                 gpus16 = gr.Textbox(
@@ -1012,43 +1011,43 @@ def create_train_tab():
                     [
                         experiment_name,
                         target_sr,
-                        if_f0_3,
-                        spk_id5,
-                        save_epoch10,
-                        total_epoch11,
-                        batch_size12,
+                        use_f0,
+                        spk_id,
+                        save_epoch,
+                        total_epoch,
+                        batch_size,
                         if_save_latest13,
                         pretrained_G14,
                         pretrained_D15,
                         gpus16,
                         if_cache_gpu17,
                         if_save_every_weights18,
-                        version19,
+                        model_version,
                     ],
                     info3,
                     api_name="train_start",
                 )
-                index_btn.click(train_index, [experiment_name, version19], info3)
+                index_btn.click(train_index, [experiment_name, model_version], info3)
                 one_click_btn.click(
                     one_click_training,
                     [
                         experiment_name,
                         target_sr,
-                        if_f0_3,
+                        use_f0,
                         audio_data_root,
-                        spk_id5,
+                        spk_id,
                         cpu_count,
                         f0method8,
-                        save_epoch10,
-                        total_epoch11,
-                        batch_size12,
+                        save_epoch,
+                        total_epoch,
+                        batch_size,
                         if_save_latest13,
                         pretrained_G14,
                         pretrained_D15,
                         gpus16,
                         if_cache_gpu17,
                         if_save_every_weights18,
-                        version19,
+                        model_version,
                         gpus_rmvpe,
                     ],
                     info3,
