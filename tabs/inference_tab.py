@@ -1,7 +1,9 @@
 import logging
 import os
-from typing import List
+import time
+from typing import List, Optional, Tuple
 import gradio as gr
+import numpy as np
 
 import shared
 from shared import PITCH_METHODS, PitchMethod, i18n
@@ -99,11 +101,14 @@ def create_inference_tab(app: gr.Blocks):
                         [autoplay_checkbox],
                         [vc_file_output],
                     )
-                with gr.TabItem(i18n("Real Time")):
+
+                with gr.TabItem(i18n("Real Time (WIP)")):
                     import sounddevice as sd
 
+                    lag_backlog = 0.0
+
                     def realtime_vc_generator(
-                        audio_chunk,
+                        audio_chunk: Optional[Tuple[int, np.ndarray]],
                         f0_up_key,
                         f0_method,
                         file_index,
@@ -112,6 +117,8 @@ def create_inference_tab(app: gr.Blocks):
                         rms_mix_rate,
                         protect,
                     ):
+                        nonlocal lag_backlog
+
                         if audio_chunk is None:
                             return None
 
@@ -121,7 +128,22 @@ def create_inference_tab(app: gr.Blocks):
                         else:
                             # Some versions just pass the raw np.ndarray
                             sr, audio_data = 16000, audio_chunk
-                        # audio_chunk is a numpy array coming in from mic in 16k chunks
+
+                                # Calculate duration of incoming chunk
+                        chunk_duration = len(audio_data) / sr
+
+                        # If backlog is already too large, skip without even processing
+                        if lag_backlog > chunk_duration:
+                            print(f"⏭️ Skipping chunk ({chunk_duration:.4f}s) | "
+                                  f"Backlog: {lag_backlog:.3f}s")
+                            lag_backlog -= chunk_duration  # reduce backlog
+                            if lag_backlog < 0:
+                                lag_backlog = 0
+                            return None
+
+                        start_time = time.time()
+
+                        # Process audio
                         result = shared.vc.vc_realtime(
                             (sr, audio_data),
                             f0_up_key=f0_up_key,
@@ -133,14 +155,33 @@ def create_inference_tab(app: gr.Blocks):
                             protect=protect,
                         )
 
+                        end_time = time.time()
+                        processing_time = end_time - start_time
+
+                        # Compare and print results
+                        print(
+                            f"⏱️ Chunk Duration: {chunk_duration:.4f}s | "
+                            f"Processing Time: {processing_time:.4f}s | "
+                            f"Backlog: {lag_backlog:.3f}s"
+                        )
+
+                        if processing_time > chunk_duration:
+                            lag_ms = (processing_time - chunk_duration) * 1000
+                            lag_backlog += (processing_time - chunk_duration)
+                            print(f"⚠️ Behind real-time! Added lag: {lag_ms:.2f} ms "
+                                  f"(Total backlog: {lag_backlog:.3f}s)")
+                        else:
+                            # If we are faster than real time, reduce backlog
+                            lag_backlog -= (chunk_duration - processing_time)
+                            if lag_backlog < 0:
+                                lag_backlog = 0
+                            print("✅ Keeping up!")
+
                         if result is None:
                             return None
+
                         tgt_sr, audio_out = result
-                        # return (
-                        #     tgt_sr,
-                        #     audio_out,
-                        # )  # Gradio Audio expects (sr, np.ndarray)
-                        # 🔊 Play directly on server
+                        # Play directly on server
                         sd.play(audio_out, samplerate=tgt_sr)
                         logging.info("outputting")
 
