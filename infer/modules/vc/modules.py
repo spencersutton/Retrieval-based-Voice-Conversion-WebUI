@@ -1,19 +1,14 @@
 import traceback
 import logging
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, Optional, Union
 import gradio as gr
 import resampy
 
 from configs.config import Config
 
 logger = logging.getLogger(__name__)
-
 import numpy as np
-import soundfile as sf
 import torch
-from io import BytesIO
-
-from infer.lib.audio import load_audio, wav2
 from infer.lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid,
     SynthesizerTrnMs256NSFsid_nono,
@@ -81,8 +76,6 @@ class VC:
         self.cache_pitchf: torch.Tensor = torch.zeros(1, 256, dtype=torch.float32).to(
             self.config.device
         )
-        
-        
 
     def get_vc(self: "VC", sid: Optional[str], *to_return_protect):
         if sid is None or sid == "":

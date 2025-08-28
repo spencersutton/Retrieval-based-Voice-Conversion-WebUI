@@ -19,6 +19,7 @@ with warnings.catch_warnings():
     )
     import pyworld
 
+
 # --- Base Pitch Extractor Class ---
 class PitchExtractor(ABC):
     """Abstract base class for all pitch extraction methods."""
@@ -146,6 +147,7 @@ class RMVPE_PitchExtractor(PitchExtractor):
         # shared,
     ):
         import shared
+
         super().__init__(sample_rate, window_size, f0_min, f0_max)
         self.device = device
         self.is_half = is_half
