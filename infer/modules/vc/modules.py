@@ -72,6 +72,18 @@ class VC:
         self.hubert_model: Optional[HubertModel] = None
         self.config: Config = config
 
+        # ## Real-time inference state ##
+        self.audio_buffer = np.array([], dtype=np.float32)
+        # Pitch cache for continuity between chunks
+        self.cache_pitch: torch.Tensor = torch.zeros(1, 256, dtype=torch.long).to(
+            self.config.device
+        )
+        self.cache_pitchf: torch.Tensor = torch.zeros(1, 256, dtype=torch.float32).to(
+            self.config.device
+        )
+        
+        
+
     def get_vc(self: "VC", sid: Optional[str], *to_return_protect):
         if sid is None or sid == "":
             logger.warning("No SID")
@@ -79,6 +91,7 @@ class VC:
                 {"visible": True, "value": 0.5, "__type__": "update"},
                 {"choices": [], "value": "", "__type__": "update"},
             )
+        # self.pipeline
         logger.info("Get sid: " + sid)
 
         to_return_protect0 = {
@@ -90,9 +103,7 @@ class VC:
         }
 
         if sid == "" or sid == []:
-            if (
-                self.hubert_model is not None
-            ):  
+            if self.hubert_model is not None:
                 # 考虑到轮询, 需要加个判断看是否 sid 是由有模型切换到无模型的
                 logger.info("Clean model cache")
                 del (self.net_g, self.n_spk, self.hubert_model, self.tgt_sr)  # ,cpt
@@ -182,7 +193,6 @@ class VC:
         f0_method: str,
         file_index: Optional[str],  # Path to .index file from dropdown
         index_rate: float,
-        # filter_radius: int,
         resample_sr: int,  # Target sample rate
         rms_mix_rate: float,
         protect: float,
@@ -256,10 +266,63 @@ class VC:
         f0_method: str,
         file_index: Optional[str],  # Path to .index file from dropdown
         index_rate: float,
-        # filter_radius: int, 
         resample_sr: int,  # Target sample rate
         rms_mix_rate: float,
         protect: float,
-        # progress: gr.Progress = gr.Progress(),
-    ):
-        pass
+        block_size: int = 5120,  # default chunk size in samples at 16kHz (~320ms)
+        crossfade_size: int = 512,  # overlap for smoother transitions
+    ) -> Optional[Tuple[int, np.ndarray]]:
+        """
+        Real-time voice conversion with buffering and pitch caching.
+        Reuses vc_single() internally to avoid code duplication.
+        """
+        if sr_and_audio is None:
+            return None
+
+        sr, audio_chunk = sr_and_audio
+        if sr != 16000:
+            audio_chunk = resample_audio(audio_chunk, sr, 16000)
+
+        # Append new audio to buffer
+        self.audio_buffer = np.concatenate([self.audio_buffer, audio_chunk])
+
+        # Process only when buffer has enough samples
+        if len(self.audio_buffer) < block_size:
+            return None  # wait for more audio
+
+        # Take a block with padding for continuity
+        process_block = self.audio_buffer[:block_size].copy()
+
+        # Keep a tail for continuity to next round
+        self.audio_buffer = self.audio_buffer[block_size - crossfade_size :]
+
+        # Call existing single VC function
+        msg, result = self.vc_single(
+            (16000, process_block),
+            f0_up_key=f0_up_key,
+            f0_method=f0_method,
+            file_index=file_index,
+            index_rate=index_rate,
+            resample_sr=resample_sr,
+            rms_mix_rate=rms_mix_rate,
+            protect=protect,
+        )
+
+        if result is None:
+            return None
+
+        tgt_sr, audio_opt = result
+
+        # Apply crossfade smoothing at boundaries
+        if hasattr(self, "_prev_tail") and self._prev_tail is not None:
+            fade_len = min(crossfade_size, len(audio_opt), len(self._prev_tail))
+            fade_in = np.linspace(0, 1, fade_len)
+            fade_out = 1 - fade_in
+            audio_opt[:fade_len] = (
+                self._prev_tail[-fade_len:] * fade_out + audio_opt[:fade_len] * fade_in
+            )
+
+        # Save tail for next round
+        self._prev_tail = audio_opt
+
+        return tgt_sr, audio_opt
