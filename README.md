@@ -74,4 +74,4 @@ Then visit `localhost:7865` in your browser.
 
 We have a more open policy to contribution compared to the original.
 
-Please refer [this guid](./CONTRIBUTING.md) for more details.
+Please refer [this guide](./CONTRIBUTING.md) for more details.
