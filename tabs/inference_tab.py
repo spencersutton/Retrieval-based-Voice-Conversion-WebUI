@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import List
 import gradio as gr
@@ -8,6 +9,7 @@ from shared import PITCH_METHODS, PitchMethod, i18n
 
 def clean():
     return {"value": "", "__type__": "update"}
+
 
 def change_choices():
     names = []
@@ -96,6 +98,89 @@ def create_inference_tab(app: gr.Blocks):
                         set_autoplay,
                         [autoplay_checkbox],
                         [vc_file_output],
+                    )
+                with gr.TabItem(i18n("Real Time")):
+                    import sounddevice as sd
+
+                    def realtime_vc_generator(
+                        audio_chunk,
+                        f0_up_key,
+                        f0_method,
+                        file_index,
+                        index_rate,
+                        resample_sr,
+                        rms_mix_rate,
+                        protect,
+                    ):
+                        if audio_chunk is None:
+                            return None
+
+                        # Gradio streams (sr, np.ndarray)
+                        if isinstance(audio_chunk, tuple):
+                            sr, audio_data = audio_chunk
+                        else:
+                            # Some versions just pass the raw np.ndarray
+                            sr, audio_data = 16000, audio_chunk
+                        # audio_chunk is a numpy array coming in from mic in 16k chunks
+                        result = shared.vc.vc_realtime(
+                            (sr, audio_data),
+                            f0_up_key=f0_up_key,
+                            f0_method=f0_method,
+                            file_index=file_index if file_index else None,
+                            index_rate=index_rate,
+                            resample_sr=resample_sr,
+                            rms_mix_rate=rms_mix_rate,
+                            protect=protect,
+                        )
+
+                        if result is None:
+                            return None
+                        tgt_sr, audio_out = result
+                        # return (
+                        #     tgt_sr,
+                        #     audio_out,
+                        # )  # Gradio Audio expects (sr, np.ndarray)
+                        # 🔊 Play directly on server
+                        sd.play(audio_out, samplerate=tgt_sr)
+                        logging.info("outputting")
+
+
+                    audio_stream_in = gr.Audio(
+                        label="Mic Input",
+                        type="numpy",
+                        streaming=True,
+                        sources=["microphone"],
+                    )
+
+                    # Define UI controls for params instead of passing None/values directly
+                    pitch_offset_rt = gr.Number(value=0, label="Pitch Offset")
+                    f0method_rt = gr.Dropdown(
+                        ["rmvpe", "crepe"], value="rmvpe", label="F0 Method"
+                    )
+                    file_index_rt = gr.Textbox(value="", label="Index File (optional)")
+                    index_rate_rt = gr.Slider(
+                        0, 1, value=0.5, step=0.01, label="Index Rate"
+                    )
+                    resample_sr_rt = gr.Number(value=16000, label="Resample SR")
+                    rms_mix_rate_rt = gr.Slider(
+                        0, 1, value=1.0, step=0.01, label="RMS Mix Rate"
+                    )
+                    protect_rt = gr.Slider(0, 1, value=0.5, step=0.01, label="Protect")
+
+                    audio_stream_in.stream(
+                        fn=realtime_vc_generator,
+                        inputs=[
+                            audio_stream_in,
+                            pitch_offset_rt,
+                            f0method_rt,
+                            file_index_rt,
+                            index_rate_rt,
+                            resample_sr_rt,
+                            rms_mix_rate_rt,
+                            protect_rt,
+                        ],
+                        outputs=[],
+                        api_name="infer_realtime",
                     )
 
             with gr.Column():
