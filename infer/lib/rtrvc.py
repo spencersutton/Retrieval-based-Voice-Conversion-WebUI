@@ -98,8 +98,8 @@ class RVC:
                 self.net_g = self.net_g.float()
 
         def set_jit_model():
-            from rvc.jit import get_jit_model
-            from rvc.synthesizer import synthesizer_jit_export
+            from lib.jit import get_jit_model
+            from lib.synthesizer import synthesizer_jit_export
 
             cpt = get_jit_model(self.pth_path, self.is_half, synthesizer_jit_export)
 
