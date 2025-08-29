@@ -1,24 +1,26 @@
+import datetime
+import json
 import os
+import pathlib
 import platform
 import re
 import shutil
 import subprocess
+import threading
+import traceback
+from random import shuffle
+from subprocess import Popen
+from time import sleep
+from typing import Generator, List, Optional, Tuple, Union
+
 import faiss
 import gradio as gr
-import pandas as pd
-from shared import i18n
-import datetime
-import shared
 import numpy as np
-from typing import Generator, List, Optional, Tuple, Union
+import pandas as pd
 from sklearn.cluster import MiniBatchKMeans
-from subprocess import Popen
-from random import shuffle
-import traceback
-import threading
-import pathlib
-import json
-from time import sleep
+
+import shared
+from shared import i18n
 
 ProgressComponent = gr.Progress
 
