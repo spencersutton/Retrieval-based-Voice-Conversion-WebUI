@@ -10,13 +10,13 @@
 
 </div>
 
-This fork aims to improve upon the [original RVC project](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI) with several enhancements:
+This fork aims to improve upon the [original RVC project](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI) and with several enhancements:
 
-- Dependency Updates: All dependencies have been updated, and uv is used for package management, promising general performance improvements.
+- Better dependency management
 
-- Improved Gradio UI: The user interface has been significantly cleaned up, making it easier to use. A notable addition is the ability to upload audio training data directly from the Web GUI, which is particularly useful for server deployments.
+- Improved Gradio UI
 
-- Better Docker Support: Enhanced Docker integration, providing a docker-compose example for easy deployment with GPU support.
+- Better Docker support
 
 ## Getting Started
 
