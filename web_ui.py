@@ -1,10 +1,10 @@
-
 import shared
 import fairseq
 import torch
 import gradio as gr
 import git
 from tabs.ckpt_processing_tab import create_ckpt_processing_tab
+
 # from tabs.faq_tab import create_faq_tab
 # from tabs.onnx_tab import create_onnx_tab
 from tabs.inference_tab import create_inference_tab
@@ -15,7 +15,9 @@ torch.serialization.add_safe_globals([fairseq.data.dictionary.Dictionary])
 
 with gr.Blocks(title="RVC WebUI Fork") as app:
     repo = git.Repo(search_parent_directories=True)
-    gr.Markdown(f"## RVC WebUI Fork ({repo.active_branch}) ({repo.head.object.hexsha[:7]})" )
+    gr.Markdown(
+        f"## RVC WebUI Fork ({repo.active_branch}) ({repo.head.object.hexsha[:7]})"
+    )
     with gr.Tabs():
         create_inference_tab(app=app)
         create_vocal_tab()

@@ -566,7 +566,9 @@ def train_and_evaluate(
                     {"loss/d_g/{}".format(i): v for i, v in enumerate(losses_disc_g)}
                 )
 
-                print(f"SCALAR_DICT: {json.dumps({k: v.item() if isinstance(v, torch.Tensor) else v for k, v in scalar_dict.items()})}")
+                print(
+                    f"SCALAR_DICT: {json.dumps({k: v.item() if isinstance(v, torch.Tensor) else v for k, v in scalar_dict.items()})}"
+                )
                 # image_dict = {
                 #     "slice/mel_org": utils.plot_spectrogram_to_numpy(
                 #         y_mel[0].data.cpu().numpy()

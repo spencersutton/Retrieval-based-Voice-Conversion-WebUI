@@ -21,7 +21,7 @@ class Encoder(nn.Module):
         kernel_size=1,
         p_dropout=0.0,
         window_size=10,
-        **kwargs
+        **kwargs,
     ):
         super(Encoder, self).__init__()
         self.hidden_channels = hidden_channels
@@ -88,7 +88,7 @@ class Decoder(nn.Module):
         p_dropout=0.0,
         proximal_bias=False,
         proximal_init=True,
-        **kwargs
+        **kwargs,
     ):
         super(Decoder, self).__init__()
         self.hidden_channels = hidden_channels

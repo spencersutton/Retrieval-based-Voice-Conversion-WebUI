@@ -34,6 +34,7 @@ bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
 
 from infer.modules.vc.f0_extractors import *
 
+
 def change_rms(
     data1: np.ndarray, sr1: int, data2: np.ndarray, sr2: int, rate: float
 ):  # 1是输入音频，2是输出音频,rate是2的占比
@@ -63,7 +64,7 @@ class Pipeline(object):
 
     sr: int = 16000
     window: int = 160
-    
+
     f0_min = 50
     f0_max = 1100
 
@@ -132,7 +133,9 @@ class Pipeline(object):
                 list(range(delta_t)), inp_f0[:, 0] * 100, inp_f0[:, 1]
             )
             shape = f0[self.x_pad * tf0 : self.x_pad * tf0 + len(replace_f0)].shape[0]
-            f0[self.x_pad * tf0 : self.x_pad * tf0 + len(replace_f0)] = replace_f0[:shape]
+            f0[self.x_pad * tf0 : self.x_pad * tf0 + len(replace_f0)] = replace_f0[
+                :shape
+            ]
 
         f0bak = f0.copy()
         f0_mel_min = 1127 * np.log(1 + self.f0_min / 700)
@@ -192,7 +195,7 @@ class Pipeline(object):
             #    not isinstance(index, type(None))
             # and not isinstance(big_npy, type(None))
             # and index_rate != 0
-            
+
         if index is not None and big_npy is not None and index_rate != 0:
             npy = feats[0].cpu().numpy()
             if self.is_half:

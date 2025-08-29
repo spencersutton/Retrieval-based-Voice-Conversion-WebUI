@@ -3,6 +3,7 @@ import numpy as np
 import av
 import re
 
+
 def wav2(input_path: str, output_path: str, format: str):
     inp = av.open(input_path, "rb")
     if format == "m4a":
@@ -25,22 +26,23 @@ def wav2(input_path: str, output_path: str, format: str):
     out.close()
     inp.close()
 
+
 def load_audio(file: str, sr: int) -> np.ndarray:
     try:
-        with av.open(file, 'r') as container:
+        with av.open(file, "r") as container:
             # Get the first audio stream
-            stream = next(s for s in container.streams if s.type == 'audio')
-            
+            stream = next(s for s in container.streams if s.type == "audio")
+
             # Set the output format: single channel, float32, and the target sample rate
-            stream.layout = 'mono'
-            stream.format = 'flt'
+            stream.layout = "mono"
+            stream.format = "flt"
             stream.rate = sr
 
             audio_data = []
             for frame in container.decode(stream):
                 # Convert the PyAV frame to a NumPy array and append
                 audio_data.append(frame.to_ndarray())
-            
+
             # Concatenate all the frames into a single NumPy array
             return np.concatenate(audio_data, axis=1).flatten()
     except Exception as e:

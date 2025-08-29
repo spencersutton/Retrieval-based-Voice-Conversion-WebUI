@@ -4,13 +4,14 @@ import sys
 import traceback
 from typing import Literal, Optional, Tuple, Union, cast
 import warnings
+
 # Use a context manager to suppress the warning during import
 with warnings.catch_warnings():
     warnings.filterwarnings(
         "ignore",
         message="pkg_resources is deprecated as an API.*",
         category=UserWarning,
-        module='pyworld',  # Optional, but adds precision
+        module="pyworld",  # Optional, but adds precision
     )
     import pyworld
 # import pyworld

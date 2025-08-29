@@ -6,6 +6,7 @@ from configs.config import Config
 from fairseq.models.hubert.hubert import HubertModel
 import shared
 
+
 def get_index_path_from_model(sid: str) -> str:
     return next(
         (
@@ -24,7 +25,7 @@ def get_index_path_from_model(sid: str) -> str:
 
 def load_hubert(config: Config) -> HubertModel:  # hubert_model is a torch.nn.Module
     models: List[HubertModel]
-    
+
     models, _, _ = checkpoint_utils.load_model_ensemble_and_task(
         ["assets/hubert/hubert_base.pt"],
         suffix="",
@@ -36,6 +37,3 @@ def load_hubert(config: Config) -> HubertModel:  # hubert_model is a torch.nn.Mo
     else:
         hubert_model = hubert_model.float()
     return hubert_model.eval()
-
-
-
