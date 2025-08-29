@@ -35,3 +35,4 @@ ffprobe.*
 
 /datasets
 .gradio/flagged/dataset1.csv
+/.github
