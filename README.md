@@ -44,7 +44,7 @@ Create a `docker-compose.yml` similar to this:
 services:
   rvc-fork-server:
     image: ghcr.io/yamada-sexta/rvc-webgui-fork:latest
-    # Or if you want build from source
+    # Or if you prefer build from source
     # build:
     #   context: https://github.com/yamada-sexta/rvc-webgui-fork.git
     #   dockerfile: Dockerfile
