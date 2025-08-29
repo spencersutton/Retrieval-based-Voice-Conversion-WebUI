@@ -11,7 +11,7 @@ import traceback
 from random import shuffle
 from subprocess import Popen
 from time import sleep
-from typing import Generator, List, Optional, Tuple, Union
+from typing import Generator, List, Optional, Tuple
 
 import faiss
 import gradio as gr
