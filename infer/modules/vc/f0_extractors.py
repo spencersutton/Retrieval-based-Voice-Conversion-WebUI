@@ -172,77 +172,76 @@ class RMVPE_PitchExtractor(PitchExtractor):
         return f0
 
 
-# --- Refactored Pipeline Class ---
-class Pipeline:
-    def __init__(self, sr, window, is_half, device):
-        self.sr = sr
-        self.window = window
-        self.is_half = is_half
-        self.device = device
-        self.f0_min = 50
-        self.f0_max = 1100
-        # Initialize an empty dictionary for pitch extractors.
-        self.pitch_extractors = {}
-        # Assuming other pipeline initialization here...
+# class Pipeline:
+#     def __init__(self, sr: int, window, is_half, device):
+#         self.sr = sr
+#         self.window = window
+#         self.is_half = is_half
+#         self.device = device
+#         self.f0_min = 50
+#         self.f0_max = 1100
+#         # Initialize an empty dictionary for pitch extractors.
+#         self.pitch_extractors = {}
+#         # Assuming other pipeline initialization here...
 
-    def get_f0(
-        self,
-        x: np.ndarray,
-        p_len: int,
-        f0_up_key: int,
-        f0_method: str,  # Use str for type hinting
-        filter_radius: int = 3,
-        inp_f0: Optional[np.ndarray] = None,
-    ):
-        # Check if the required pitch extractor instance exists, otherwise create it.
-        if f0_method not in self.pitch_extractors:
-            if f0_method == "pm":
-                self.pitch_extractors[f0_method] = PM_PitchExtractor(
-                    self.sr, self.window, self.f0_min, self.f0_max
-                )
-            elif f0_method == "harvest":
-                self.pitch_extractors[f0_method] = Harvest_PitchExtractor(
-                    self.sr, self.window, self.f0_min, self.f0_max, filter_radius
-                )
-            elif f0_method == "crepe":
-                self.pitch_extractors[f0_method] = Crepe_PitchExtractor(
-                    self.sr, self.window, self.f0_min, self.f0_max, self.device
-                )
-            elif f0_method == "rmvpe":
-                self.pitch_extractors[f0_method] = RMVPE_PitchExtractor(
-                    self.sr,
-                    self.window,
-                    self.f0_min,
-                    self.f0_max,
-                    self.device,
-                    self.is_half,
-                    shared,
-                )
+#     def get_f0(
+#         self,
+#         x: np.ndarray,
+#         p_len: int,
+#         f0_up_key: int,
+#         f0_method: str,  # Use str for type hinting
+#         filter_radius: int = 3,
+#         inp_f0: Optional[np.ndarray] = None,
+#     ):
+#         # Check if the required pitch extractor instance exists, otherwise create it.
+#         if f0_method not in self.pitch_extractors:
+#             if f0_method == "pm":
+#                 self.pitch_extractors[f0_method] = PM_PitchExtractor(
+#                     self.sr, self.window, self.f0_min, self.f0_max
+#                 )
+#             elif f0_method == "harvest":
+#                 self.pitch_extractors[f0_method] = Harvest_PitchExtractor(
+#                     self.sr, self.window, self.f0_min, self.f0_max, filter_radius
+#                 )
+#             elif f0_method == "crepe":
+#                 self.pitch_extractors[f0_method] = Crepe_PitchExtractor(
+#                     self.sr, self.window, self.f0_min, self.f0_max, self.device
+#                 )
+#             elif f0_method == "rmvpe":
+#                 self.pitch_extractors[f0_method] = RMVPE_PitchExtractor(
+#                     self.sr,
+#                     self.window,
+#                     self.f0_min,
+#                     self.f0_max,
+#                     self.device,
+#                     self.is_half,
+#                     # shared,
+#                 )
 
-        # Get the correct extractor and call the method.
-        f0 = self.pitch_extractors[f0_method].extract_pitch(x, p_len)
-        f0 *= pow(2, f0_up_key / 12)
-        tf0 = self.sr // self.window
-        if inp_f0 is not None:
-            delta_t = np.round(
-                (inp_f0[:, 0].max() - inp_f0[:, 0].min()) * tf0 + 1
-            ).astype("int16")
-            replace_f0 = np.interp(
-                list(range(delta_t)), inp_f0[:, 0] * 100, inp_f0[:, 1]
-            )
-            shape = f0[self.x_pad * tf0 : self.x_pad * tf0 + len(replace_f0)].shape[0]
-            f0[self.x_pad * tf0 : self.x_pad * tf0 + len(replace_f0)] = replace_f0[
-                :shape
-            ]
+#         # Get the correct extractor and call the method.
+#         f0 = self.pitch_extractors[f0_method].extract_pitch(x, p_len)
+#         f0 *= pow(2, f0_up_key / 12)
+#         tf0 = self.sr // self.window
+#         if inp_f0 is not None:
+#             delta_t = np.round(
+#                 (inp_f0[:, 0].max() - inp_f0[:, 0].min()) * tf0 + 1
+#             ).astype("int16")
+#             replace_f0 = np.interp(
+#                 list(range(delta_t)), inp_f0[:, 0] * 100, inp_f0[:, 1]
+#             )
+#             shape = f0[self.x_pad * tf0 : self.x_pad * tf0 + len(replace_f0)].shape[0]
+#             f0[self.x_pad * tf0 : self.x_pad * tf0 + len(replace_f0)] = replace_f0[
+#                 :shape
+#             ]
 
-        f0bak = f0.copy()
-        f0_mel_min = 1127 * np.log(1 + self.f0_min / 700)
-        f0_mel_max = 1127 * np.log(1 + self.f0_max / 700)
-        f0_mel = 1127 * np.log(1 + f0 / 700)
-        f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - f0_mel_min) * 254 / (
-            f0_mel_max - f0_mel_min
-        ) + 1
-        f0_mel[f0_mel <= 1] = 1
-        f0_mel[f0_mel > 255] = 255
-        f0_coarse = np.rint(f0_mel).astype(np.int32)
-        return f0_coarse, f0bak
+#         f0bak = f0.copy()
+#         f0_mel_min = 1127 * np.log(1 + self.f0_min / 700)
+#         f0_mel_max = 1127 * np.log(1 + self.f0_max / 700)
+#         f0_mel = 1127 * np.log(1 + f0 / 700)
+#         f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - f0_mel_min) * 254 / (
+#             f0_mel_max - f0_mel_min
+#         ) + 1
+#         f0_mel[f0_mel <= 1] = 1
+#         f0_mel[f0_mel > 255] = 255
+#         f0_coarse = np.rint(f0_mel).astype(np.int32)
+#         return f0_coarse, f0bak
