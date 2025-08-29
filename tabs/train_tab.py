@@ -625,7 +625,7 @@ def click_train(
                 # within a loop.
                 print(f"history: {scalar_history}")
                 yield "", df  # Yielding the empty string updates info3, and plot_data updates the plot
-            except _:
+            except Exception as e:
                 # continue
                 pass
 
