@@ -641,27 +641,30 @@ class MainWindow(Adw.ApplicationWindow):
 
     def on_open_model_path_clicked(self, widget):
         """Handler to open a file chooser for the .pth model file."""
-        def s(file:str):
+
+        def s(file: str):
             self.state.gui_config.pth_path = file
+
         self._show_file_chooser(
             "Select Model File",
             self.model_path_row,
             pattern="*.pth",
             mime="application/octet-stream",  # A generic mime type
-            on_file_path=s
+            on_file_path=s,
         )
 
     def on_open_index_path_clicked(self, widget):
         """Handler to open a file chooser for the .index file."""
-        
-        def s(file:str):
+
+        def s(file: str):
             self.state.gui_config.index_path = file
+
         self._show_file_chooser(
             "Select Index File",
             self.index_path_row,
             pattern="*.index",
             mime="application/octet-stream",  # A generic mime type
-            on_file_path=s
+            on_file_path=s,
         )
 
     def _show_file_chooser(

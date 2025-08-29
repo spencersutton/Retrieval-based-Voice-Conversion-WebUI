@@ -37,12 +37,14 @@ T = TypeVar("T")
 
 _singleton_instances: Dict[Type, object] = {}
 
+
 def singleton_class(cls: Type[T]) -> Type[T]:
     @wraps(cls)
     def wrapper(*args, **kwargs):
         if cls not in _singleton_instances:
             _singleton_instances[cls] = cls(*args, **kwargs)
         return _singleton_instances[cls]
+
     return wrapper  # Type is preserved
 
 
@@ -79,7 +81,7 @@ class Config:
     x_query: int
     x_center: int
     x_max: int
-    
+
     def __init__(self):
         self.device = "cuda:0"
         self.is_half: bool = True

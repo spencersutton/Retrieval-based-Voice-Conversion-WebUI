@@ -10,28 +10,29 @@ RVC_DOWNLOAD_LINK = "https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/
 # Determine the base directory of the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
 def dl_model(link: str, model_name: str, download_dir: Path) -> Optional[Path]:
     url = f"{link}{model_name}"
     target_path = download_dir / model_name
-    
+
     # Check if the file already exists
     if target_path.exists():
         print(f"Skipping download: {model_name} already exists.")
         return target_path
 
     os.makedirs(download_dir, exist_ok=True)
-    
+
     print(f"Downloading {model_name}...")
     try:
         with requests.get(url, stream=True, timeout=30) as r:
             r.raise_for_status()
             total_size = int(r.headers.get("content-length", 0))
-            
+
             with open(target_path, "wb") as f:
                 with tqdm(
-                    total=total_size, 
-                    unit="B", 
-                    unit_scale=True, 
+                    total=total_size,
+                    unit="B",
+                    unit_scale=True,
                     desc=model_name,
                     miniters=1,
                 ) as progress_bar:
@@ -47,6 +48,7 @@ def dl_model(link: str, model_name: str, download_dir: Path) -> Optional[Path]:
             os.remove(target_path)
         return None
 
+
 def main():
     # Define directory paths using Path objects
     assets_dir = BASE_DIR / "assets"
@@ -60,10 +62,20 @@ def main():
         "hubert_base.pt": hubert_dir,
         "rmvpe.pt": rmvpe_dir,
     }
-    
+
     pretrained_models = [
-        "D32k.pth", "D40k.pth", "D48k.pth", "G32k.pth", "G40k.pth", "G48k.pth",
-        "f0D32k.pth", "f0D40k.pth", "f0D48k.pth", "f0G32k.pth", "f0G40k.pth", "f0G48k.pth",
+        "D32k.pth",
+        "D40k.pth",
+        "D48k.pth",
+        "G32k.pth",
+        "G40k.pth",
+        "G48k.pth",
+        "f0D32k.pth",
+        "f0D40k.pth",
+        "f0D48k.pth",
+        "f0G32k.pth",
+        "f0G40k.pth",
+        "f0G48k.pth",
     ]
 
     # Download core models
@@ -73,12 +85,13 @@ def main():
     # Download pretrained models (v1)
     for model in pretrained_models:
         dl_model(RVC_DOWNLOAD_LINK + "pretrained/", model, pretrained_dir)
-        
+
     # Download pretrained models v2
     for model in pretrained_models:
         dl_model(RVC_DOWNLOAD_LINK + "pretrained_v2/", model, pretrained_v2_dir)
 
     print("\nAll model downloads complete!")
+
 
 if __name__ == "__main__":
     main()

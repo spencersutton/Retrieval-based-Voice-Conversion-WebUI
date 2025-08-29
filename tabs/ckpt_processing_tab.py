@@ -26,6 +26,7 @@ def change_info_(ckpt_path):
         traceback.print_exc()
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
 
+
 def create_ckpt_processing_tab():
     with gr.TabItem(i18n("ckpt处理")):
         with gr.Group():

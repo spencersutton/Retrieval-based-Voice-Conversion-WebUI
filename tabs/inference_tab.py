@@ -129,13 +129,15 @@ def create_inference_tab(app: gr.Blocks):
                             # Some versions just pass the raw np.ndarray
                             sr, audio_data = 16000, audio_chunk
 
-                                # Calculate duration of incoming chunk
+                            # Calculate duration of incoming chunk
                         chunk_duration = len(audio_data) / sr
 
                         # If backlog is already too large, skip without even processing
                         if lag_backlog > chunk_duration:
-                            print(f"⏭️ Skipping chunk ({chunk_duration:.4f}s) | "
-                                  f"Backlog: {lag_backlog:.3f}s")
+                            print(
+                                f"⏭️ Skipping chunk ({chunk_duration:.4f}s) | "
+                                f"Backlog: {lag_backlog:.3f}s"
+                            )
                             lag_backlog -= chunk_duration  # reduce backlog
                             if lag_backlog < 0:
                                 lag_backlog = 0
@@ -167,12 +169,14 @@ def create_inference_tab(app: gr.Blocks):
 
                         if processing_time > chunk_duration:
                             lag_ms = (processing_time - chunk_duration) * 1000
-                            lag_backlog += (processing_time - chunk_duration)
-                            print(f"⚠️ Behind real-time! Added lag: {lag_ms:.2f} ms "
-                                  f"(Total backlog: {lag_backlog:.3f}s)")
+                            lag_backlog += processing_time - chunk_duration
+                            print(
+                                f"⚠️ Behind real-time! Added lag: {lag_ms:.2f} ms "
+                                f"(Total backlog: {lag_backlog:.3f}s)"
+                            )
                         else:
                             # If we are faster than real time, reduce backlog
-                            lag_backlog -= (chunk_duration - processing_time)
+                            lag_backlog -= chunk_duration - processing_time
                             if lag_backlog < 0:
                                 lag_backlog = 0
                             print("✅ Keeping up!")
@@ -184,7 +188,6 @@ def create_inference_tab(app: gr.Blocks):
                         # Play directly on server
                         sd.play(audio_out, samplerate=tgt_sr)
                         logging.info("outputting")
-
 
                     audio_stream_in = gr.Audio(
                         label="Mic Input",

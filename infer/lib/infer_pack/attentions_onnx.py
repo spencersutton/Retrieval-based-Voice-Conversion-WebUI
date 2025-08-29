@@ -29,7 +29,7 @@ class Encoder(nn.Module):
         kernel_size=1,
         p_dropout=0.0,
         window_size=10,
-        **kwargs
+        **kwargs,
     ):
         super(Encoder, self).__init__()
         self.hidden_channels = hidden_channels
@@ -96,7 +96,7 @@ class Decoder(nn.Module):
         p_dropout=0.0,
         proximal_bias=False,
         proximal_init=True,
-        **kwargs
+        **kwargs,
     ):
         super(Decoder, self).__init__()
         self.hidden_channels = hidden_channels
@@ -364,7 +364,7 @@ class MultiHeadAttention(nn.Module):
             x,
             [0, length - 1, 0, 0, 0, 0, 0, 0],
         )
-        x_flat = x.view([batch, heads, length*length + length * (length - 1)])
+        x_flat = x.view([batch, heads, length * length + length * (length - 1)])
         # add 0's in the beginning that will skew the elements after reshape
         x_flat = F.pad(
             x_flat,
