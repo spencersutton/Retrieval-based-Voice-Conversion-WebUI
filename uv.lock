@@ -461,7 +461,7 @@ wheels = [
 [[package]]
 name = "fairseq"
 version = "0.12.3.1"
-source = { git = "https://github.com/liyaodev/fairseq.git#b963eac7a04c539ad59fb1e23277f2ff7ee29e74" }
+source = { git = "https://github.com/yamada-sexta/fairseq.git#b963eac7a04c539ad59fb1e23277f2ff7ee29e74" }
 dependencies = [
     { name = "bitarray" },
     { name = "cffi" },
@@ -2071,7 +2071,7 @@ gtk = [
 [package.metadata]
 requires-dist = [
     { name = "av", specifier = ">=15.0.0" },
-    { name = "fairseq", git = "https://github.com/liyaodev/fairseq.git" },
+    { name = "fairseq", git = "https://github.com/yamada-sexta/fairseq.git" },
     { name = "faiss-cpu", specifier = ">=1.7.3" },
     { name = "fsspec", specifier = ">=2022.11.0" },
     { name = "gitpython", specifier = ">=3.1.44" },

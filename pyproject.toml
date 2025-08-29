@@ -45,4 +45,4 @@ gtk = [
 
 
 [tool.uv.sources]
-fairseq = { git = "https://github.com/liyaodev/fairseq.git" }
+fairseq = { git = "https://github.com/yamada-sexta/fairseq.git" }
