@@ -6,7 +6,8 @@ import gradio as gr
 import numpy as np
 
 import shared
-from shared import PITCH_METHODS, PitchMethod, i18n
+from lib.f0 import PITCH_METHODS, PitchMethod
+from shared import i18n
 
 
 def clean():

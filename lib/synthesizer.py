@@ -4,7 +4,7 @@ import torch
 
 from .layers.synthesizers import SynthesizerTrnMsNSFsid
 from .jit import load_inputs, export_jit_model, save_pickle
-from .utils import FileLike
+from .types import FileLike
 
 
 def get_synthesizer(cpt: OrderedDict, device=torch.device("cpu")):

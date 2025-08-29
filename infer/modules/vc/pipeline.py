@@ -33,6 +33,7 @@ sys.path.append(now_dir)
 bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
 
 from infer.modules.vc.f0_extractors import *
+from lib.types.f0 import PitchMethod, PITCH_METHODS
 
 
 def change_rms(
@@ -93,7 +94,7 @@ class Pipeline(object):
         x: np.ndarray,
         p_len: int,
         f0_up_key: int,
-        f0_method: shared.PitchMethod,
+        f0_method: PitchMethod,
         filter_radius: int = 3,
         inp_f0: Optional[np.ndarray] = None,
     ):
@@ -261,7 +262,7 @@ class Pipeline(object):
         # input_audio_path: str,
         times: List[int],
         f0_up_key: int,
-        f0_method: shared.PitchMethod,
+        f0_method: PitchMethod,
         file_index: str,
         index_rate: float,
         if_f0: int,
