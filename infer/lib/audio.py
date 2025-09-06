@@ -30,24 +30,29 @@ def wav2(input_path: str, output_path: str, format: str):
 def load_audio(file: str, sr: int) -> np.ndarray:
     try:
         with av.open(file, "r") as container:
-            # Get the first audio stream
             stream = next(s for s in container.streams if s.type == "audio")
 
-            # Set the output format: single channel, float32, and the target sample rate
-            stream.layout = "mono"
-            stream.format = "flt"
-            stream.rate = sr
+            # Decoder gives you the original format/rate
+            input_rate = stream.codec_context.sample_rate
+
+            # Set up a resampler: to mono, float32, and target sample rate
+            resampler = av.audio.resampler.AudioResampler(
+                format="flt",
+                layout="mono",
+                rate=sr
+            )
 
             audio_data = []
             for frame in container.decode(stream):
-                # Convert the PyAV frame to a NumPy array and append
-                audio_data.append(frame.to_ndarray())
+                # Resample frame to target sample rate
+                frame = resampler.resample(frame)
+                arr = frame.to_ndarray()
+                audio_data.append(arr)
 
-            # Concatenate all the frames into a single NumPy array
             return np.concatenate(audio_data, axis=1).flatten()
     except Exception as e:
-        # A more specific error might be raised by av.open or during decoding
         raise RuntimeError(f"Failed to load audio with PyAV: {e}")
+
 
 
 def clean_path(path_str: str) -> str:
@@ -57,3 +62,4 @@ def clean_path(path_str: str) -> str:
         r"[\u202a\u202b\u202c\u202d\u202e]", "", path_str
     )  # 移除 Unicode 控制字符
     return path_str.strip(" ").strip('"').strip("\n").strip('"').strip(" ")
+
