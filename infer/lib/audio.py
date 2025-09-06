@@ -32,20 +32,24 @@ def load_audio(file: str, sr: int) -> np.ndarray:
         with av.open(file, "r") as container:
             stream = next(s for s in container.streams if s.type == "audio")
 
-            # Decoder gives you the original format/rate
-            input_rate = stream.codec_context.sample_rate
-
-            # Set up a resampler: to mono, float32, and target sample rate
             resampler = av.audio.resampler.AudioResampler(
                 format="flt", layout="mono", rate=sr
             )
 
             audio_data = []
             for frame in container.decode(stream):
-                # Resample frame to target sample rate
-                frame = resampler.resample(frame)
-                arr = frame.to_ndarray()
-                audio_data.append(arr)
+                # Resample returns either a frame or a list of frames
+                resampled = resampler.resample(frame)
+                if not resampled:
+                    continue
+                if isinstance(resampled, list):
+                    frames = resampled
+                else:
+                    frames = [resampled]
+
+                for f in frames:
+                    arr = f.to_ndarray()
+                    audio_data.append(arr)
 
             return np.concatenate(audio_data, axis=1).flatten()
     except Exception as e:
