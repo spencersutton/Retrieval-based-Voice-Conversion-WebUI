@@ -53,7 +53,7 @@ def load_audio(file: str, sr: int) -> np.ndarray:
 
             return np.concatenate(audio_data, axis=1).flatten()
     except Exception as e:
-        raise RuntimeError(f"Failed to load audio with PyAV: {e}")
+        raise RuntimeError(f"Failed to load audio with PyAV: {e}") from e
 
 
 def clean_path(path_str: str) -> str:
