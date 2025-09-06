@@ -120,9 +120,9 @@ for name in os.listdir(weight_root):
 index_paths = [""]  # Fix for gradio 5
 
 
-def lookup_indices(index_root):
+def lookup_indices(root: str):
     # shared.index_paths
-    for root, dirs, files in os.walk(index_root, topdown=False):
+    for root, dirs, files in os.walk(root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
                 index_paths.append("%s/%s" % (root, name))
