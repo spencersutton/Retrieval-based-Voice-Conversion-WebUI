@@ -37,9 +37,7 @@ def load_audio(file: str, sr: int) -> np.ndarray:
 
             # Set up a resampler: to mono, float32, and target sample rate
             resampler = av.audio.resampler.AudioResampler(
-                format="flt",
-                layout="mono",
-                rate=sr
+                format="flt", layout="mono", rate=sr
             )
 
             audio_data = []
@@ -54,7 +52,6 @@ def load_audio(file: str, sr: int) -> np.ndarray:
         raise RuntimeError(f"Failed to load audio with PyAV: {e}")
 
 
-
 def clean_path(path_str: str) -> str:
     if platform.system() == "Windows":
         path_str = path_str.replace("/", "\\")
@@ -62,4 +59,3 @@ def clean_path(path_str: str) -> str:
         r"[\u202a\u202b\u202c\u202d\u202e]", "", path_str
     )  # 移除 Unicode 控制字符
     return path_str.strip(" ").strip('"').strip("\n").strip('"').strip(" ")
-
