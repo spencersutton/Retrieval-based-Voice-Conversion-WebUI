@@ -115,6 +115,7 @@ rmvpe_root = os.getenv("RMVPE_ROOT", "assets/rmvpe")
 
 names = []
 for name in os.listdir(weight_root):
+    print(f"Checking: {name}")
     if name.endswith(".pth"):
         names.append(name)
 index_paths = [""]  # Fix for gradio 5
