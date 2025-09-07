@@ -43,6 +43,7 @@ def get_pitch_methods() -> List[PitchMethod]:
 
 
 def get_model_list() -> List[str]:
+    print(f"Models: {shared.names}")
     return sorted(shared.names)
 
 
