@@ -1,21 +1,22 @@
 # api for 240604 release version by Xiaokai
+import json
+import logging
 import os
 import sys
-import json
+import threading
 import time
+from multiprocessing import Process, Queue, cpu_count, freeze_support
+
 import librosa
-import torch
 import numpy as np
+import sounddevice as sd
+import torch
 import torch.nn.functional as F
 import torchaudio.transforms as tat
-import sounddevice as sd
+import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import threading
-import uvicorn
-import logging
-from multiprocessing import Queue, Process, cpu_count, freeze_support
 
 # Initialize the logger
 logging.basicConfig(level=logging.INFO)
@@ -598,9 +599,9 @@ if __name__ == "__main__":
     os.environ["OMP_NUM_THREADS"] = "4"
     if sys.platform == "darwin":
         os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
-    from tools.torchgate import TorchGate
     import tools.rvc_for_realtime as rvc_for_realtime
     from configs.config import Config
+    from tools.torchgate import TorchGate
 
     audio_api.config = Config()
     audio_api.initialize_queues()

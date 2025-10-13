@@ -1,7 +1,8 @@
 import os
-import sys
-from dotenv import load_dotenv
 import shutil
+import sys
+
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -78,18 +79,18 @@ if __name__ == "__main__":
     import time
     from multiprocessing import Queue, cpu_count
 
-    import librosa
-    from tools.torchgate import TorchGate
-    import numpy as np
     import FreeSimpleGUI as sg
+    import librosa
+    import numpy as np
     import sounddevice as sd
     import torch
     import torch.nn.functional as F
     import torchaudio.transforms as tat
 
-    from infer.lib import rtrvc as rvc_for_realtime
-    from i18n.i18n import I18nAuto
     from configs.config import Config
+    from i18n.i18n import I18nAuto
+    from infer.lib import rtrvc as rvc_for_realtime
+    from tools.torchgate import TorchGate
 
     i18n = I18nAuto()
 

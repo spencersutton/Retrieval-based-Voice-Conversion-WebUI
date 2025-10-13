@@ -1,8 +1,8 @@
 import argparse
-import os
-import sys
 import json
+import os
 import shutil
+import sys
 from multiprocessing import cpu_count
 
 import torch

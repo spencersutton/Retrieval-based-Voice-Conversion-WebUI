@@ -1,4 +1,5 @@
 import torch
+
 from infer.lib.infer_pack.models_onnx import SynthesizerTrnMsNSFsidM
 
 if __name__ == "__main__":

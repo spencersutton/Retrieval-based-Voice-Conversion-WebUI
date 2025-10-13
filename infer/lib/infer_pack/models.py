@@ -1,5 +1,5 @@
-import math
 import logging
+import math
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -10,6 +10,7 @@ from torch import nn
 from torch.nn import Conv1d, Conv2d, ConvTranspose1d
 from torch.nn import functional as F
 from torch.nn.utils import remove_weight_norm, spectral_norm, weight_norm
+
 from infer.lib.infer_pack import attentions, commons, modules
 from infer.lib.infer_pack.commons import get_padding, init_weights
 

@@ -1,10 +1,11 @@
-import platform
 import os
+import platform
+import re
+import traceback
+
+import av
 import ffmpeg
 import numpy as np
-import av
-import traceback
-import re
 
 
 def wav2(i, o, format):
