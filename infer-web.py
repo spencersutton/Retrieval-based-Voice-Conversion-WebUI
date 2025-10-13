@@ -41,13 +41,13 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 tmp = now_dir / "TEMP"
-shutil.rmtree(str(tmp), ignore_errors=True)
+shutil.rmtree(tmp, ignore_errors=True)
 shutil.rmtree(
-    str(now_dir / "runtime" / "Lib" / "site-packages" / "infer_pack"),
+    now_dir / "runtime" / "Lib" / "site-packages" / "infer_pack",
     ignore_errors=True,
 )
 shutil.rmtree(
-    str(now_dir / "runtime" / "Lib" / "site-packages" / "uvr5_pack"), ignore_errors=True
+    now_dir / "runtime" / "Lib" / "site-packages" / "uvr5_pack", ignore_errors=True
 )
 tmp.mkdir(parents=True, exist_ok=True)
 (now_dir / "logs").mkdir(parents=True, exist_ok=True)
@@ -68,7 +68,6 @@ if config.dml:
         res = x.clone().detach()
         return res
 
-    # fairseq may have different module layout across versions; guard attribute access
     if hasattr(fairseq, "modules") and hasattr(fairseq.modules, "grad_multiply"):
         fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
 i18n = I18nAuto()
@@ -108,8 +107,8 @@ if torch.cuda.is_available() or ngpu != 0:
                 "6000",
             ]
         ):
-            # A10#A100#V100#A40#P40#M40#K80#A4500
-            if_gpu_ok = True  # 至少有一张能用的N卡
+
+            if_gpu_ok = True
             gpu_infos.append("%s\t%s" % (i, gpu_name))
             mem.append(
                 int(
@@ -216,8 +215,7 @@ def if_done(done, p):
 
 def if_done_multi(done, ps):
     while 1:
-        # poll==None代表进程未结束
-        # 只要有一个进程未结束都不停
+
         flag = 1
         for p in ps:
             if p.poll() is None:
@@ -236,9 +234,9 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
     (log_dir / "preprocess.log").write_text("")
     cmd = f'"{config.python_cmd}" infer/modules/train/preprocess.py "{trainset_dir}" {sr} {n_p} "{now_dir / "logs" / exp_dir}" {config.noparallel} {config.preprocess_per:.1f}'
     logger.info("Execute: " + cmd)
-    # , stdin=PIPE, stdout=PIPE,stderr=PIPE,cwd=now_dir
+
     p = Popen(cmd, shell=True)
-    # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
+
     done = [False]
     threading.Thread(
         target=if_done,
@@ -270,10 +268,8 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
         if f0method != "rmvpe_gpu":
             cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{now_dir / "logs" / exp_dir}" {n_p} {f0method}'
             logger.info("Execute: " + cmd)
-            p = Popen(
-                cmd, shell=True, cwd=now_dir
-            )  # , stdin=PIPE, stdout=PIPE,stderr=PIPE
-            # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
+            p = Popen(cmd, shell=True, cwd=now_dir)
+
             done = [False]
             threading.Thread(
                 target=if_done,
@@ -290,11 +286,9 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
                 for idx, n_g in enumerate(gpus_rmvpe):
                     cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {leng} {idx} {n_g} "{now_dir / "logs" / exp_dir}" {config.is_half}'
                     logger.info("Execute: " + cmd)
-                    p = Popen(
-                        cmd, shell=True, cwd=now_dir
-                    )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
+                    p = Popen(cmd, shell=True, cwd=now_dir)
                     ps.append(p)
-                # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
+
                 done = [False]
                 threading.Thread(
                     target=if_done_multi,  #
@@ -306,9 +300,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
             else:
                 cmd = f'{config.python_cmd} infer/modules/train/extract/extract_f0_rmvpe_dml.py "{now_dir / "logs" / exp_dir}"'
                 logger.info("Execute: " + cmd)
-                p = Popen(
-                    cmd, shell=True, cwd=now_dir
-                )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
+                p = Popen(cmd, shell=True, cwd=now_dir)
                 p.wait()
                 done = [True]
         log_path = log_dir / "extract_f0_feature.log"
@@ -322,24 +314,15 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
             log = f.read()
         logger.info(log)
         yield log
-    # 对不同part分别开多进程
-    """
-    n_part=int(sys.argv[1])
-    i_part=int(sys.argv[2])
-    i_gpu=sys.argv[3]
-    exp_dir=sys.argv[4]
-    os.environ["CUDA_VISIBLE_DEVICES"]=str(i_gpu)
-    """
+
     leng = len(gpus)
     ps = []
     for idx, n_g in enumerate(gpus):
         cmd = f'"{config.python_cmd}" infer/modules/train/extract_feature_print.py {config.device} {leng} {idx} {n_g} "{now_dir / "logs" / exp_dir}" {version19} {config.is_half}'
         logger.info("Execute: " + cmd)
-        p = Popen(
-            cmd, shell=True, cwd=now_dir
-        )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
+        p = Popen(cmd, shell=True, cwd=now_dir)
         ps.append(p)
-    # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
+
     done = [False]
     threading.Thread(
         target=if_done_multi,
@@ -406,7 +389,7 @@ def change_version19(sr2, if_f0_3, version19):
     return gen, dis, to_return_sr2
 
 
-def change_f0(if_f0_3, sr2, version19):  # f0method8,pretrained_G14,pretrained_D15
+def change_f0(if_f0_3, sr2, version19):
     path_str = "" if version19 == "v1" else "_v2"
     return (
         {"visible": if_f0_3, "__type__": "update"},
@@ -432,7 +415,7 @@ def click_train(
     if_save_every_weights18,
     version19,
 ):
-    # 生成filelist
+
     exp_dir = now_dir / "logs" / exp_dir1
     exp_dir.mkdir(parents=True, exist_ok=True)
     gt_wavs_dir = exp_dir / "0_gt_wavs"
@@ -473,8 +456,7 @@ def click_train(
     with (exp_dir / "filelist.txt").open("w") as f:
         f.write("\n".join(opt))
     logger.debug("Write filelist done")
-    # 生成config#无需生成config
-    # cmd = python_cmd + " train_nsf_sim_cache_sid_load_pretrain.py -e mi-test -sr 40k -f0 1 -bs 4 -g 0 -te 10 -se 5 -pg pretrained/f0G40k.pth -pd pretrained/f0D40k.pth -l 1 -c 0"
+
     logger.info("Use gpus: %s", str(gpus16))
     if pretrained_G14 == "":
         logger.info("No pretrained Generator")
@@ -584,7 +566,7 @@ def train_index(exp_dir1, version19):
     infos.append("%s,%s" % (big_npy.shape, n_ivf))
     yield "\n".join(infos)
     index = faiss.index_factory(256 if version19 == "v1" else 768, "IVF%s,Flat" % n_ivf)
-    # index = faiss.index_factory(256if version19=="v1"else 768, "IVF%s,PQ128x4fs,RFlat"%n_ivf)
+
     infos.append("training")
     yield "\n".join(infos)
     index_ivf = faiss.extract_index_ivf(index)  #
@@ -628,8 +610,6 @@ def train_index(exp_dir1, version19):
     except Exception:
         infos.append(f"链接索引到外部-{outside_index_root}失败")
 
-    # faiss.write_index(index, '%s/added_IVF%s_Flat_FastScan_%s.index'%(exp_dir,n_ivf,version19))
-    # infos.append("成功构建索引，added_IVF%s_Flat_FastScan_%s.index"%(n_ivf,version19))
     yield "\n".join(infos)
 
 
@@ -660,11 +640,9 @@ def train1key(
         infos.append(strr)
         return "\n".join(infos)
 
-    # step1:处理数据
     yield get_info_str(i18n("step1:正在处理数据"))
     [get_info_str(_) for _ in preprocess_dataset(trainset_dir4, exp_dir1, sr2, np7)]
 
-    # step2a:提取音高
     yield get_info_str(i18n("step2:正在提取音高&正在提取特征"))
     [
         get_info_str(_)
@@ -673,7 +651,6 @@ def train1key(
         )
     ]
 
-    # step3a:训练模型
     yield get_info_str(i18n("step3a:正在训练模型"))
     click_train(
         exp_dir1,
@@ -695,7 +672,6 @@ def train1key(
         i18n("训练结束, 您可查看控制台训练日志或实验文件夹下的train.log")
     )
 
-    # step3b:训练索引
     [get_info_str(_) for _ in train_index(exp_dir1, version19)]
     yield get_info_str(i18n("全流程结束！"))
 
@@ -858,11 +834,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 outputs=[sid0, file_index2],
                                 api_name="infer_refresh",
                             )
-                            # file_big_npy1 = gr.Textbox(
-                            #     label=i18n("特征文件路径"),
-                            #     value="E:\\codes\py39\\vits_vc_gpu_train\\logs\\mi-test-1key\\total_fea.npy",
-                            #     interactive=True,
-                            # )
+
                 with gr.Group():
                     with gr.Column():
                         but0 = gr.Button(i18n("转换"), variant="primary")
@@ -882,7 +854,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 f0method0,
                                 file_index1,
                                 file_index2,
-                                # file_big_npy1,
                                 index_rate1,
                                 filter_radius0,
                                 resample_sr0,
@@ -942,11 +913,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                             outputs=file_index4,
                             api_name="infer_refresh_batch",
                         )
-                        # file_big_npy2 = gr.Textbox(
-                        #     label=i18n("特征文件路径"),
-                        #     value="E:\\codes\\py39\\vits_vc_gpu_train\\logs\\mi-test-1key\\total_fea.npy",
-                        #     interactive=True,
-                        # )
 
                     with gr.Column():
                         resample_sr1 = gr.Slider(
@@ -1020,7 +986,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                             f0method1,
                             file_index3,
                             file_index4,
-                            # file_big_npy2,
                             index_rate2,
                             filter_radius1,
                             resample_sr1,
@@ -1065,7 +1030,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                             label="人声提取激进程度",
                             value=10,
                             interactive=True,
-                            visible=False,  # 先不开放调整
+                            visible=False,
                         )
                         opt_vocal_root = gr.Textbox(
                             label=i18n("指定输出主人声文件夹"), value="opt"
@@ -1130,7 +1095,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                     value=int(np.ceil(config.n_cpu / 1.5)),
                     interactive=True,
                 )
-            with gr.Group():  # 暂时单人的, 后面支持最多4人的#数据处理
+            with gr.Group():
                 gr.Markdown(
                     value=i18n(
                         "step2a: 自动遍历训练文件夹下所有可解码成音频的文件并进行切片归一化, 在实验目录下生成2个wav文件夹; 暂时只支持单人训练. "
@@ -1413,7 +1378,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                     ],
                     info4,
                     api_name="ckpt_merge",
-                )  # def merge(path1,path2,alpha1,sr,f0,info):
+                )
             with gr.Group():
                 gr.Markdown(
                     value=i18n("修改模型信息(仅支持weights文件夹下提取的小模型文件)")
