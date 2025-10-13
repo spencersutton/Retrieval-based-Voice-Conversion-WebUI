@@ -72,7 +72,7 @@ if config.dml:
         fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
 i18n = I18nAuto()
 logger.info(i18n)
-# 判断是否有能用来训练和加速推理的N卡
+
 ngpu = torch.cuda.device_count()
 gpu_infos = []
 mem = []
@@ -258,7 +258,7 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
     yield log
 
 
-# but2.click(extract_f0,[gpus6,np7,f0method8,if_f0_3,trainset_dir4],[info2])
+
 def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe):
     gpus = gpus.split("-")
     log_dir = now_dir / "logs" / exp_dir
@@ -398,7 +398,7 @@ def change_f0(if_f0_3, sr2, version19):
     )
 
 
-# but3.click(click_train,[exp_dir1,sr2,if_f0_3,save_epoch10,total_epoch11,batch_size12,if_save_latest13,pretrained_G14,pretrained_D15,gpus16])
+
 def click_train(
     exp_dir1,
     sr2,
@@ -521,7 +521,7 @@ def click_train(
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
 
 
-# but4.click(train_index, [exp_dir1], info3)
+
 def train_index(exp_dir1, version19):
     exp_dir = now_dir / "logs" / exp_dir1
     exp_dir.mkdir(parents=True, exist_ok=True)
@@ -613,7 +613,7 @@ def train_index(exp_dir1, version19):
     yield "\n".join(infos)
 
 
-# but5.click(train1key, [exp_dir1, sr2, if_f0_3, trainset_dir4, spk_id5, gpus6, np7, f0method8, save_epoch10, total_epoch11, batch_size12, if_save_latest13, pretrained_G14, pretrained_D15, gpus16, if_cache_gpu17], info3)
+
 def train1key(
     exp_dir1,
     sr2,
@@ -676,7 +676,7 @@ def train1key(
     yield get_info_str(i18n("全流程结束！"))
 
 
-#                    ckpt_path2.change(change_info_,[ckpt_path2],[sr__,if_f0__])
+
 def change_info_(ckpt_path):
     try:
         ckpt_path = Path(ckpt_path)
@@ -710,7 +710,7 @@ def change_f0_method(f0method8):
 
 
 with gr.Blocks(title="RVC WebUI") as app:
-    gr.Markdown("## RVC WebUI")
+    gr.Markdown("
     gr.Markdown(
         value=i18n(
             "本软件以MIT协议开源, 作者不对软件具备任何控制力, 使用软件者、传播软件导出的声音者自负全责. <br>如不认可该条款, 则不能使用或引用软件包内任何代码和文件. 详见根目录<b>LICENSE</b>."
