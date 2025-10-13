@@ -16,7 +16,8 @@ from infer.lib.train.process_ckpt import (
 from i18n.i18n import I18nAuto
 from configs.config import Config
 from sklearn.cluster import MiniBatchKMeans
-import torch, platform
+import torch
+import platform
 import numpy as np
 import gradio as gr
 import faiss
