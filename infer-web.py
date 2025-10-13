@@ -56,10 +56,8 @@ os.environ["TEMP"] = str(tmp)
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
-
 config = Config()
 vc = VC(config)
-
 
 if config.dml:
 
@@ -107,7 +105,6 @@ if torch.cuda.is_available() or ngpu != 0:
                 "6000",
             ]
         ):
-
             if_gpu_ok = True
             gpu_infos.append("%s\t%s" % (i, gpu_name))
             mem.append(
@@ -126,16 +123,6 @@ else:
     gpu_info = i18n("很遗憾您这没有能用的显卡来支持您训练")
     default_batch_size = 1
 gpus = "-".join([i[0] for i in gpu_infos])
-
-
-class ToolButton(gr.Button, gr.components.FormComponent):
-    """Small button with single emoji as text, fits inside gradio forms"""
-
-    def __init__(self, **kwargs):
-        super().__init__(variant="tool", **kwargs)
-
-    def get_block_name(self):
-        return "button"
 
 
 weight_root = os.getenv("weight_root")
@@ -215,7 +202,6 @@ def if_done(done, p):
 
 def if_done_multi(done, ps):
     while 1:
-
         flag = 1
         for p in ps:
             if p.poll() is None:
@@ -256,7 +242,6 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
         log = f.read()
     logger.info(log)
     yield log
-
 
 
 def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe):
@@ -398,7 +383,6 @@ def change_f0(if_f0_3, sr2, version19):
     )
 
 
-
 def click_train(
     exp_dir1,
     sr2,
@@ -415,7 +399,6 @@ def click_train(
     if_save_every_weights18,
     version19,
 ):
-
     exp_dir = now_dir / "logs" / exp_dir1
     exp_dir.mkdir(parents=True, exist_ok=True)
     gt_wavs_dir = exp_dir / "0_gt_wavs"
@@ -521,7 +504,6 @@ def click_train(
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
 
 
-
 def train_index(exp_dir1, version19):
     exp_dir = now_dir / "logs" / exp_dir1
     exp_dir.mkdir(parents=True, exist_ok=True)
@@ -613,7 +595,6 @@ def train_index(exp_dir1, version19):
     yield "\n".join(infos)
 
 
-
 def train1key(
     exp_dir1,
     sr2,
@@ -676,7 +657,6 @@ def train1key(
     yield get_info_str(i18n("全流程结束！"))
 
 
-
 def change_info_(ckpt_path):
     try:
         ckpt_path = Path(ckpt_path)
@@ -710,7 +690,6 @@ def change_f0_method(f0method8):
 
 
 with gr.Blocks(title="RVC WebUI") as app:
-    gr.Markdown("
     gr.Markdown(
         value=i18n(
             "本软件以MIT协议开源, 作者不对软件具备任何控制力, 使用软件者、传播软件导出的声音者自负全责. <br>如不认可该条款, 则不能使用或引用软件包内任何代码和文件. 详见根目录<b>LICENSE</b>."
