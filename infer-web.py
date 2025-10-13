@@ -1,19 +1,13 @@
-import os
-import sys
-from pathlib import Path
-
-from dotenv import load_dotenv
-
-now_dir = Path.cwd()
-sys.path.append(str(now_dir))
-load_dotenv()
 import json
 import logging
+import os
 import platform
 import shutil
+import sys
 import threading
 import traceback
 import warnings
+from pathlib import Path
 from random import shuffle
 from subprocess import Popen
 from time import sleep
@@ -23,6 +17,7 @@ import faiss
 import gradio as gr
 import numpy as np
 import torch
+from dotenv import load_dotenv
 from sklearn.cluster import MiniBatchKMeans
 
 from configs.config import Config
@@ -35,6 +30,10 @@ from infer.lib.train.process_ckpt import (
 )
 from infer.modules.uvr5.modules import uvr
 from infer.modules.vc.modules import VC
+
+now_dir = Path.cwd()
+sys.path.append(str(now_dir))
+load_dotenv()
 
 logging.getLogger("numba").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -707,7 +706,11 @@ def change_info_(ckpt_path):
         ckpt_path = Path(ckpt_path)
         train_log = ckpt_path.with_name("train.log")
         if not train_log.exists():
-            return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
+            return (
+                {"__type__": "update"},
+                {"__type__": "update"},
+                {"__type__": "update"},
+            )
         with train_log.open("r") as f:
             first = f.read().strip("\n").split("\n")[0]
             info = eval(first.split("\t")[-1])
@@ -788,7 +791,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 label=i18n(
                                     "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
                                 ),
-                                    choices=(
+                                choices=(
                                     ["pm", "harvest", "crepe", "rmvpe"]
                                     if not config.dml
                                     else ["pm", "harvest", "rmvpe"]
