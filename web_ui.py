@@ -40,49 +40,33 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
         # create FastAPI app and add CORS middleware so browser JS clients can call /config etc.
         fastapi_app = FastAPI()
 
-        # restrict to the actual frontend origin when using credentials
-        ALLOWED_ORIGINS = ["https://rvc-rest-gui.pages.dev"]
-
-        fastapi_app.add_middleware(
-            CORSMiddleware,
-            allow_origins=ALLOWED_ORIGINS,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-
-        # Private Network Access: browsers send Access-Control-Request-Private-Network on preflight
-        # when a public context requests the loopback address. Respond with
-        # Access-Control-Allow-Private-Network: true to allow those requests.
+        # Use a middleware that echoes the Origin header (allows "all origins" even when credentials are used).
+        # WARNING: this effectively permits any origin to send credentialed requests. Only use if acceptable.
         from starlette.responses import Response
 
         @fastapi_app.middleware("http")
-        async def _allow_private_network(request, call_next):
+        async def _cors_and_private_network(request, call_next):
             origin = request.headers.get("origin")
-            allow_origin_value = origin if origin in ALLOWED_ORIGINS else None
 
-            # handle preflight requests (OPTIONS) - ensure necessary CORS + PNA headers are present
+            # handle preflight requests (OPTIONS)
             if request.method == "OPTIONS":
                 req_headers = request.headers.get("access-control-request-headers", "*")
-                headers = {}
-                if allow_origin_value:
-                    headers["Access-Control-Allow-Origin"] = allow_origin_value
+                headers = {
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": req_headers,
+                    "Access-Control-Allow-Private-Network": "true",
+                }
+                if origin:
+                    headers["Access-Control-Allow-Origin"] = origin
                     headers["Vary"] = "Origin"
                     headers["Access-Control-Allow-Credentials"] = "true"
-                headers.update(
-                    {
-                        "Access-Control-Allow-Methods": "*",
-                        "Access-Control-Allow-Headers": req_headers,
-                        "Access-Control-Allow-Private-Network": "true",
-                    }
-                )
                 return Response(status_code=200, headers=headers)
 
             response = await call_next(request)
-            # ensure PNA header is present on normal responses as well
+            # add headers on regular responses too
             response.headers["Access-Control-Allow-Private-Network"] = "true"
-            if allow_origin_value:
-                response.headers["Access-Control-Allow-Origin"] = allow_origin_value
+            if origin:
+                response.headers["Access-Control-Allow-Origin"] = origin
                 response.headers["Vary"] = "Origin"
                 response.headers["Access-Control-Allow-Credentials"] = "true"
             return response
