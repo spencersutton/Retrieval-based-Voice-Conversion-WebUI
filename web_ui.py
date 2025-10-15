@@ -19,7 +19,6 @@ from tabs.vocal_tab import create_vocal_tab
 torch.serialization.add_safe_globals([fairseq.data.dictionary.Dictionary])
 
 
-
 with gr.Blocks(title="RVC WebUI Fork") as app:
     repo = git.Repo(search_parent_directories=True)
     gr.Markdown(
