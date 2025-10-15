@@ -39,31 +39,20 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
         # create FastAPI app and add CORS middleware so browser JS clients can call /config etc.
         fastapi_app = FastAPI()
 
-        # Use a middleware that echoes the Origin header (allows "all origins" even when credentials are used).
-        # WARNING: this effectively permits any origin to send credentialed requests. Only use if acceptable.
-        from starlette.responses import Response
+        # Use FastAPI's CORSMiddleware to properly handle preflight and CORS headers.
+        fastapi_app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # or restrict to specific origins if needed
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
         @fastapi_app.middleware("http")
         async def _cors_and_private_network(request, call_next):
-            origin = request.headers.get("origin")
-
-            # handle preflight requests (OPTIONS)
-            if request.method == "OPTIONS":
-                req_headers = request.headers.get("access-control-request-headers", "*")
-                headers = {
-                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                    "Access-Control-Allow-Headers": req_headers,
-                    "Access-Control-Allow-Private-Network": "true",
-                }
-                if origin:
-                    headers["Access-Control-Allow-Origin"] = origin
-                    headers["Vary"] = "Origin"
-                    headers["Access-Control-Allow-Credentials"] = "true"
-                return Response(status_code=200, headers=headers)
-
             response = await call_next(request)
-            # add headers on regular responses too
             response.headers["Access-Control-Allow-Private-Network"] = "true"
+            origin = request.headers.get("origin")
             if origin:
                 response.headers["Access-Control-Allow-Origin"] = origin
                 response.headers["Vary"] = "Origin"
@@ -71,15 +60,17 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
             return response
 
         # mount the Gradio Blocks app into FastAPI and run with uvicorn
-        gr.mount_gradio_app(fastapi_app, app, path="/")
+        gr.mount_gradio_app(fastapi_app, app, path="/gradio")
 
         import uvicorn
 
         # reduce noisy logs
-        logging.getLogger("uvicorn.access").disabled = True
-        logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
-        logging.getLogger("fastapi").setLevel(logging.WARNING)
-        logging.getLogger("gradio").setLevel(logging.WARNING)
+        # logging.getLogger("uvicorn.access").disabled = True
+        # logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
+        # logging.getLogger("fastapi").setLevel(logging.WARNING)
+        # logging.getLogger("gradio").setLevel(logging.WARNING)
+
+        print(f"Listening on port {shared.config.listen_port}")
 
         uvicorn.run(
             fastapi_app,
