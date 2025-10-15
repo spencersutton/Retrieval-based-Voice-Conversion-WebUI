@@ -3,6 +3,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 EXPOSE 7865
 
 RUN apt-get update && apt-get install -y \
+    libasound-dev \
     curl ca-certificates \
     git \
     ffmpeg \
