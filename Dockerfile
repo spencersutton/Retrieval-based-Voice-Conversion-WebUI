@@ -4,6 +4,8 @@ EXPOSE 7865
 
 RUN apt-get update && apt-get install -y \
     libasound-dev \
+    libportaudio2 \
+    portaudio19-dev \
     curl ca-certificates \
     git \
     ffmpeg \
