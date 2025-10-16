@@ -159,7 +159,14 @@ class VC:
         self.net_g.load_state_dict(self.cpt["weight"], strict=False)
         self.net_g.eval().to(self.config.device)
         if self.config.is_half:
-            self.net_g = self.net_g.half()
+            try:
+                self.net_g = self.net_g.half()
+            except Exception as e:
+                self.net_g = self.net_g.float()
+                print(
+                    "Warning: could not convert model to half — keeping float32. Error:",
+                    e,
+                )
         else:
             self.net_g = self.net_g.float()
 

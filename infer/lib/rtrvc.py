@@ -93,7 +93,14 @@ class RVC:
             self.if_f0 = cpt.get("f0", 1)
             self.version = cpt.get("version", "v1")
             if self.is_half:
-                self.net_g = self.net_g.half()
+                try:
+                    self.net_g = self.net_g.half()
+                except Exception as e:
+                    # fallback: keep float32 on GPU (or move to cpu if GPU unusable)
+                    print(
+                        "Warning: could not convert model to half — keeping float32. Error:",
+                        e,
+                    )
             else:
                 self.net_g = self.net_g.float()
 
