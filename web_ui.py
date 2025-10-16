@@ -16,7 +16,18 @@ from tabs.inference_tab import create_inference_tab
 from tabs.train_tab import create_train_tab
 from tabs.vocal_tab import create_vocal_tab
 
-torch.serialization.add_safe_globals([fairseq.data.dictionary.Dictionary])
+# Try to import the Dictionary class in a way compatible with different fairseq versions,
+# and only register it with torch.serialization if the import succeeds.
+try:
+    from fairseq.data.dictionary import Dictionary as FairseqDictionary
+except Exception:
+    try:
+        from fairseq.data import Dictionary as FairseqDictionary
+    except Exception:
+        FairseqDictionary = None
+
+if FairseqDictionary is not None:
+    torch.serialization.add_safe_globals([FairseqDictionary])
 
 
 with gr.Blocks(title="RVC WebUI Fork") as app:
