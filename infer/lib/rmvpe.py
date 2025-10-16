@@ -507,7 +507,13 @@ class MelSpectrogram(torch.nn.Module):
             magnitude = magnitude[:, :size, :] * self.win_length / win_length_new
         mel_output = torch.matmul(self.mel_basis, magnitude)
         if self.is_half == True:
-            mel_output = mel_output.half()
+            try:
+                mel_output = mel_output.half()
+            except Exception:
+                mel_output = mel_output.float()
+                print(
+                    "Warning: could not convert mel spectrogram to half — keeping float32."
+                )
         log_mel_spec = torch.log(torch.clamp(mel_output, min=self.clamp))
         return log_mel_spec
 
@@ -602,7 +608,13 @@ class RMVPE:
                     input_feed={onnx_input_name: mel.cpu().numpy()},
                 )[0]
             else:
-                mel = mel.half() if self.is_half else mel.float()
+                try:
+                    mel = mel.half() if self.is_half else mel.float()
+                except Exception:
+                    mel = mel.float()
+                    print(
+                        "Warning: could not convert mel spectrogram to half — keeping float32."
+                    )
                 hidden = self.model(mel)
             return hidden[:, :n_frames]
 

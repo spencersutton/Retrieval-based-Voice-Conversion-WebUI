@@ -190,6 +190,9 @@ class Config:
                 or "1060" in self.gpu_name
                 or "1070" in self.gpu_name
                 or "1080" in self.gpu_name
+                or "TITAN X" in self.gpu_name.upper()
+                or "TITAN V" in self.gpu_name.upper()
+                or "TITAN P" in self.gpu_name.upper()
             ):
                 logger.info("Found GPU %s, force to fp32", self.gpu_name)
                 self.is_half = False

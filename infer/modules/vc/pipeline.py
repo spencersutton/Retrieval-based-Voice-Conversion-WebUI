@@ -173,7 +173,14 @@ class Pipeline(object):
     ):  # ,file_index,file_big_npy
         feats = torch.from_numpy(audio)
         if self.is_half:
-            feats = feats.half()
+            try:
+                feats = feats.half()
+            except Exception as e:
+                print(
+                    "Warning: could not convert audio features to half — keeping float32. Error:",
+                    e,
+                )
+                feats = feats.float()
         else:
             feats = feats.float()
         if feats.dim() == 2:  # double channels

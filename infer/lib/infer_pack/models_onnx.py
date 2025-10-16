@@ -413,7 +413,13 @@ class SourceModuleHnNSF(torch.nn.Module):
     def forward(self, x, upp=None):
         sine_wavs, uv, _ = self.l_sin_gen(x, upp)
         if self.is_half:
-            sine_wavs = sine_wavs.half()
+            try:
+                sine_wavs = sine_wavs.half()
+            except Exception:
+                sine_wavs = sine_wavs.float()
+                print(
+                    "Warning: could not convert sine waveforms to half — keeping float32."
+                )
         sine_merge = self.l_tanh(self.l_linear(sine_wavs))
         return sine_merge, None, None  # noise, uv
 
