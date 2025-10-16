@@ -78,7 +78,14 @@ class RVC:
         hubert_model = models[0]
         hubert_model = hubert_model.to(self.device)
         if self.is_half:
-            hubert_model = hubert_model.half()
+            try:
+                hubert_model = hubert_model.half()
+            except Exception as e:
+                print(
+                    "Warning: could not convert HuBERT to half — keeping float32. Error:",
+                    e,
+                )
+                hubert_model = hubert_model.float()
         else:
             hubert_model = hubert_model.float()
         hubert_model.eval()

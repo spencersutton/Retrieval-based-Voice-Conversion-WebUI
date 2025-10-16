@@ -33,7 +33,14 @@ def load_hubert(config: Config) -> HubertModel:  # hubert_model is a torch.nn.Mo
     hubert_model = models[0]
     hubert_model = hubert_model.to(config.device)
     if config.is_half:
-        hubert_model = hubert_model.half()
+        try:
+            hubert_model = hubert_model.half()
+        except Exception as e:
+            print(
+                "Warning: could not convert HuBERT to half — keeping float32. Error:",
+                e,
+            )
+            hubert_model = hubert_model.float()
     else:
         hubert_model = hubert_model.float()
     return hubert_model.eval()
