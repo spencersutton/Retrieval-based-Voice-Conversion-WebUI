@@ -62,6 +62,13 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
         # mount the Gradio Blocks app into FastAPI and run with uvicorn
         gr.mount_gradio_app(fastapi_app, app, path="/gradio")
 
+        # Redirect root URL to /gradio
+        from fastapi.responses import RedirectResponse
+
+        @fastapi_app.get("/")
+        async def redirect_to_gradio():
+            return RedirectResponse(url="/gradio")
+
         import uvicorn
 
         # reduce noisy logs
@@ -70,7 +77,7 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
         # logging.getLogger("fastapi").setLevel(logging.WARNING)
         # logging.getLogger("gradio").setLevel(logging.WARNING)
 
-        print(f"Listening on port {shared.config.listen_port}")
+        print(f"Listening on port http://0.0.0.0:{shared.config.listen_port}")
 
         uvicorn.run(
             fastapi_app,
