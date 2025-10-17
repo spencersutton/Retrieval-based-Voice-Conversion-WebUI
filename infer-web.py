@@ -165,7 +165,7 @@ def change_choices():
         if name.suffix == ".pth":
             names.append(name)
     index_paths = []
-    for root, dirs, files in os.walk(index_root, topdown=False):
+    for root, _dirs, files in os.walk(index_root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
                 index_paths.append("%s/%s" % (root, name))
@@ -255,8 +255,9 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
     yield log
 
 
-# but2.click(extract_f0,[gpus6,np7,f0method8,if_f0_3,trainset_dir4],[info2])
-def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe):
+def extract_f0_feature(  # noqa: PLR0913
+    gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe
+):
     gpus = gpus.split("-")
 
     logs_directory = now_dir / "logs" / exp_dir
@@ -693,13 +694,10 @@ def train_index(exp_dir1, version19):
     except:
         infos.append("链接索引到外部-%s失败" % (outside_index_root))
 
-    # faiss.write_index(index, '%s/added_IVF%s_Flat_FastScan_%s.index'%(exp_dir,n_ivf,version19))
-    # infos.append("成功构建索引，added_IVF%s_Flat_FastScan_%s.index"%(n_ivf,version19))
     yield "\n".join(infos)
 
 
-# but5.click(train1key, [exp_dir1, sr2, if_f0_3, trainset_dir4, spk_id5, gpus6, np7, f0method8, save_epoch10, total_epoch11, batch_size12, if_save_latest13, pretrained_G14, pretrained_D15, gpus16, if_cache_gpu17], info3)
-def train1key(
+def train1key(  # noqa: PLR0913
     exp_dir1,
     sr2,
     if_f0_3,
