@@ -1,16 +1,10 @@
-import os
-import sys
-
-from dotenv import load_dotenv
-
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-load_dotenv()
 import json
 import logging
+import os
 import pathlib
 import platform
 import shutil
+import sys
 import threading
 import traceback
 import warnings
@@ -23,6 +17,7 @@ import faiss
 import gradio as gr
 import numpy as np
 import torch
+from dotenv import load_dotenv
 from sklearn.cluster import MiniBatchKMeans
 
 from configs.config import Config
@@ -35,6 +30,10 @@ from infer.lib.train.process_ckpt import (
 )
 from infer.modules.uvr5.modules import uvr
 from infer.modules.vc.modules import VC
+
+now_dir = os.getcwd()
+sys.path.append(now_dir)
+load_dotenv()
 
 logging.getLogger("numba").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
