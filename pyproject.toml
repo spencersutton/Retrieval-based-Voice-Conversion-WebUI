@@ -31,7 +31,7 @@ faiss = { path = "../repos/faiss/build/faiss/python" }
 fairseq = { git = "https://github.com/One-sixth/fairseq.git" }
 
 [tool.ruff]
-lint.extend-select = ["I", "PTH", "PL", "B", "C4", "G", "LOG", "PIE"]
+lint.extend-select = ["I", "PTH", "B", "C4", "G", "LOG", "PIE"]
 lint.ignore = ["E722"]
 
 [dependency-groups]
