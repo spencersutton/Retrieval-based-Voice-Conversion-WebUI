@@ -32,7 +32,7 @@ from infer.lib.train.process_ckpt import (
 from infer.modules.uvr5.modules import uvr
 from infer.modules.vc.modules import VC
 
-now_dir = pathlib.Path.cwd()
+now_dir = Path.cwd()
 sys.path.append(str(now_dir))
 load_dotenv()
 
@@ -133,14 +133,14 @@ class ToolButton(gr.Button, gr.components.FormComponent):
         return "button"
 
 
-weight_root = os.getenv("weight_root")
-weight_uvr5_root = os.getenv("weight_uvr5_root")
-index_root = os.getenv("index_root")
-outside_index_root = os.getenv("outside_index_root")
+weight_root = Path(os.getenv("weight_root", ""))
+weight_uvr5_root = Path(os.getenv("weight_uvr5_root", ""))
+index_root = Path(os.getenv("index_root", ""))
+outside_index_root = Path(os.getenv("outside_index_root", ""))
 
 names = []
-for name in os.listdir(weight_root):
-    if name.endswith(".pth"):
+for name in weight_root.iterdir():
+    if name.suffix == ".pth":
         names.append(name)
 index_paths = []
 
@@ -156,15 +156,15 @@ def lookup_indices(index_root):
 lookup_indices(index_root)
 lookup_indices(outside_index_root)
 uvr5_names = []
-for name in os.listdir(weight_uvr5_root):
-    if name.endswith(".pth") or "onnx" in name:
-        uvr5_names.append(name.replace(".pth", ""))
+for name in weight_uvr5_root.iterdir():
+    if name.suffix == ".pth" or "onnx" in name.name:
+        uvr5_names.append(name.stem)
 
 
 def change_choices():
     names = []
-    for name in os.listdir(weight_root):
-        if name.endswith(".pth"):
+    for name in weight_root.iterdir():
+        if name.suffix == ".pth":
             names.append(name)
     index_paths = []
     for root, dirs, files in os.walk(index_root, topdown=False):
@@ -182,7 +182,7 @@ def clean():
 
 
 def export_onnx(ModelPath, ExportedPath):
-    from infer.modules.onnx.export import export_onnx as eo
+    from infer.modules.onnx.export import export_onnx as eo  # noqa: PLC0415
 
     eo(ModelPath, ExportedPath)
 
@@ -220,9 +220,10 @@ def if_done_multi(done, ps):
 
 def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
     sr = sr_dict[sr]
-    os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
-    f = open("%s/logs/%s/preprocess.log" % (now_dir, exp_dir), "w")
-    f.close()
+
+    logs_directory = now_dir / "logs" / exp_dir
+    logs_directory.mkdir(parents=True, exist_ok=True)
+    (logs_directory / "preprocess.log").touch()
     cmd = '"%s" infer/modules/train/preprocess.py "%s" %s %s "%s/logs/%s" %s %.1f' % (
         config.python_cmd,
         trainset_dir,
@@ -234,7 +235,6 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
         config.preprocess_per,
     )
     logger.info("Execute: " + cmd)
-    # , stdin=PIPE, stdout=PIPE,stderr=PIPE,cwd=now_dir
     p = Popen(cmd, shell=True)
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
@@ -260,9 +260,10 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
 # but2.click(extract_f0,[gpus6,np7,f0method8,if_f0_3,trainset_dir4],[info2])
 def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe):
     gpus = gpus.split("-")
-    os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
-    f = open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "w")
-    f.close()
+
+    logs_directory = now_dir / "logs" / exp_dir
+    logs_directory.mkdir(parents=True, exist_ok=True)
+    (logs_directory / "extract_f0_feature.log").touch()
     if if_f0:
         if f0method != "rmvpe_gpu":
             cmd = (
@@ -346,14 +347,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
             log = f.read()
         logger.info(log)
         yield log
-    # 对不同part分别开多进程
-    """
-    n_part=int(sys.argv[1])
-    i_part=int(sys.argv[2])
-    i_gpu=sys.argv[3]
-    exp_dir=sys.argv[4]
-    os.environ["CUDA_VISIBLE_DEVICES"]=str(i_gpu)
-    """
+
     leng = len(gpus)
     ps = []
     for idx, n_g in enumerate(gpus):
@@ -372,11 +366,8 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
             )
         )
         logger.info("Execute: " + cmd)
-        p = Popen(
-            cmd, shell=True, cwd=now_dir
-        )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
+        p = Popen(cmd, shell=True, cwd=now_dir)
         ps.append(p)
-    # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
     threading.Thread(
         target=if_done_multi,
@@ -385,13 +376,13 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
             ps,
         ),
     ).start()
-    while 1:
-        with open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "r") as f:
+    while True:
+        with (now_dir / "logs" / exp_dir / "extract_f0_feature.log").open("r") as f:
             yield (f.read())
         sleep(1)
         if done[0]:
             break
-    with open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "r") as f:
+    with (now_dir / "logs" / exp_dir / "extract_f0_feature.log").open("r") as f:
         log = f.read()
     logger.info(log)
     yield log
@@ -558,7 +549,7 @@ def click_train(
         config_path = "v2/%s.json" % sr2
     config_save_path = exp_dir / "config.json"
     if not config_save_path.exists():
-        with open(config_save_path, "w", encoding="utf-8") as f:
+        with Path(config_save_path).open("w", encoding="utf-8") as f:
             json.dump(
                 config.json_config[config_path],
                 f,
@@ -616,15 +607,15 @@ def click_train(
 def train_index(exp_dir1, version19):
     # exp_dir = "%s/logs/%s" % (now_dir, exp_dir1)
     exp_dir = "logs/%s" % (exp_dir1)
-    os.makedirs(exp_dir, exist_ok=True)
+    exp_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = (
         "%s/3_feature256" % (exp_dir)
         if version19 == "v1"
         else "%s/3_feature768" % (exp_dir)
     )
-    if not os.path.exists(feature_dir):
+    if not feature_dir.exists():
         return "请先进行特征提取!"
-    listdir_res = list(os.listdir(feature_dir))
+    listdir_res = list(feature_dir.iterdir())
     if len(listdir_res) == 0:
         return "请先进行特征提取！"
     infos = []
