@@ -1,6 +1,6 @@
-import os
 import traceback
 from collections import OrderedDict
+from pathlib import Path
 
 import torch
 
@@ -190,12 +190,12 @@ def extract_small_model(path, name, sr, if_f0, info, version):
         return traceback.format_exc()
 
 
-def change_info(path, info, name):
+def change_info(path: Path, info: str, name: str):
     try:
         ckpt = torch.load(path, map_location="cpu")
         ckpt["info"] = info
         if name == "":
-            name = os.path.basename(path)
+            name = path.name
         torch.save(ckpt, "assets/weights/%s" % name)
         return "Success."
     except:

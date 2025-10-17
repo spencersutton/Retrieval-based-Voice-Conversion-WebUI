@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import pathlib
 import platform
 import shutil
 import sys
@@ -146,8 +145,7 @@ index_paths = []
 
 
 def lookup_indices(index_root):
-    global index_paths
-    for root, dirs, files in os.walk(index_root, topdown=False):
+    for root, _dirs, files in os.walk(index_root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
                 index_paths.append("%s/%s" % (root, name))
@@ -245,13 +243,13 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
             p,
         ),
     ).start()
-    while 1:
-        with open("%s/logs/%s/preprocess.log" % (now_dir, exp_dir), "r") as f:
+    while True:
+        with (now_dir / "logs" / exp_dir / "preprocess.log").open("r") as f:
             yield (f.read())
         sleep(1)
         if done[0]:
             break
-    with open("%s/logs/%s/preprocess.log" % (now_dir, exp_dir), "r") as f:
+    with (now_dir / "logs" / exp_dir / "preprocess.log").open("r") as f:
         log = f.read()
     logger.info(log)
     yield log
@@ -335,15 +333,13 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
             )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
             p.wait()
             done = [True]
-        while 1:
-            with open(
-                "%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "r"
-            ) as f:
+        while True:
+            with (now_dir / "logs" / exp_dir / "extract_f0_feature.log").open("r") as f:
                 yield (f.read())
             sleep(1)
             if done[0]:
                 break
-        with open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "r") as f:
+        with (now_dir / "logs" / exp_dir / "extract_f0_feature.log").open("r") as f:
             log = f.read()
         logger.info(log)
         yield log
@@ -770,13 +766,11 @@ def train1key(
 
 
 #                    ckpt_path2.change(change_info_,[ckpt_path2],[sr__,if_f0__])
-def change_info_(ckpt_path):
-    if not os.path.exists(ckpt_path.replace(os.path.basename(ckpt_path), "train.log")):
+def change_info_(ckpt_path: Path):
+    if not (ckpt_path.parent / "train.log").exists():
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
     try:
-        with open(
-            ckpt_path.replace(os.path.basename(ckpt_path), "train.log"), "r"
-        ) as f:
+        with (ckpt_path.parent / "train.log").open("r") as f:
             info = eval(f.read().strip("\n").split("\n")[0].split("\t")[-1])
             sr, f0 = info["sample_rate"], info["if_f0"]
             version = "v2" if ("version" in info and info["version"] == "v2") else "v1"
@@ -1590,10 +1584,10 @@ with gr.Blocks(title="RVC WebUI") as app:
         with gr.TabItem(tab_faq):
             try:
                 if tab_faq == "常见问题解答":
-                    with open("docs/cn/faq.md", "r", encoding="utf8") as f:
+                    with (Path("docs/cn/faq.md")).open("r", encoding="utf8") as f:
                         info = f.read()
                 else:
-                    with open("docs/en/faq_en.md", "r", encoding="utf8") as f:
+                    with (Path("docs/en/faq_en.md")).open("r", encoding="utf8") as f:
                         info = f.read()
                 gr.Markdown(value=info)
             except:
