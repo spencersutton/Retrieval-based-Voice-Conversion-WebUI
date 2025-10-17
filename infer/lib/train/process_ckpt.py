@@ -226,7 +226,7 @@ def merge(path1, path2, alpha1, sr, f0, info, name, version):
             ckpt2 = extract(ckpt2)
         else:
             ckpt2 = ckpt2["weight"]
-        if sorted(list(ckpt1.keys())) != sorted(list(ckpt2.keys())):
+        if sorted(ckpt1.keys()) != sorted(ckpt2.keys()):
             return "Fail to merge the models. The model architectures are not the same."
         opt = OrderedDict()
         opt["weight"] = {}
