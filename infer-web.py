@@ -57,7 +57,7 @@ config = Config()
 vc = VC(config)
 
 
-if config.dml == True:
+if config.dml:
 
     def forward_dml(ctx, x, scale):
         ctx.scale = scale
@@ -450,7 +450,7 @@ def change_f0(if_f0_3, sr2, version19):  # f0method8,pretrained_G14,pretrained_D
     return (
         {"visible": if_f0_3, "__type__": "update"},
         {"visible": if_f0_3, "__type__": "update"},
-        *get_pretrained_models(path_str, "f0" if if_f0_3 == True else "", sr2),
+        *get_pretrained_models(path_str, "f0" if if_f0_3 else "", sr2),
     )
 
 
@@ -786,7 +786,7 @@ def change_info_(ckpt_path):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
 
 
-F0GPUVisible = config.dml == False
+F0GPUVisible = not config.dml
 
 
 def change_f0_method(f0method8):
@@ -857,7 +857,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 ),
                                 choices=(
                                     ["pm", "harvest", "crepe", "rmvpe"]
-                                    if config.dml == False
+                                    if not config.dml
                                     else ["pm", "harvest", "rmvpe"]
                                 ),
                                 value="rmvpe",
@@ -987,7 +987,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                             ),
                             choices=(
                                 ["pm", "harvest", "crepe", "rmvpe"]
-                                if config.dml == False
+                                if not config.dml
                                 else ["pm", "harvest", "rmvpe"]
                             ),
                             value="rmvpe",
