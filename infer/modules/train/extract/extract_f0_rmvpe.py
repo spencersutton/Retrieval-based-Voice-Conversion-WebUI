@@ -2,14 +2,12 @@ import os
 import sys
 import traceback
 
-import parselmouth
 
 now_dir = os.getcwd()
 sys.path.append(now_dir)
 import logging
 
 import numpy as np
-import pyworld
 
 from infer.lib.audio import load_audio
 
