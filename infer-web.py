@@ -31,8 +31,8 @@ from infer.lib.train.process_ckpt import (
 from infer.modules.uvr5.modules import uvr
 from infer.modules.vc.modules import VC
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
+now_dir = pathlib.Path.cwd()
+sys.path.append(str(now_dir))
 load_dotenv()
 
 logging.getLogger("numba").setLevel(logging.WARNING)
@@ -40,14 +40,14 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
-tmp = os.path.join(now_dir, "TEMP")
+tmp = now_dir / "TEMP"
 shutil.rmtree(tmp, ignore_errors=True)
-shutil.rmtree("%s/runtime/Lib/site-packages/infer_pack" % (now_dir), ignore_errors=True)
-shutil.rmtree("%s/runtime/Lib/site-packages/uvr5_pack" % (now_dir), ignore_errors=True)
-os.makedirs(tmp, exist_ok=True)
-os.makedirs(os.path.join(now_dir, "logs"), exist_ok=True)
-os.makedirs(os.path.join(now_dir, "assets/weights"), exist_ok=True)
-os.environ["TEMP"] = tmp
+shutil.rmtree(now_dir / "runtime/Lib/site-packages/infer_pack", ignore_errors=True)
+shutil.rmtree(now_dir / "runtime/Lib/site-packages/uvr5_pack", ignore_errors=True)
+tmp.mkdir(parents=True, exist_ok=True)
+(now_dir / "logs").mkdir(parents=True, exist_ok=True)
+(now_dir / "assets/weights").mkdir(parents=True, exist_ok=True)
+os.environ["TEMP"] = str(tmp)
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
@@ -464,7 +464,7 @@ def change_f0(if_f0_3, sr2, version19):  # f0method8,pretrained_G14,pretrained_D
 
 # but3.click(click_train,[exp_dir1,sr2,if_f0_3,save_epoch10,total_epoch11,batch_size12,if_save_latest13,pretrained_G14,pretrained_D15,gpus16])
 def click_train(
-    exp_dir1,
+    exp_dir1: str,
     sr2,
     if_f0_3,
     spk_id5,
@@ -480,17 +480,15 @@ def click_train(
     version19,
 ):
     # 生成filelist
-    exp_dir = "%s/logs/%s" % (now_dir, exp_dir1)
-    os.makedirs(exp_dir, exist_ok=True)
-    gt_wavs_dir = "%s/0_gt_wavs" % (exp_dir)
+    exp_dir = now_dir / "logs" / exp_dir1
+    exp_dir.mkdir(parents=True, exist_ok=True)
+    gt_wavs_dir = exp_dir / "0_gt_wavs"
     feature_dir = (
-        "%s/3_feature256" % (exp_dir)
-        if version19 == "v1"
-        else "%s/3_feature768" % (exp_dir)
+        exp_dir / "3_feature256" if version19 == "v1" else exp_dir / "3_feature768"
     )
     if if_f0_3:
-        f0_dir = "%s/2a_f0" % (exp_dir)
-        f0nsf_dir = "%s/2b-f0nsf" % (exp_dir)
+        f0_dir = exp_dir / "2a_f0"
+        f0nsf_dir = exp_dir / "2b-f0nsf"
         names = (
             set([name.split(".")[0] for name in os.listdir(gt_wavs_dir)])
             & set([name.split(".")[0] for name in os.listdir(feature_dir)])
@@ -557,8 +555,8 @@ def click_train(
         config_path = "v1/%s.json" % sr2
     else:
         config_path = "v2/%s.json" % sr2
-    config_save_path = os.path.join(exp_dir, "config.json")
-    if not pathlib.Path(config_save_path).exists():
+    config_save_path = exp_dir / "config.json"
+    if not config_save_path.exists():
         with open(config_save_path, "w", encoding="utf-8") as f:
             json.dump(
                 config.json_config[config_path],
