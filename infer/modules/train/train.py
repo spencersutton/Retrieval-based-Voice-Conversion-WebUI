@@ -1,6 +1,6 @@
+import logging
 import os
 import sys
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +20,10 @@ import torch
 
 try:
     if torch.xpu.is_available():
+        from torch.xpu.amp import autocast
+
         from infer.modules.ipex import ipex_init
         from infer.modules.ipex.gradscaler import gradscaler_init
-        from torch.xpu.amp import autocast
 
         GradScaler = gradscaler_init()
         ipex_init()
@@ -60,9 +61,13 @@ if hps.version == "v1":
     )
 else:
     from infer.lib.infer_pack.models import (
-        SynthesizerTrnMs768NSFsid as RVC_Model_f0,
-        SynthesizerTrnMs768NSFsid_nono as RVC_Model_nof0,
         MultiPeriodDiscriminatorV2 as MultiPeriodDiscriminator,
+    )
+    from infer.lib.infer_pack.models import (
+        SynthesizerTrnMs768NSFsid as RVC_Model_f0,
+    )
+    from infer.lib.infer_pack.models import (
+        SynthesizerTrnMs768NSFsid_nono as RVC_Model_nof0,
     )
 
 from infer.lib.train.losses import (

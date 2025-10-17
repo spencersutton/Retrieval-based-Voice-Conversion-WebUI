@@ -1,8 +1,8 @@
+import logging
+
 import librosa
 import numpy as np
 import onnxruntime
-
-import logging
 
 logger = logging.getLogger(__name__)
 

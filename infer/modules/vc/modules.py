@@ -1,12 +1,13 @@
-import traceback
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
+
+from io import BytesIO
 
 import numpy as np
 import soundfile as sf
 import torch
-from io import BytesIO
 
 from infer.lib.audio import load_audio, wav2
 from infer.lib.infer_pack.models import (

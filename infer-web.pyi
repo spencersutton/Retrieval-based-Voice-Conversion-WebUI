@@ -52,13 +52,10 @@ os.environ["TEMP"] = tmp
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
-
 config = Config()
 vc = VC(config)
 
-
 if config.dml == True:
-
     def forward_dml(ctx, x, scale):
         ctx.scale = scale
         res = x.clone().detach()
@@ -122,7 +119,6 @@ else:
     default_batch_size = 1
 gpus = "-".join([i[0] for i in gpu_infos])
 
-
 class ToolButton(gr.Button, gr.components.FormComponent):
     """Small button with single emoji as text, fits inside gradio forms"""
 
@@ -131,7 +127,13 @@ class ToolButton(gr.Button, gr.components.FormComponent):
 
     def get_block_name(self):
         return "button"
+    from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence
 
+    from gradio.blocks import Block
+
+    if TYPE_CHECKING:
+        from gradio.components import Timer
+        from gradio.components.base import Component
 
 weight_root = os.getenv("weight_root")
 weight_uvr5_root = os.getenv("weight_uvr5_root")
@@ -144,7 +146,6 @@ for name in os.listdir(weight_root):
         names.append(name)
 index_paths = []
 
-
 def lookup_indices(index_root):
     global index_paths
     for root, dirs, files in os.walk(index_root, topdown=False):
@@ -152,14 +153,12 @@ def lookup_indices(index_root):
             if name.endswith(".index") and "trained" not in name:
                 index_paths.append("%s/%s" % (root, name))
 
-
 lookup_indices(index_root)
 lookup_indices(outside_index_root)
 uvr5_names = []
 for name in os.listdir(weight_uvr5_root):
     if name.endswith(".pth") or "onnx" in name:
         uvr5_names.append(name.replace(".pth", ""))
-
 
 def change_choices():
     names = []
@@ -176,23 +175,19 @@ def change_choices():
         "__type__": "update",
     }
 
-
 def clean():
     return {"value": "", "__type__": "update"}
-
 
 def export_onnx(ModelPath, ExportedPath):
     from infer.modules.onnx.export import export_onnx as eo
 
     eo(ModelPath, ExportedPath)
 
-
 sr_dict = {
     "32k": 32000,
     "40k": 40000,
     "48k": 48000,
 }
-
 
 def if_done(done, p):
     while 1:
@@ -201,7 +196,6 @@ def if_done(done, p):
         else:
             break
     done[0] = True
-
 
 def if_done_multi(done, ps):
     while 1:
@@ -216,7 +210,6 @@ def if_done_multi(done, ps):
         if flag == 1:
             break
     done[0] = True
-
 
 def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
     sr = sr_dict[sr]
@@ -255,7 +248,6 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
         log = f.read()
     logger.info(log)
     yield log
-
 
 # but2.click(extract_f0,[gpus6,np7,f0method8,if_f0_3,trainset_dir4],[info2])
 def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe):
@@ -397,7 +389,6 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
     logger.info(log)
     yield log
 
-
 def get_pretrained_models(path_str, f0_str, sr2):
     if_pretrained_generator_exist = os.access(
         "assets/pretrained%s/%sG%s.pth" % (path_str, f0_str, sr2), os.F_OK
@@ -432,12 +423,10 @@ def get_pretrained_models(path_str, f0_str, sr2):
         ),
     )
 
-
 def change_sr2(sr2, if_f0_3, version19):
     path_str = "" if version19 == "v1" else "_v2"
     f0_str = "f0" if if_f0_3 else ""
     return get_pretrained_models(path_str, f0_str, sr2)
-
 
 def change_version19(sr2, if_f0_3, version19):
     path_str = "" if version19 == "v1" else "_v2"
@@ -454,7 +443,6 @@ def change_version19(sr2, if_f0_3, version19):
         to_return_sr2,
     )
 
-
 def change_f0(if_f0_3, sr2, version19):  # f0method8,pretrained_G14,pretrained_D15
     path_str = "" if version19 == "v1" else "_v2"
     return (
@@ -462,7 +450,6 @@ def change_f0(if_f0_3, sr2, version19):  # f0method8,pretrained_G14,pretrained_D
         {"visible": if_f0_3, "__type__": "update"},
         *get_pretrained_models(path_str, "f0" if if_f0_3 == True else "", sr2),
     )
-
 
 # but3.click(click_train,[exp_dir1,sr2,if_f0_3,save_epoch10,total_epoch11,batch_size12,if_save_latest13,pretrained_G14,pretrained_D15,gpus16])
 def click_train(
@@ -614,7 +601,6 @@ def click_train(
     p.wait()
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
 
-
 # but4.click(train_index, [exp_dir1], info3)
 def train_index(exp_dir1, version19):
     # exp_dir = "%s/logs/%s" % (now_dir, exp_dir1)
@@ -713,7 +699,6 @@ def train_index(exp_dir1, version19):
     # infos.append("成功构建索引，added_IVF%s_Flat_FastScan_%s.index"%(n_ivf,version19))
     yield "\n".join(infos)
 
-
 # but5.click(train1key, [exp_dir1, sr2, if_f0_3, trainset_dir4, spk_id5, gpus6, np7, f0method8, save_epoch10, total_epoch11, batch_size12, if_save_latest13, pretrained_G14, pretrained_D15, gpus16, if_cache_gpu17], info3)
 def train1key(
     exp_dir1,
@@ -780,7 +765,6 @@ def train1key(
     [get_info_str(_) for _ in train_index(exp_dir1, version19)]
     yield get_info_str(i18n("全流程结束！"))
 
-
 #                    ckpt_path2.change(change_info_,[ckpt_path2],[sr__,if_f0__])
 def change_info_(ckpt_path):
     if not os.path.exists(ckpt_path.replace(os.path.basename(ckpt_path), "train.log")):
@@ -797,9 +781,7 @@ def change_info_(ckpt_path):
         traceback.print_exc()
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
 
-
 F0GPUVisible = config.dml == False
-
 
 def change_f0_method(f0method8):
     if f0method8 == "rmvpe_gpu":
@@ -807,7 +789,6 @@ def change_f0_method(f0method8):
     else:
         visible = False
     return {"visible": visible, "__type__": "update"}
-
 
 with gr.Blocks(title="RVC WebUI") as app:
     gr.Markdown("## RVC WebUI")
