@@ -8,3 +8,8 @@ license = "MIT"
 
 [[tool.uv.index]]
 url = "https://download.pytorch.org/whl/cu130"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.1",
+]
