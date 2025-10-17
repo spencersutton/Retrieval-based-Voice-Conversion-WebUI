@@ -485,7 +485,7 @@ def click_train(
             & {name.stem for name in f0nsf_dir.iterdir()}
         )
     else:
-        names = ({name.stem for name in (gt_wavs_dir.iterdir())}) & {
+        names = {name.stem for name in gt_wavs_dir.iterdir()} & {
             name.stem for name in feature_dir.iterdir()
         }
     opt = []
