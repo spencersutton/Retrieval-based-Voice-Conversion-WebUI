@@ -2,6 +2,7 @@ import os
 import sys
 import traceback
 from io import BytesIO
+from multiprocessing import Manager as M
 from time import time as ttime
 
 import fairseq
@@ -15,16 +16,12 @@ import torchcrepe
 from scipy import signal
 from torch import nn
 
+from configs.config import Config
 from infer.lib import jit
 from infer.lib.jit.get_synthesizer import get_synthesizer
 
 now_dir = os.getcwd()
 sys.path.append(now_dir)
-from multiprocessing import Manager as M
-
-from configs.config import Config
-
-# config = Config()
 
 mm = M()
 
