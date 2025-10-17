@@ -8,6 +8,7 @@ import sys
 import threading
 import traceback
 import warnings
+from pathlib import Path
 from random import shuffle
 from subprocess import Popen
 from time import sleep
@@ -541,7 +542,7 @@ def click_train(
                 % (now_dir, sr2, now_dir, fea_dim, spk_id5)
             )
     shuffle(opt)
-    with open("%s/filelist.txt" % exp_dir, "w") as f:
+    with Path(exp_dir).open("w") as f:
         f.write("\n".join(opt))
     logger.debug("Write filelist done")
     # 生成config#无需生成config
