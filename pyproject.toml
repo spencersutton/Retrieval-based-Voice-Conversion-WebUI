@@ -7,6 +7,8 @@ authors = ["lj1995"]
 license = "MIT"
 dependencies = [
     "av>=16.0.1",
+    "dotenv>=0.9.9",
+    "faiss",
     "ffmpeg>=1.4",
     "gradio>=5.49.1",
     "numpy>=2.3.4",
@@ -17,6 +19,9 @@ dependencies = [
 
 [[tool.uv.index]]
 url = "https://download.pytorch.org/whl/cu130"
+
+[tool.uv.sources]
+faiss = { path = "../repos/faiss/build/faiss/python" }
 
 [dependency-groups]
 dev = ["ruff>=0.14.1"]
