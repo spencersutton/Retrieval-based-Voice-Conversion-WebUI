@@ -66,7 +66,7 @@ if config.dml:
     fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
 i18n = I18nAuto()
 logger.info(i18n)
-# 判断是否有能用来训练和加速推理的N卡
+
 ngpu = torch.cuda.device_count()
 gpu_infos = []
 mem = []
@@ -101,8 +101,8 @@ if torch.cuda.is_available() or ngpu != 0:
                 "6000",
             ]
         ):
-            # A10#A100#V100#A40#P40#M40#K80#A4500
-            if_gpu_ok = True  # 至少有一张能用的N卡
+
+            if_gpu_ok = True
             gpu_infos.append("%s\t%s" % (i, gpu_name))
             mem.append(
                 int(
@@ -144,10 +144,11 @@ for name in weight_root.iterdir():
 index_paths = []
 
 
-def lookup_indices(index_root):
+def lookup_indices(index_root: os.PathLike):
     for root, _dirs, files in os.walk(index_root, topdown=False):
-        for name in files:
-            if name.endswith(".index") and "trained" not in name:
+        found_files = [Path(f) for f in files]
+        for name in found_files:
+            if name.suffix == ".index" and "trained" not in name.stem:
                 index_paths.append("%s/%s" % (root, name))
 
 
@@ -166,8 +167,9 @@ def change_choices():
             names.append(name)
     index_paths = []
     for root, _dirs, files in os.walk(index_root, topdown=False):
-        for name in files:
-            if name.endswith(".index") and "trained" not in name:
+        found_files = [Path(f) for f in files]
+        for name in found_files:
+            if name.suffix == ".index" and "trained" not in name.stem:
                 index_paths.append("%s/%s" % (root, name))
     return {"choices": sorted(names), "__type__": "update"}, {
         "choices": sorted(index_paths),
@@ -203,8 +205,7 @@ def if_done(done, p):
 
 def if_done_multi(done, ps):
     while 1:
-        # poll==None代表进程未结束
-        # 只要有一个进程未结束都不停
+
         flag = 1
         for p in ps:
             if p.poll() is None:
@@ -234,7 +235,6 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
     )
     logger.info("Execute: " + cmd)
     p = Popen(cmd, shell=True)
-    # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
     threading.Thread(
         target=if_done,
@@ -276,10 +276,7 @@ def extract_f0_feature(  # noqa: PLR0913
                 )
             )
             logger.info("Execute: " + cmd)
-            p = Popen(
-                cmd, shell=True, cwd=now_dir
-            )  # , stdin=PIPE, stdout=PIPE,stderr=PIPE
-            # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
+            p = Popen(cmd, shell=True, cwd=now_dir)
             done = [False]
             threading.Thread(
                 target=if_done,
@@ -306,11 +303,8 @@ def extract_f0_feature(  # noqa: PLR0913
                     )
                 )
                 logger.info("Execute: " + cmd)
-                p = Popen(
-                    cmd, shell=True, cwd=now_dir
-                )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
+                p = Popen(cmd, shell=True, cwd=now_dir)
                 ps.append(p)
-            # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
             done = [False]
             threading.Thread(
                 target=if_done_multi,
@@ -329,9 +323,7 @@ def extract_f0_feature(  # noqa: PLR0913
                 )
             )
             logger.info("Execute: " + cmd)
-            p = Popen(
-                cmd, shell=True, cwd=now_dir
-            )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
+            p = Popen(cmd, shell=True, cwd=now_dir)
             p.wait()
             done = [True]
         while True:
@@ -442,7 +434,7 @@ def change_version19(sr2, if_f0_3, version19):
     )
 
 
-def change_f0(if_f0_3, sr2, version19):  # f0method8,pretrained_G14,pretrained_D15
+def change_f0(if_f0_3, sr2, version19):
     path_str = "" if version19 == "v1" else "_v2"
     return (
         {"visible": if_f0_3, "__type__": "update"},
@@ -451,7 +443,6 @@ def change_f0(if_f0_3, sr2, version19):  # f0method8,pretrained_G14,pretrained_D
     )
 
 
-# but3.click(click_train,[exp_dir1,sr2,if_f0_3,save_epoch10,total_epoch11,batch_size12,if_save_latest13,pretrained_G14,pretrained_D15,gpus16])
 def click_train(
     exp_dir1: str,
     sr2,
@@ -468,7 +459,6 @@ def click_train(
     if_save_every_weights18,
     version19,
 ):
-    # 生成filelist
     exp_dir = now_dir / "logs" / exp_dir1
     exp_dir.mkdir(parents=True, exist_ok=True)
     gt_wavs_dir = exp_dir / "0_gt_wavs"
@@ -533,8 +523,6 @@ def click_train(
     with Path(exp_dir).open("w") as f:
         f.write("\n".join(opt))
     logger.debug("Write filelist done")
-    # 生成config#无需生成config
-    # cmd = python_cmd + " train_nsf_sim_cache_sid_load_pretrain.py -e mi-test -sr 40k -f0 1 -bs 4 -g 0 -te 10 -se 5 -pg pretrained/f0G40k.pth -pd pretrained/f0D40k.pth -l 1 -c 0"
     logger.info("Use gpus: %s", str(gpus16))
     if pretrained_G14 == "":
         logger.info("No pretrained Generator")
@@ -600,9 +588,7 @@ def click_train(
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
 
 
-# but4.click(train_index, [exp_dir1], info3)
 def train_index(exp_dir1, version19):
-    # exp_dir = "%s/logs/%s" % (now_dir, exp_dir1)
     exp_dir = "logs/%s" % (exp_dir1)
     exp_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = (
@@ -650,7 +636,7 @@ def train_index(exp_dir1, version19):
     infos.append("%s,%s" % (big_npy.shape, n_ivf))
     yield "\n".join(infos)
     index = faiss.index_factory(256 if version19 == "v1" else 768, "IVF%s,Flat" % n_ivf)
-    # index = faiss.index_factory(256if version19=="v1"else 768, "IVF%s,PQ128x4fs,RFlat"%n_ivf)
+
     infos.append("training")
     yield "\n".join(infos)
     index_ivf = faiss.extract_index_ivf(index)
@@ -676,20 +662,15 @@ def train_index(exp_dir1, version19):
         % (n_ivf, index_ivf.nprobe, exp_dir1, version19)
     )
     try:
-        link = os.link if platform.system() == "Windows" else os.symlink
-        link(
-            "%s/added_IVF%s_Flat_nprobe_%s_%s_%s.index"
-            % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1, version19),
-            "%s/%s_IVF%s_Flat_nprobe_%s_%s_%s.index"
-            % (
-                outside_index_root,
-                exp_dir1,
-                n_ivf,
-                index_ivf.nprobe,
-                exp_dir1,
-                version19,
-            ),
+        file_name = (
+            f"IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index"
         )
+        source_path = Path(exp_dir) / f"added_{file_name}"
+        target_path = outside_index_root / f"{exp_dir1}_{file_name}"
+        if platform.system() == "Windows":
+            source_path.hardlink_to(target_path)
+        else:
+            source_path.symlink_to(target_path)
         infos.append("链接索引到外部-%s" % (outside_index_root))
     except:
         infos.append("链接索引到外部-%s失败" % (outside_index_root))
@@ -723,11 +704,9 @@ def train1key(  # noqa: PLR0913
         infos.append(strr)
         return "\n".join(infos)
 
-    # step1:处理数据
     yield get_info_str(i18n("step1:正在处理数据"))
     [get_info_str(_) for _ in preprocess_dataset(trainset_dir4, exp_dir1, sr2, np7)]
 
-    # step2a:提取音高
     yield get_info_str(i18n("step2:正在提取音高&正在提取特征"))
     [
         get_info_str(_)
@@ -736,7 +715,6 @@ def train1key(  # noqa: PLR0913
         )
     ]
 
-    # step3a:训练模型
     yield get_info_str(i18n("step3a:正在训练模型"))
     click_train(
         exp_dir1,
@@ -758,12 +736,10 @@ def train1key(  # noqa: PLR0913
         i18n("训练结束, 您可查看控制台训练日志或实验文件夹下的train.log")
     )
 
-    # step3b:训练索引
     [get_info_str(_) for _ in train_index(exp_dir1, version19)]
     yield get_info_str(i18n("全流程结束！"))
 
 
-#                    ckpt_path2.change(change_info_,[ckpt_path2],[sr__,if_f0__])
 def change_info_(ckpt_path: Path):
     if not (ckpt_path.parent / "train.log").exists():
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
@@ -914,11 +890,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 outputs=[sid0, file_index2],
                                 api_name="infer_refresh",
                             )
-                            # file_big_npy1 = gr.Textbox(
-                            #     label=i18n("特征文件路径"),
-                            #     value="E:\\codes\py39\\vits_vc_gpu_train\\logs\\mi-test-1key\\total_fea.npy",
-                            #     interactive=True,
-                            # )
                 with gr.Group():
                     with gr.Column():
                         but0 = gr.Button(i18n("转换"), variant="primary")
@@ -938,7 +909,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 f0method0,
                                 file_index1,
                                 file_index2,
-                                # file_big_npy1,
                                 index_rate1,
                                 filter_radius0,
                                 resample_sr0,
@@ -998,11 +968,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                             outputs=file_index4,
                             api_name="infer_refresh_batch",
                         )
-                        # file_big_npy2 = gr.Textbox(
-                        #     label=i18n("特征文件路径"),
-                        #     value="E:\\codes\\py39\\vits_vc_gpu_train\\logs\\mi-test-1key\\total_fea.npy",
-                        #     interactive=True,
-                        # )
 
                     with gr.Column():
                         resample_sr1 = gr.Slider(
@@ -1076,7 +1041,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                             f0method1,
                             file_index3,
                             file_index4,
-                            # file_big_npy2,
                             index_rate2,
                             filter_radius1,
                             resample_sr1,
@@ -1469,7 +1433,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                     ],
                     info4,
                     api_name="ckpt_merge",
-                )  # def merge(path1,path2,alpha1,sr,f0,info):
+                )
             with gr.Group():
                 gr.Markdown(
                     value=i18n("修改模型信息(仅支持weights文件夹下提取的小模型文件)")
