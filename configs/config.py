@@ -4,6 +4,7 @@ import os
 import shutil
 import sys
 from multiprocessing import cpu_count
+from pathlib import Path
 
 import torch
 
@@ -64,10 +65,10 @@ class Config:
     def load_config_json() -> dict:
         d = {}
         for config_file in version_config_list:
-            p = f"configs/inuse/{config_file}"
-            if not os.path.exists(p):
+            p = Path(f"configs/inuse/{config_file}")
+            if not p.exists():
                 shutil.copy(f"configs/{config_file}", p)
-            with open(f"configs/inuse/{config_file}", "r") as f:
+            with p.open("r") as f:
                 d[config_file] = json.load(f)
         return d
 
@@ -197,12 +198,9 @@ class Config:
             x_max = 32
         if self.dml:
             logger.info("Use DirectML instead")
-            if (
-                os.path.exists(
-                    "runtime\Lib\site-packages\onnxruntime\capi\DirectML.dll"
-                )
-                == False
-            ):
+            if not Path(
+                "runtime/Lib/site-packages/onnxruntime/capi/DirectML.dll"
+            ).exists():
                 try:
                     os.rename(
                         "runtime\Lib\site-packages\onnxruntime",
@@ -217,29 +215,26 @@ class Config:
                     )
                 except:
                     pass
-            # if self.device != "cpu":
-            import torch_directml
+            import torch_directml  # noqa: PLC0415
 
             self.device = torch_directml.device(torch_directml.default_device())
             self.is_half = False
         else:
             if self.instead:
                 logger.info(f"Use {self.instead} instead")
-            if (
-                os.path.exists(
-                    "runtime\Lib\site-packages\onnxruntime\capi\onnxruntime_providers_cuda.dll"
-                )
-                == False
-            ):
+            onnxruntime_cuda_dll_path = Path(
+                "runtime\Lib\site-packages\onnxruntime\capi\onnxruntime_providers_cuda.dll"
+            )
+            if not onnxruntime_cuda_dll_path.exists():
                 try:
-                    os.rename(
+                    os.rename(  # noqa: PTH104
                         "runtime\Lib\site-packages\onnxruntime",
                         "runtime\Lib\site-packages\onnxruntime-dml",
                     )
                 except:
                     pass
                 try:
-                    os.rename(
+                    os.rename(  # noqa: PTH104
                         "runtime\Lib\site-packages\onnxruntime-cuda",
                         "runtime\Lib\site-packages\onnxruntime",
                     )

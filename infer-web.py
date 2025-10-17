@@ -588,7 +588,7 @@ def click_train(
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
 
 
-def train_index(exp_dir1, version19):
+def train_index(exp_dir1, version19):  # noqa: PLR0915
     exp_dir = "logs/%s" % (exp_dir1)
     exp_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = (
