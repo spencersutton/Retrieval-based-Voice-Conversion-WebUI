@@ -14,7 +14,9 @@ from infer.modules.uvr5.vr import AudioPre, AudioPreDeEcho
 config = Config()
 
 
-def uvr(model_name, inp_root, save_root_vocal, paths, save_root_ins, agg, format0):
+def uvr(
+    model_name: str, inp_root: str, save_root_vocal, paths, save_root_ins, agg, format0
+):
     infos = []
     try:
         inp_root = inp_root.strip(" ").strip('"').strip("\n").strip('"').strip(" ")
