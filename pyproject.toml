@@ -30,7 +30,7 @@ faiss = { path = "../repos/faiss/build/faiss/python" }
 fairseq = { git = "https://github.com/One-sixth/fairseq.git" }
 
 [tool.ruff]
-extend-select = ["I"]
+lint.extend-select = ["I", "PTH", "PL"]
 
 [dependency-groups]
 dev = ["ruff>=0.14.1"]

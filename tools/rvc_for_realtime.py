@@ -9,11 +9,11 @@ import faiss
 import numpy as np
 import parselmouth
 import pyworld
-import scipy.signal as signal
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torchcrepe
+from scipy import signal
+from torch import nn
 
 from infer.lib import jit
 from infer.lib.jit.get_synthesizer import get_synthesizer

@@ -35,7 +35,7 @@ from infer.lib.infer_pack.models import (
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model_path = r"E:\codes\py39\vits_vc_gpu_train\assets\hubert\hubert_base.pt"  #
+model_path = r"E:\codes\py39\vits_vc_gpu_train\assets\hubert\hubert_base.pt"
 logger.info("Load model(s) from {}".format(model_path))
 models, saved_cfg, task = checkpoint_utils.load_model_ensemble_and_task(
     [model_path],
@@ -130,8 +130,8 @@ for idx, name in enumerate(
         "冬之花clip1.wav",
     ]
 ):  ##
-    wav_path = "todo-songs/%s" % name  #
-    f0_up_key = -2  #
+    wav_path = "todo-songs/%s" % name
+    f0_up_key = -2
     audio, sampling_rate = sf.read(wav_path)
     if len(audio.shape) > 1:
         audio = librosa.to_mono(audio.transpose(1, 0))
@@ -168,7 +168,7 @@ for idx, name in enumerate(
         torch.cuda.synchronize()
     t1 = ttime()
     # p_len = min(feats.shape[1],10000,pitch.shape[0])#太大了爆显存
-    p_len = min(feats.shape[1], 10000)  #
+    p_len = min(feats.shape[1], 10000)
     pitch, pitchf = get_f0(audio, p_len, f0_up_key)
     p_len = min(feats.shape[1], 10000, pitch.shape[0])  # 太大了爆显存
     if torch.cuda.is_available():
@@ -200,4 +200,4 @@ for idx, name in enumerate(
     wavfile.write("ft-mi-no_opt-no_dropout-%s.wav" % name, 40000, audio)  ##
 
 
-logger.debug("%.2fs %.2fs %.2fs", ta0, ta1, ta2)  #
+logger.debug("%.2fs %.2fs %.2fs", ta0, ta1, ta2)

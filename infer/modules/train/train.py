@@ -511,10 +511,8 @@ def train_and_evaluate(
                     )
                 )
                 # Amor For Tensorboard display
-                if loss_mel > 75:
-                    loss_mel = 75
-                if loss_kl > 9:
-                    loss_kl = 9
+                loss_mel = min(loss_mel, 75)
+                loss_kl = min(loss_kl, 9)
 
                 logger.info([global_step, lr])
                 logger.info(

@@ -599,8 +599,8 @@ if __name__ == "__main__":
     os.environ["OMP_NUM_THREADS"] = "4"
     if sys.platform == "darwin":
         os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
-    import tools.rvc_for_realtime as rvc_for_realtime
     from configs.config import Config
+    from tools import rvc_for_realtime
     from tools.torchgate import TorchGate
 
     audio_api.config = Config()

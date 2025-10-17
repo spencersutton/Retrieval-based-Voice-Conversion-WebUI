@@ -6,8 +6,8 @@ import os
 logger = logging.getLogger(__name__)
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 
 def cal_cross_attn(to_q, to_k, to_v, rand_input):

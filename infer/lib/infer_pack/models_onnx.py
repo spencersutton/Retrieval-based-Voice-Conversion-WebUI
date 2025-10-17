@@ -664,7 +664,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         self.discriminators = nn.ModuleList(discs)
 
     def forward(self, y, y_hat):
-        y_d_rs = []  #
+        y_d_rs = []
         y_d_gs = []
         fmap_rs = []
         fmap_gs = []
@@ -694,7 +694,7 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
         self.discriminators = nn.ModuleList(discs)
 
     def forward(self, y, y_hat):
-        y_d_rs = []  #
+        y_d_rs = []
         y_d_gs = []
         fmap_rs = []
         fmap_gs = []

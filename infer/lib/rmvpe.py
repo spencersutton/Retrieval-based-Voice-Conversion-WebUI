@@ -18,10 +18,10 @@ except Exception:  # pylint: disable=broad-exception-caught
     pass
 import logging
 
-import torch.nn as nn
 import torch.nn.functional as F
 from librosa.util import pad_center
 from scipy.signal import get_window
+from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -271,7 +271,7 @@ class ResEncoderBlock(nn.Module):
             return x
 
 
-class Intermediate(nn.Module):  #
+class Intermediate(nn.Module):
     def __init__(self, in_channels, out_channels, n_inters, n_blocks, momentum=0.01):
         super(Intermediate, self).__init__()
         self.n_inters = n_inters

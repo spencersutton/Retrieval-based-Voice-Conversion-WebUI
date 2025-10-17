@@ -25,7 +25,7 @@ np.save("infer/big_src_feature_mi.npy", big_npy)
 logger.debug(big_npy.shape)
 index = faiss.index_factory(256, "IVF512,Flat")  # mi
 logger.info("Training...")
-index_ivf = faiss.extract_index_ivf(index)  #
+index_ivf = faiss.extract_index_ivf(index)
 index_ivf.nprobe = 9
 index.train(big_npy)
 faiss.write_index(index, "infer/trained_IVF512_Flat_mi_baseline_src_feat.index")

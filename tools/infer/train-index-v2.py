@@ -56,7 +56,7 @@ np.save("tools/infer/big_src_feature_mi.npy", big_npy)
 n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
 index = faiss.index_factory(768, "IVF%s,Flat" % n_ivf)  # mi
 logger.info("Training...")
-index_ivf = faiss.extract_index_ivf(index)  #
+index_ivf = faiss.extract_index_ivf(index)
 index_ivf.nprobe = 1
 index.train(big_npy)
 faiss.write_index(

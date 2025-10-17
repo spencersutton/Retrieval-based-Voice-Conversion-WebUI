@@ -11,4 +11,4 @@ for key in a.keys():
     a[key] = a[key].half()
 # torch.save(a,"ft-mi-freeze-vocoder_true_1k.pt")#
 # torch.save(a,"ft-mi-sim1k.pt")#
-torch.save(a, "ft-mi-no_opt-no_dropout.pt")  #
+torch.save(a, "ft-mi-no_opt-no_dropout.pt")

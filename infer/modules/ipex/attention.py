@@ -164,37 +164,36 @@ def scaled_dot_product_attention(
                                 is_causal=is_causal,
                             )
                         )
+            elif no_shape_one:
+                hidden_states[start_idx:end_idx] = (
+                    original_scaled_dot_product_attention(
+                        query[start_idx:end_idx],
+                        key[start_idx:end_idx],
+                        value[start_idx:end_idx],
+                        attn_mask=(
+                            attn_mask[start_idx:end_idx]
+                            if attn_mask is not None
+                            else attn_mask
+                        ),
+                        dropout_p=dropout_p,
+                        is_causal=is_causal,
+                    )
+                )
             else:
-                if no_shape_one:
-                    hidden_states[start_idx:end_idx] = (
-                        original_scaled_dot_product_attention(
-                            query[start_idx:end_idx],
-                            key[start_idx:end_idx],
-                            value[start_idx:end_idx],
-                            attn_mask=(
-                                attn_mask[start_idx:end_idx]
-                                if attn_mask is not None
-                                else attn_mask
-                            ),
-                            dropout_p=dropout_p,
-                            is_causal=is_causal,
-                        )
+                hidden_states[:, start_idx:end_idx] = (
+                    original_scaled_dot_product_attention(
+                        query[:, start_idx:end_idx],
+                        key[:, start_idx:end_idx],
+                        value[:, start_idx:end_idx],
+                        attn_mask=(
+                            attn_mask[:, start_idx:end_idx]
+                            if attn_mask is not None
+                            else attn_mask
+                        ),
+                        dropout_p=dropout_p,
+                        is_causal=is_causal,
                     )
-                else:
-                    hidden_states[:, start_idx:end_idx] = (
-                        original_scaled_dot_product_attention(
-                            query[:, start_idx:end_idx],
-                            key[:, start_idx:end_idx],
-                            value[:, start_idx:end_idx],
-                            attn_mask=(
-                                attn_mask[:, start_idx:end_idx]
-                                if attn_mask is not None
-                                else attn_mask
-                            ),
-                            dropout_p=dropout_p,
-                            is_causal=is_causal,
-                        )
-                    )
+                )
     else:
         return original_scaled_dot_product_attention(
             query,

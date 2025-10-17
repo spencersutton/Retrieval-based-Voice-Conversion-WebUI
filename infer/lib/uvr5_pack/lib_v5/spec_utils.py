@@ -653,13 +653,12 @@ if __name__ == "__main__":
             cmb_spectrogram_to_wave(v_spec, mp),
             mp.param["sr"],
         )
-    else:
-        if not args.algorithm == "deep":
-            sf.write(
-                os.path.join("ensembled", "{}.wav".format(args.output_name)),
-                cmb_spectrogram_to_wave(ensembling(args.algorithm, specs), mp),
-                mp.param["sr"],
-            )
+    elif not args.algorithm == "deep":
+        sf.write(
+            os.path.join("ensembled", "{}.wav".format(args.output_name)),
+            cmb_spectrogram_to_wave(ensembling(args.algorithm, specs), mp),
+            mp.param["sr"],
+        )
 
     if args.algorithm == "align":
         trackalignment = [
