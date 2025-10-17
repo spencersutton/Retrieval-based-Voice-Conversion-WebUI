@@ -127,10 +127,8 @@ class ToolButton(gr.Button, gr.components.FormComponent):
 
     def get_block_name(self):
         return "button"
-    from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence
-
+    from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
     from gradio.blocks import Block
-
     if TYPE_CHECKING:
         from gradio.components import Timer
         from gradio.components.base import Component
