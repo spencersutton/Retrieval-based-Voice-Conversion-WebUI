@@ -102,7 +102,6 @@ def _if_done(done, p):
 
 def _if_done_multi(done, ps):
     while 1:
-
         flag = 1
         for p in ps:
             if p.poll() is None:
@@ -115,7 +114,7 @@ def _if_done_multi(done, ps):
 
 
 def _extract_f0_feature(  # noqa: PLR0913
-    gpus, n_p, f0method, if_f0, exp_dir: str | Path, version19, gpus_rmvpe
+    gpus, n_p, f0method, if_f0, exp_dir: str | Path, extractor_version_id, gpus_rmvpe
 ):
     gpus = gpus.split("-")
 
@@ -133,10 +132,10 @@ def _extract_f0_feature(  # noqa: PLR0913
             threading.Thread(target=_if_done, args=(done, p)).start()
         elif gpus_rmvpe != "-":
             gpus_rmvpe = gpus_rmvpe.split("-")
-            leng = len(gpus_rmvpe)
+            length = len(gpus_rmvpe)
             ps = []
             for idx, n_g in enumerate(gpus_rmvpe):
-                cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {leng} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {config.is_half}'
+                cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {length} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {config.is_half}'
                 logger.info("Execute: %s", cmd)
                 p = Popen(cmd, shell=True, cwd=now_dir)
                 ps.append(p)
@@ -160,12 +159,12 @@ def _extract_f0_feature(  # noqa: PLR0913
         logger.info(log)
         yield log
 
-    leng = len(gpus)
+    length = len(gpus)
     ps = []
     for idx, n_g in enumerate(gpus):
         cmd = (
             f'"{config.python_cmd}" infer/modules/train/extract_feature_print.py '
-            f'{config.device} {leng} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {version19} {config.is_half}'
+            f'{config.device} {length} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {extractor_version_id} {config.is_half}'
         )
         logger.info("Execute: %s", cmd)
         p = Popen(cmd, shell=True, cwd=now_dir)
