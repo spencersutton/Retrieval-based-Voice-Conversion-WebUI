@@ -91,6 +91,7 @@ def _extract_pitch_features(
     log_dir.mkdir(parents=True, exist_ok=True)
 
     log_file = log_dir / "extract_f0_feature.log"
+    log_file.unlink()
     log_file.touch()
 
     extract_path = "infer/modules/train/extract"
@@ -239,7 +240,10 @@ with gr.Blocks(title="RVC WebUI") as app:
     )
     btn_extract_features = gr.Button(i18n("Extract Features"), variant="primary")
     feature_extraction_output = gr.Textbox(
-        label=i18n("Output Information"), value="", max_lines=8
+        label=i18n("Output Information"),
+        value="",
+        max_lines=8,
+        lines=8,
     )
     pitch_extraction_method.change(
         fn=_change_extraction_method,
