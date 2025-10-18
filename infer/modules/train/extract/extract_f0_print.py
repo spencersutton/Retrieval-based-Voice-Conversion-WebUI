@@ -33,9 +33,9 @@ def load_audio(file: Path, sr: int):
     return np.frombuffer(out, np.float32).flatten()
 
 
-def printt(strr):
-    print(strr)
-    f.write(f"{strr}\n")
+def println(line: str):
+    print(line)
+    f.write(f"{line}\n")
     f.flush()
 
 
@@ -54,7 +54,7 @@ class FeatureInput(object):
         self.f0_mel_min = 1127 * np.log(1 + self.f0_min / 700)
         self.f0_mel_max = 1127 * np.log(1 + self.f0_max / 700)
 
-    def compute_f0(self, path, f0_method):
+    def compute_f0(self, path: Path, f0_method: str):
         x = load_audio(path, self.fs)
         p_len = x.shape[0] // self.hop
         if f0_method == "pm":
@@ -105,7 +105,7 @@ class FeatureInput(object):
             f0 = self.model_rmvpe.infer_from_audio(x, thred=0.03)
         return f0
 
-    def coarse_f0(self, f0):
+    def coarse_f0(self, f0: np.ndarray):
         f0_mel = 1127 * np.log(1 + f0 / 700)
         f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - self.f0_mel_min) * (
             self.f0_bin - 2
@@ -121,19 +121,19 @@ class FeatureInput(object):
         )
         return f0_coarse
 
-    def go(self, paths, f0_method):
+    def go(self, paths: list[list[Path]], f0_method: str):
         if len(paths) == 0:
-            printt("no-f0-todo")
+            println("no-f0-todo")
         else:
-            printt("todo-f0-%s" % len(paths))
+            println("todo-f0-%s" % len(paths))
             n = max(len(paths) // 5, 1)  # 每个进程最多打印5条
             for idx, (inp_path, opt_path1, opt_path2) in enumerate(paths):
                 try:
                     if idx % n == 0:
-                        printt("f0ing,now-%s,all-%s,-%s" % (idx, len(paths), inp_path))
+                        println("f0ing,now-%s,all-%s,-%s" % (idx, len(paths), inp_path))
                     if (
-                        Path(opt_path1 + ".npy").exists()
-                        and Path(opt_path2 + ".npy").exists()
+                        opt_path1.with_suffix(opt_path1.suffix + ".npy").exists()
+                        and opt_path2.with_suffix(opt_path2.suffix + ".npy").exists()
                     ):
                         continue
                     featur_pit = self.compute_f0(inp_path, f0_method)
@@ -149,11 +149,11 @@ class FeatureInput(object):
                         allow_pickle=False,
                     )  # ori
                 except:
-                    printt("f0fail-%s-%s-%s" % (idx, inp_path, traceback.format_exc()))
+                    println("f0fail-%s-%s-%s" % (idx, inp_path, traceback.format_exc()))
 
 
 if __name__ == "__main__":
-    printt(" ".join(sys.argv))
+    println(" ".join(sys.argv))
     feature_input = FeatureInput()
     paths: list[list[Path]] = []
     input_root = project_dir / "1_16k_wavs"
