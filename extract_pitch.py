@@ -25,10 +25,13 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
-shutil.rmtree(now_dir / "runtime/Lib/site-packages/infer_pack", ignore_errors=True)
-shutil.rmtree(now_dir / "runtime/Lib/site-packages/uvr5_pack", ignore_errors=True)
-(now_dir / "logs").mkdir(parents=True, exist_ok=True)
-(now_dir / "assets/weights").mkdir(parents=True, exist_ok=True)
+# Cleanup runtime packages
+for pack_dir in ["infer_pack", "uvr5_pack"]:
+    shutil.rmtree(now_dir / f"runtime/Lib/site-packages/{pack_dir}", ignore_errors=True)
+
+# Create necessary directories
+for dir_path in ["logs", "assets/weights"]:
+    (now_dir / dir_path).mkdir(parents=True, exist_ok=True)
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
@@ -49,67 +52,52 @@ logger.info(i18n)
 
 ngpu = torch.cuda.device_count()
 gpu_infos = []
-if_gpu_ok = False
 
-if torch.cuda.is_available() or ngpu != 0:
+# Supported GPU models for training
+SUPPORTED_GPU_MODELS = [
+    "10",
+    "16",
+    "20",
+    "30",
+    "40",
+    "A2",
+    "A3",
+    "A4",
+    "P4",
+    "A50",
+    "500",
+    "A60",
+    "70",
+    "80",
+    "90",
+    "M4",
+    "T4",
+    "TITAN",
+    "4060",
+    "L",
+    "6000",
+]
+
+if torch.cuda.is_available() and ngpu > 0:
     for i in range(ngpu):
         gpu_name = torch.cuda.get_device_name(i)
-        if any(
-            value in gpu_name.upper()
-            for value in [
-                "10",
-                "16",
-                "20",
-                "30",
-                "40",
-                "A2",
-                "A3",
-                "A4",
-                "P4",
-                "A50",
-                "500",
-                "A60",
-                "70",
-                "80",
-                "90",
-                "M4",
-                "T4",
-                "TITAN",
-                "4060",
-                "L",
-                "6000",
-            ]
-        ):
-
-            if_gpu_ok = True
+        if any(value in gpu_name.upper() for value in SUPPORTED_GPU_MODELS):
             gpu_infos.append(f"{i}\t{gpu_name}")
 
-if if_gpu_ok and len(gpu_infos) > 0:
-    gpu_info = "\n".join(gpu_infos)
-else:
-    gpu_info = i18n("很遗憾您这没有能用的显卡来支持您训练")
-gpus = "-".join([i[0] for i in gpu_infos])
+gpu_info = (
+    "\n".join(gpu_infos) if gpu_infos else i18n("很遗憾您这没有能用的显卡来支持您训练")
+)
+gpus = "-".join([info[0] for info in gpu_infos])
 
 
-def _if_done(done, p):
-    while 1:
-        if p.poll() is None:
+def _wait_for_process(done, process_or_processes):
+    """Wait for subprocess(es) to complete."""
+    if isinstance(process_or_processes, list):
+        while any(p.poll() is None for p in process_or_processes):
             sleep(0.5)
-        else:
-            break
-    done[0] = True
-
-
-def _if_done_multi(done, ps):
-    while 1:
-        flag = 1
-        for p in ps:
-            if p.poll() is None:
-                flag = 0
-                sleep(0.5)
-                break
-        if flag == 1:
-            break
+    else:
+        while process_or_processes.poll() is None:
+            sleep(0.5)
     done[0] = True
 
 
@@ -129,7 +117,7 @@ def _extract_f0_feature(  # noqa: PLR0913
             logger.info("Execute: %s", cmd)
             p = Popen(cmd, shell=True, cwd=now_dir)
             done = [False]
-            threading.Thread(target=_if_done, args=(done, p)).start()
+            threading.Thread(target=_wait_for_process, args=(done, p)).start()
         elif gpus_rmvpe != "-":
             gpus_rmvpe = gpus_rmvpe.split("-")
             length = len(gpus_rmvpe)
@@ -142,7 +130,7 @@ def _extract_f0_feature(  # noqa: PLR0913
                 for idx, n_g in enumerate(gpus_rmvpe)
             ]
             done = [False]
-            threading.Thread(target=_if_done_multi, args=(done, ps)).start()
+            threading.Thread(target=_wait_for_process, args=(done, ps)).start()
         else:
             cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe_dml.py "{now_dir}/logs/{exp_dir}"'
             logger.info("Execute: %s", cmd)
@@ -158,17 +146,17 @@ def _extract_f0_feature(  # noqa: PLR0913
         yield log
 
     length = len(gpus)
-    ps = []
-    for idx, n_g in enumerate(gpus):
-        cmd = (
+    ps = [
+        Popen(
             f'"{config.python_cmd}" infer/modules/train/extract_feature_print.py '
-            f'{config.device} {length} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {extractor_version_id} {config.is_half}'
+            f'{config.device} {length} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {extractor_version_id} {config.is_half}',
+            shell=True,
+            cwd=now_dir,
         )
-        logger.info("Execute: %s", cmd)
-        p = Popen(cmd, shell=True, cwd=now_dir)
-        ps.append(p)
+        for idx, n_g in enumerate(gpus)
+    ]
     done = [False]
-    threading.Thread(target=_if_done_multi, args=(done, ps)).start()
+    threading.Thread(target=_wait_for_process, args=(done, ps)).start()
     while True:
         yield log_file_path.read_text()
         sleep(1)
@@ -183,11 +171,7 @@ _F0GPUVisible = not config.dml
 
 
 def _change_f0_method(f0method8):
-    if f0method8 == "rmvpe_gpu":
-        visible = _F0GPUVisible
-    else:
-        visible = False
-    return {"visible": visible, "__type__": "update"}
+    return {"visible": f0method8 == "rmvpe_gpu" and _F0GPUVisible, "__type__": "update"}
 
 
 with gr.Blocks(title="RVC WebUI") as app:
