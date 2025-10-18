@@ -52,45 +52,12 @@ logger.info(i18n)
 
 ngpu = torch.cuda.device_count()
 gpu_infos = []
-
-# Supported GPU models for training
-SUPPORTED_GPU_MODELS = [
-    "10",
-    "16",
-    "20",
-    "30",
-    "40",
-    "A2",
-    "A3",
-    "A4",
-    "P4",
-    "A50",
-    "500",
-    "A60",
-    "70",
-    "80",
-    "90",
-    "M4",
-    "T4",
-    "TITAN",
-    "4060",
-    "L",
-    "6000",
-]
-
 if torch.cuda.is_available() and ngpu > 0:
     for i in range(ngpu):
         gpu_name = torch.cuda.get_device_name(i)
-        if any(value in gpu_name.upper() for value in SUPPORTED_GPU_MODELS):
-            gpu_infos.append(f"{i}\t{gpu_name}")
+        gpu_infos.append(f"{i}\t{gpu_name}")
 
-gpu_info = (
-    "\n".join(gpu_infos)
-    if gpu_infos
-    else i18n(
-        "Unfortunately, there is no available GPU on your system to support training."
-    )
-)
+gpu_info = "\n".join(gpu_infos)
 gpus = "-".join(info[0] for info in gpu_infos)
 
 
