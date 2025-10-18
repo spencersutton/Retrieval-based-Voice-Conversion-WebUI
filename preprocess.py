@@ -70,26 +70,28 @@ def _if_done(done, p):
     done[0] = True
 
 
-def _preprocess_dataset(training_file: gr.FileData, exp_dir, sr, n_p):
+def _preprocess_dataset(
+    training_file: gr.FileData, exp_dir: str, sample_rate_str: str, n_p: int
+):
     training_dir = Path(str(training_file)).parent
-    sr = _sr_dict[sr]
+    sr = _sr_dict[sample_rate_str]  # Sample rate
 
-    logs_directory = now_dir / "logs" / exp_dir
-    logs_directory.mkdir(parents=True, exist_ok=True)
-    (logs_directory / "preprocess.log").touch()
-    cmd = f'"{config.python_cmd}" infer/modules/train/preprocess.py "{training_dir}" {sr} {n_p} "{now_dir}/logs/{exp_dir}" {config.noparallel} {config.preprocess_per:.1f}'
+    log_dir = now_dir / "logs" / exp_dir
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "preprocess.log"
+    log_file.touch()
+
+    cmd = f'"{config.python_cmd}" infer/modules/train/preprocess.py "{training_dir}" {sr} {n_p} "{log_dir}" {config.noparallel} {config.preprocess_per:.1f}'
     logger.info("Execute: %s", cmd)
     p = Popen(cmd, shell=True)
     done = [False]
     threading.Thread(target=_if_done, args=(done, p)).start()
     while True:
-        with (now_dir / "logs" / exp_dir / "preprocess.log").open("r") as f:
-            yield (f.read())
+        yield log_file.read_text()
         sleep(1)
         if done[0]:
             break
-    with (now_dir / "logs" / exp_dir / "preprocess.log").open("r") as f:
-        log = f.read()
+    log = log_file.read_text()
     logger.info(log)
     yield log
 
