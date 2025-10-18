@@ -138,7 +138,7 @@ for name in weight_root.iterdir():
 index_paths = []
 
 
-def lookup_indices(index_root: os.PathLike):
+def _lookup_indices(index_root: os.PathLike):
     for root, _dirs, files in os.walk(index_root, topdown=False):
         found_files = [Path(f) for f in files]
         for name in found_files:
@@ -146,15 +146,15 @@ def lookup_indices(index_root: os.PathLike):
                 index_paths.append(f"{root}/{name}")
 
 
-lookup_indices(index_root)
-lookup_indices(outside_index_root)
-uvr5_names = []
+_lookup_indices(index_root)
+_lookup_indices(outside_index_root)
+_uvr5_names = []
 for name in weight_uvr5_root.iterdir():
     if name.suffix == ".pth" or "onnx" in name.name:
-        uvr5_names.append(name.stem)
+        _uvr5_names.append(name.stem)
 
 
-def change_choices():
+def _change_choices():
     names = []
     for name in weight_root.iterdir():
         if name.suffix == ".pth":
@@ -171,24 +171,24 @@ def change_choices():
     }
 
 
-def clean():
+def _clean():
     return {"value": "", "__type__": "update"}
 
 
-def export_onnx(ModelPath, ExportedPath):
+def _export_onnx(ModelPath, ExportedPath):
     from infer.modules.onnx.export import export_onnx as eo  # noqa: PLC0415
 
     eo(ModelPath, ExportedPath)
 
 
-sr_dict = {
+_sr_dict = {
     "32k": 32000,
     "40k": 40000,
     "48k": 48000,
 }
 
 
-def if_done(done, p):
+def _if_done(done, p):
     while 1:
         if p.poll() is None:
             sleep(0.5)
@@ -197,7 +197,7 @@ def if_done(done, p):
     done[0] = True
 
 
-def if_done_multi(done, ps):
+def _if_done_multi(done, ps):
     while 1:
 
         flag = 1
@@ -211,8 +211,8 @@ def if_done_multi(done, ps):
     done[0] = True
 
 
-def preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
-    sr = sr_dict[sr]
+def _preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
+    sr = _sr_dict[sr]
 
     logs_directory = now_dir / "logs" / exp_dir
     logs_directory.mkdir(parents=True, exist_ok=True)
@@ -222,7 +222,7 @@ def preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
     p = Popen(cmd, shell=True)
     done = [False]
     threading.Thread(
-        target=if_done,
+        target=_if_done,
         args=(
             done,
             p,
@@ -240,7 +240,7 @@ def preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
     yield log
 
 
-def extract_f0_feature(  # noqa: PLR0913
+def _extract_f0_feature(  # noqa: PLR0913
     gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe
 ):
     gpus = gpus.split("-")
@@ -255,7 +255,7 @@ def extract_f0_feature(  # noqa: PLR0913
             p = Popen(cmd, shell=True, cwd=now_dir)
             done = [False]
             threading.Thread(
-                target=if_done,
+                target=_if_done,
                 args=(
                     done,
                     p,
@@ -272,7 +272,7 @@ def extract_f0_feature(  # noqa: PLR0913
                 ps.append(p)
             done = [False]
             threading.Thread(
-                target=if_done_multi,
+                target=_if_done_multi,
                 args=(
                     done,
                     ps,
@@ -307,7 +307,7 @@ def extract_f0_feature(  # noqa: PLR0913
         ps.append(p)
     done = [False]
     threading.Thread(
-        target=if_done_multi,
+        target=_if_done_multi,
         args=(
             done,
             ps,
@@ -325,7 +325,7 @@ def extract_f0_feature(  # noqa: PLR0913
     yield log
 
 
-def get_pretrained_models(path_str, f0_str, sr2):
+def _get_pretrained_models(path_str, f0_str, sr2):
     if_pretrained_generator_exist = os.access(
         f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth", os.F_OK
     )
@@ -360,13 +360,13 @@ def get_pretrained_models(path_str, f0_str, sr2):
     )
 
 
-def change_sr2(sr2, if_f0_3, version19):
+def _change_sr2(sr2, if_f0_3, version19):
     path_str = "" if version19 == "v1" else "_v2"
     f0_str = "f0" if if_f0_3 else ""
-    return get_pretrained_models(path_str, f0_str, sr2)
+    return _get_pretrained_models(path_str, f0_str, sr2)
 
 
-def change_version19(sr2, if_f0_3, version19):
+def _change_version19(sr2, if_f0_3, version19):
     path_str = "" if version19 == "v1" else "_v2"
     if sr2 == "32k" and version19 == "v1":
         sr2 = "40k"
@@ -377,21 +377,21 @@ def change_version19(sr2, if_f0_3, version19):
     )
     f0_str = "f0" if if_f0_3 else ""
     return (
-        *get_pretrained_models(path_str, f0_str, sr2),
+        *_get_pretrained_models(path_str, f0_str, sr2),
         to_return_sr2,
     )
 
 
-def change_f0(if_f0_3, sr2, version19):
+def _change_f0(if_f0_3, sr2, version19):
     path_str = "" if version19 == "v1" else "_v2"
     return (
         {"visible": if_f0_3, "__type__": "update"},
         {"visible": if_f0_3, "__type__": "update"},
-        *get_pretrained_models(path_str, "f0" if if_f0_3 else "", sr2),
+        *_get_pretrained_models(path_str, "f0" if if_f0_3 else "", sr2),
     )
 
 
-def click_train(
+def _click_train(
     exp_dir1: str,
     sr2,
     if_f0_3,
@@ -479,7 +479,7 @@ def click_train(
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
 
 
-def train_index(exp_dir1, version19):  # noqa: PLR0915
+def _train_index(exp_dir1, version19):  # noqa: PLR0915
     exp_dir = Path(f"logs/{exp_dir1}")
     exp_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = (
@@ -564,7 +564,7 @@ def train_index(exp_dir1, version19):  # noqa: PLR0915
     yield "\n".join(infos)
 
 
-def train1key(  # noqa: PLR0913
+def _train1key(  # noqa: PLR0913
     exp_dir1,
     sr2,
     if_f0_3,
@@ -591,18 +591,18 @@ def train1key(  # noqa: PLR0913
         return "\n".join(infos)
 
     yield get_info_str(i18n("step1:正在处理数据"))
-    [get_info_str(_) for _ in preprocess_dataset(trainset_dir4, exp_dir1, sr2, np7)]
+    [get_info_str(_) for _ in _preprocess_dataset(trainset_dir4, exp_dir1, sr2, np7)]
 
     yield get_info_str(i18n("step2:正在提取音高&正在提取特征"))
     [
         get_info_str(_)
-        for _ in extract_f0_feature(
+        for _ in _extract_f0_feature(
             gpus16, np7, f0method8, if_f0_3, exp_dir1, version19, gpus_rmvpe
         )
     ]
 
     yield get_info_str(i18n("step3a:正在训练模型"))
-    click_train(
+    _click_train(
         exp_dir1,
         sr2,
         if_f0_3,
@@ -622,11 +622,11 @@ def train1key(  # noqa: PLR0913
         i18n("训练结束, 您可查看控制台训练日志或实验文件夹下的train.log")
     )
 
-    [get_info_str(_) for _ in train_index(exp_dir1, version19)]
+    [get_info_str(_) for _ in _train_index(exp_dir1, version19)]
     yield get_info_str(i18n("全流程结束！"))
 
 
-def change_info_(ckpt_path: Path):
+def _change_info_(ckpt_path: Path):
     if not (ckpt_path.parent / "train.log").exists():
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
     try:
@@ -640,12 +640,12 @@ def change_info_(ckpt_path: Path):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
 
 
-F0GPUVisible = not config.dml
+_F0GPUVisible = not config.dml
 
 
-def change_f0_method(f0method8):
+def _change_f0_method(f0method8):
     if f0method8 == "rmvpe_gpu":
-        visible = F0GPUVisible
+        visible = _F0GPUVisible
     else:
         visible = False
     return {"visible": visible, "__type__": "update"}
