@@ -70,23 +70,18 @@ def _if_done(done, p):
     done[0] = True
 
 
-def _preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
+def _preprocess_dataset(training_file: gr.FileData, exp_dir, sr, n_p):
+    training_dir = Path(str(training_file)).parent
     sr = _sr_dict[sr]
 
     logs_directory = now_dir / "logs" / exp_dir
     logs_directory.mkdir(parents=True, exist_ok=True)
     (logs_directory / "preprocess.log").touch()
-    cmd = f'"{config.python_cmd}" infer/modules/train/preprocess.py "{trainset_dir}" {sr} {n_p} "{now_dir}/logs/{exp_dir}" {config.noparallel} {config.preprocess_per:.1f}'
+    cmd = f'"{config.python_cmd}" infer/modules/train/preprocess.py "{training_dir}" {sr} {n_p} "{now_dir}/logs/{exp_dir}" {config.noparallel} {config.preprocess_per:.1f}'
     logger.info("Execute: %s", cmd)
     p = Popen(cmd, shell=True)
     done = [False]
-    threading.Thread(
-        target=_if_done,
-        args=(
-            done,
-            p,
-        ),
-    ).start()
+    threading.Thread(target=_if_done, args=(done, p)).start()
     while True:
         with (now_dir / "logs" / exp_dir / "preprocess.log").open("r") as f:
             yield (f.read())
@@ -157,7 +152,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                 with gr.Row():
                     trainset_dir4 = gr.File(
                         label=i18n("Upload training file"),
-                        file_count="multiple",
+                        file_count="single",
                     )
                     spk_id5 = gr.Slider(
                         minimum=0,
