@@ -1,6 +1,4 @@
 import logging
-import os
-import shutil
 import sys
 import threading
 import warnings
@@ -26,14 +24,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
-tmp = now_dir / "TEMP"
-shutil.rmtree(tmp, ignore_errors=True)
-shutil.rmtree(now_dir / "runtime/Lib/site-packages/infer_pack", ignore_errors=True)
-shutil.rmtree(now_dir / "runtime/Lib/site-packages/uvr5_pack", ignore_errors=True)
-tmp.mkdir(parents=True, exist_ok=True)
 (now_dir / "logs").mkdir(parents=True, exist_ok=True)
-(now_dir / "assets/weights").mkdir(parents=True, exist_ok=True)
-os.environ["TEMP"] = str(tmp)
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
