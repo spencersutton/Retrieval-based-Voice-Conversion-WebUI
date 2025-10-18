@@ -152,7 +152,7 @@ class FeatureInput(object):
                     println("f0fail-%s-%s-%s" % (idx, inp_path, traceback.format_exc()))
 
 
-if __name__ == "__main__":
+def main():
     println(" ".join(sys.argv))
     feature_input = FeatureInput()
     input_root = project_dir / "1_16k_wavs"
@@ -180,3 +180,7 @@ if __name__ == "__main__":
         p.start()
     for p in processes:
         p.join()
+
+
+if __name__ == "__main__":
+    main()
