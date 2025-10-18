@@ -50,15 +50,20 @@ if config.dml:
 i18n = I18nAuto()
 logger.info(i18n)
 
-ngpu = torch.cuda.device_count()
-gpu_infos = []
-if torch.cuda.is_available() and ngpu > 0:
-    for i in range(ngpu):
-        gpu_name = torch.cuda.get_device_name(i)
-        gpu_infos.append(f"{i}\t{gpu_name}")
 
-gpu_info = "\n".join(gpu_infos)
-gpus = "-".join(info[0] for info in gpu_infos)
+def get_gpu_info()
+    n_gpu = torch.cuda.device_count()
+    details = []
+    if torch.cuda.is_available() and n_gpu > 0:
+        for i in range(n_gpu):
+            name = torch.cuda.get_device_name(i)
+            details.append(f"{i}\t{name}")
+    info = "\n".join(details)
+    gpus = "-".join(info[0] for info in details)
+    return info, gpus
+
+
+gpu_info, gpus = get_gpu_info()
 
 
 def _wait_for_process(done, process_or_processes: Popen | list[Popen]):
