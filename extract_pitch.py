@@ -166,6 +166,7 @@ with gr.Blocks(title="RVC WebUI") as app:
     training_data_directory = gr.Textbox(
         label=i18n("Enter training folder path"),
         value=i18n("E:\\VoiceAudio+Annotations\\YonezuKenshi\\src"),
+        interactive=True,
     )
     speaker_id = gr.Slider(
         minimum=0,
