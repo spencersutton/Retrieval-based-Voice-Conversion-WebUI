@@ -659,30 +659,32 @@ with gr.Blocks(title="RVC WebUI") as app:
         )
     )
     with gr.Tabs():
-        with gr.TabItem(i18n("训练")):
+        with gr.TabItem(i18n("Train")):
             gr.Markdown(
                 value=i18n(
-                    "step1: 填写实验配置. 实验数据放在logs下, 每个实验一个文件夹, 需手工输入实验名路径, 内含实验配置, 日志, 训练得到的模型文件. "
+                    "step1: Fill in experiment configuration. Experiment data is placed under logs, each experiment has a folder, you need to manually enter the experiment name path, which contains experiment configuration, logs, and model files obtained from training."
                 )
             )
             with gr.Row():
                 gr_experiment_dir = gr.Textbox(
-                    label=i18n("输入实验名"), value="mi-test"
+                    label=i18n("Enter experiment name"), value="mi-test"
                 )
                 gr_sample_rate = gr.Radio(
-                    label=i18n("目标采样率"),
+                    label=i18n("Target sample rate"),
                     choices=["40k", "48k"],
                     value="40k",
                     interactive=True,
                 )
                 if_f0_3 = gr.Radio(
-                    label=i18n("模型是否带音高指导(唱歌一定要, 语音可以不要)"),
+                    label=i18n(
+                        "Does the model include pitch guidance (required for singing, optional for speech)"
+                    ),
                     choices=[True, False],
                     value=True,
                     interactive=True,
                 )
                 gr_version = gr.Radio(
-                    label=i18n("版本"),
+                    label=i18n("Version"),
                     choices=["v1", "v2"],
                     value="v2",
                     interactive=True,
@@ -692,14 +694,18 @@ with gr.Blocks(title="RVC WebUI") as app:
                     minimum=0,
                     maximum=config.n_cpu,
                     step=1,
-                    label=i18n("提取音高和处理数据使用的CPU进程数"),
+                    label=i18n(
+                        "Number of CPU processes for pitch extraction and data processing"
+                    ),
                     value=int(np.ceil(config.n_cpu / 1.5)),
                     interactive=True,
                 )
-            with gr.Group():  # 暂时单人的, 后面支持最多4人的#数据处理
+            with (
+                gr.Group()
+            ):  # Temporarily single-person, will support up to 4 people later # Data processing
                 gr.Markdown(
                     value=i18n(
-                        "step2a: 自动遍历训练文件夹下所有可解码成音频的文件并进行切片归一化, 在实验目录下生成2个wav文件夹; 暂时只支持单人训练. "
+                        "step2a: Automatically traverse all files in the training folder that can be decoded into audio and perform slicing and normalization, generating 2 wav folders in the experiment directory; currently only supports single-person training."
                     )
                 )
                 with gr.Row():
