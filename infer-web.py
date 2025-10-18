@@ -490,9 +490,7 @@ def train_index(exp_dir1, version19):  # noqa: PLR0915
     exp_dir = Path(f"logs/{exp_dir1}")
     exp_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = (
-        exp_dir / "3_feature256"
-        if version19 == "v1"
-        else exp_dir / "3_feature768"
+        exp_dir / "3_feature256" if version19 == "v1" else exp_dir / "3_feature768"
     )
     if not feature_dir.exists():
         return "请先进行特征提取!"
