@@ -120,13 +120,15 @@ def _if_done_multi(done, ps):
 
 
 def _extract_f0_feature(  # noqa: PLR0913
-    gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe
+    gpus, n_p, f0method, if_f0, exp_dir: str | Path, version19, gpus_rmvpe
 ):
     gpus = gpus.split("-")
 
     logs_directory = now_dir / "logs" / exp_dir
+    log_file_path = logs_directory / "extract_f0_feature.log"
+
     logs_directory.mkdir(parents=True, exist_ok=True)
-    (logs_directory / "extract_f0_feature.log").touch()
+    log_file_path.touch()
     if if_f0:
         if f0method != "rmvpe_gpu":
             cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{now_dir}/logs/{exp_dir}" {n_p} {f0method}'
@@ -167,13 +169,11 @@ def _extract_f0_feature(  # noqa: PLR0913
             p.wait()
             done = [True]
         while True:
-            with (logs_directory / "extract_f0_feature.log").open("r") as f:
-                yield (f.read())
+            yield log_file_path.read_text()
             sleep(1)
             if done[0]:
                 break
-        with (logs_directory / "extract_f0_feature.log").open("r") as f:
-            log = f.read()
+        log = log_file_path.read_text()
         logger.info(log)
         yield log
 
@@ -192,15 +192,12 @@ def _extract_f0_feature(  # noqa: PLR0913
             ps,
         ),
     ).start()
-    log_file_path = logs_directory / "extract_f0_feature.log"
     while True:
-        with log_file_path.open("r") as f:
-            yield (f.read())
+        yield log_file_path.read_text()
         sleep(1)
         if done[0]:
             break
-    with log_file_path.open("r") as f:
-        log = f.read()
+    log = log_file_path.read_text()
     logger.info(log)
     yield log
 
