@@ -244,6 +244,7 @@ with gr.Blocks(title="RVC WebUI") as app:
         value="",
         max_lines=8,
         lines=8,
+        autoscroll=True,
     )
     pitch_extraction_method.change(
         fn=_change_extraction_method,
