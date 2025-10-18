@@ -140,7 +140,7 @@ class FeatureInput(object):
 if __name__ == "__main__":
     printt(" ".join(sys.argv))
     feature_input = FeatureInput()
-    paths = []
+    paths: list[list[Path]] = []
     input_root = exp_dir / "1_16k_wavs"
     opt_root1 = exp_dir / "2a_f0"
     opt_root2 = exp_dir / "2b-f0nsf"
@@ -148,13 +148,11 @@ if __name__ == "__main__":
     opt_root1.mkdir(parents=True, exist_ok=True)
     opt_root2.mkdir(parents=True, exist_ok=True)
     for file_path in sorted(input_root.iterdir()):
-        name = file_path.name
-        inp_path = str(file_path)
-        if "spec" in inp_path:
+        if "spec" in str(file_path):
             continue
-        opt_path1 = opt_root1 / name
-        opt_path2 = opt_root2 / name
-        paths.append([inp_path, opt_path1, opt_path2])
+        opt_path1 = opt_root1 / file_path.name
+        opt_path2 = opt_root2 / file_path.name
+        paths.append([file_path, opt_path1, opt_path2])
 
     ps = []
     for i in range(num_processes):
