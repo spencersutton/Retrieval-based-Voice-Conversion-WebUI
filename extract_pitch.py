@@ -175,11 +175,11 @@ def _extract_pitch_features(
     yield log
 
 
-_F0GPUVisible = not config.dml
+_GPUVisible = not config.dml
 
 
 def _change_extraction_method(f0method8):
-    return {"visible": f0method8 == "rmvpe_gpu" and _F0GPUVisible, "__type__": "update"}
+    return {"visible": f0method8 == "rmvpe_gpu" and _GPUVisible, "__type__": "update"}
 
 
 with gr.Blocks(title="RVC WebUI") as app:
@@ -240,12 +240,12 @@ with gr.Blocks(title="RVC WebUI") as app:
         label=i18n("Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"),
         value=gpus,
         interactive=True,
-        visible=_F0GPUVisible,
+        visible=_GPUVisible,
     )
     gpu_status_display = gr.Textbox(
         label=i18n("GPU Information"),
         value=gpu_info,
-        visible=_F0GPUVisible,
+        visible=_GPUVisible,
     )
     pitch_extraction_method = gr.Radio(
         label=i18n(
@@ -264,7 +264,7 @@ with gr.Blocks(title="RVC WebUI") as app:
         ),
         value=f"{gpus}-{gpus}",
         interactive=True,
-        visible=_F0GPUVisible,
+        visible=_GPUVisible,
     )
     btn_extract_features = gr.Button(i18n("Extract Features"), variant="primary")
     feature_extraction_output = gr.Textbox(
