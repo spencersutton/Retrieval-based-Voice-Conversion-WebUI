@@ -51,7 +51,7 @@ i18n = I18nAuto()
 logger.info(i18n)
 
 
-def get_gpu_info()
+def get_gpu_info():
     n_gpu = torch.cuda.device_count()
     details = []
     if torch.cuda.is_available() and n_gpu > 0:
@@ -80,37 +80,37 @@ def _wait_for_process(done, process_or_processes: Popen | list[Popen]):
 
 def _extract_pitch_features(
     gpus: str,
-    n_p,
-    f0method: str,
-    if_f0,
-    exp_dir: str | Path,
-    extractor_version_id,
-    gpus_rmvpe,
+    num_cpu_processes: int,
+    extract_method: str,
+    should_guide: bool,
+    expiriment_dir: str | Path,
+    extractor_version_id: str,
+    gpu_ids_rmvpe: str,
 ):
     gpu_list = gpus.split("-")
 
-    logs_directory = now_dir / "logs" / exp_dir
+    logs_directory = now_dir / "logs" / expiriment_dir
     log_file_path = logs_directory / "extract_f0_feature.log"
 
     logs_directory.mkdir(parents=True, exist_ok=True)
     log_file_path.touch()
     extract_path = "infer/modules/train/extract"
-    if if_f0:
-        if f0method != "rmvpe_gpu":
-            cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_print.py "{logs_directory}" {n_p} {f0method}'
+    if should_guide:
+        if extract_method != "rmvpe_gpu":
+            cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_print.py "{logs_directory}" {num_cpu_processes} {extract_method}'
             logger.info("Execute: %s", cmd)
             p = Popen(cmd, shell=True, cwd=now_dir)
             threading.Thread(target=_wait_for_process, args=([False], p)).start()
-        elif gpus_rmvpe != "-":
-            gpus_rmvpe = gpus_rmvpe.split("-")
+        elif gpu_ids_rmvpe != "-":
+            ids = gpu_ids_rmvpe.split("-")
             ps = [
                 Popen(
-                    f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe.py {len(gpus_rmvpe)} {idx} '
+                    f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe.py {len(ids)} {idx} '
                     f'{n_g} "{logs_directory}" {config.is_half}',
                     shell=True,
                     cwd=now_dir,
                 )
-                for idx, n_g in enumerate(gpus_rmvpe)
+                for idx, n_g in enumerate(ids)
             ]
             threading.Thread(target=_wait_for_process, args=([False], ps)).start()
         else:
@@ -229,7 +229,7 @@ with gr.Blocks(title="RVC WebUI") as app:
         value="rmvpe_gpu",
         interactive=True,
     )
-    gpus_rmvpe = gr.Textbox(
+    gpu_ids_rmvpe = gr.Textbox(
         label=i18n(
             "rmvpe GPU configuration: Enter different process GPU IDs separated by '-',"
             " e.g. 0-0-1 runs 2 processes on GPU 0 and 1 process on GPU 1"
@@ -245,7 +245,7 @@ with gr.Blocks(title="RVC WebUI") as app:
     pitch_extraction_method.change(
         fn=_change_extraction_method,
         inputs=[pitch_extraction_method],
-        outputs=[gpus_rmvpe],
+        outputs=[gpu_ids_rmvpe],
     )
     btn_extract_features.click(
         _extract_pitch_features,
@@ -256,7 +256,7 @@ with gr.Blocks(title="RVC WebUI") as app:
             include_pitch_guidance,
             gr_experiment_dir,
             gr_version,
-            gpus_rmvpe,
+            gpu_ids_rmvpe,
         ],
         [feature_extraction_output],
         api_name="train_extract_f0_feature",
