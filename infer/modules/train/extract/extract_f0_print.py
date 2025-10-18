@@ -1,23 +1,21 @@
+import logging
 import os
 import sys
 import traceback
-
-import parselmouth
-
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-import logging
+from multiprocessing import Process
+from pathlib import Path
 
 import numpy as np
+import parselmouth
 import pyworld
 
+sys.path.append(str(Path.cwd()))
 from infer.lib.audio import load_audio
 
 logging.getLogger("numba").setLevel(logging.WARNING)
-from multiprocessing import Process
 
 exp_dir = sys.argv[1]
-f = open("%s/extract_f0_feature.log" % exp_dir, "a+")
+f = Path(f"{exp_dir}/extract_f0_feature.log").open("a+")
 
 
 def printt(strr):
