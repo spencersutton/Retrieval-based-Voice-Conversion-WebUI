@@ -78,6 +78,48 @@ def _wait_for_process(done, process_or_processes: Popen | list[Popen]):
     done[0] = True
 
 
+_sr_dict = {
+    "32k": 32000,
+    "40k": 40000,
+    "48k": 48000,
+}
+
+
+def _if_done(done, p):
+    while 1:
+        if p.poll() is None:
+            sleep(0.5)
+        else:
+            break
+    done[0] = True
+
+
+def _preprocess_dataset(
+    training_file: gr.FileData, exp_dir: str, sample_rate_str: str, n_p: int
+):
+    training_dir = Path(str(training_file)).parent
+    sr = _sr_dict[sample_rate_str]  # Sample rate
+
+    log_dir = cwd / "logs" / exp_dir
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "preprocess.log"
+    log_file.touch()
+
+    cmd = f'"{config.python_cmd}" infer/modules/train/preprocess.py "{training_dir}" {sr} {n_p} "{log_dir}" {config.noparallel} {config.preprocess_per:.1f}'
+    logger.info("Execute: %s", cmd)
+    p = Popen(cmd, shell=True)
+    done = [False]
+    threading.Thread(target=_if_done, args=(done, p)).start()
+    while True:
+        yield log_file.read_text()
+        sleep(1)
+        if done[0]:
+            break
+    log = log_file.read_text()
+    logger.info(log)
+    yield log
+
+
 def _extract_pitch_features(
     gpus: str,
     num_cpu_processes: int,
@@ -91,7 +133,7 @@ def _extract_pitch_features(
     log_dir.mkdir(parents=True, exist_ok=True)
 
     log_file = log_dir / "extract_f0_feature.log"
-    log_file.unlink()
+    log_file.unlink(missing_ok=True)
     log_file.touch()
 
     extract_path = "infer/modules/train/extract"
@@ -165,6 +207,42 @@ with gr.Blocks(title="RVC WebUI") as app:
             "See <b>LICENSE</b> in the root directory for details."
         )
     )
+    project_dir = gr.Textbox(label=i18n("Enter project name"), value="mi-test")
+    trainset_dir4 = gr.File(
+        label=i18n("Upload training file"),
+        file_count="single",
+    )
+    gr_sample_rate = gr.Radio(
+        label=i18n("Target sample rate"),
+        choices=["40k", "48k"],
+        value="40k",
+        interactive=True,
+    )
+
+    num_cpu_processes = gr.Slider(
+        minimum=0,
+        maximum=config.n_cpu,
+        step=1,
+        label=i18n("Number of CPU processes for pitch extraction and data processing"),
+        value=int(np.ceil(config.n_cpu / 1.5)),
+        interactive=True,
+    )
+
+    preprocess_output = gr.Textbox(
+        label=i18n("Output Information"),
+        value="",
+        max_lines=8,
+        lines=8,
+        autoscroll=True,
+    )
+    but1 = gr.Button(i18n("Process data"), variant="primary")
+    but1.click(
+        _preprocess_dataset,
+        [trainset_dir4, project_dir, gr_sample_rate, num_cpu_processes],
+        [preprocess_output],
+        api_name="train_preprocess",
+    )
+
     training_data_directory = gr.Textbox(
         label=i18n("Enter training folder path"),
         value=i18n("~/training_data"),
@@ -178,14 +256,7 @@ with gr.Blocks(title="RVC WebUI") as app:
         value=0,
         interactive=True,
     )
-    num_cpu_processes = gr.Slider(
-        minimum=0,
-        maximum=config.n_cpu,
-        step=1,
-        label=i18n("Number of CPU processes for pitch extraction and data processing"),
-        value=int(np.ceil(config.n_cpu / 1.5)),
-        interactive=True,
-    )
+
     include_pitch_guidance = gr.Radio(
         label=i18n(
             "Does the model use pitch guidance? (Required for singing, optional for speech)"
@@ -194,7 +265,6 @@ with gr.Blocks(title="RVC WebUI") as app:
         value=True,
         interactive=True,
     )
-    project_dir = gr.Textbox(label=i18n("Enter project name"), value="mi-test")
     gr_version = gr.Radio(
         label=i18n("Version"),
         choices=["v1", "v2"],
@@ -202,12 +272,7 @@ with gr.Blocks(title="RVC WebUI") as app:
         interactive=True,
         visible=True,
     )
-    gr_sample_rate = gr.Radio(
-        label=i18n("Target sample rate"),
-        choices=["40k", "48k"],
-        value="40k",
-        interactive=True,
-    )
+
     gpu_ids_input = gr.Textbox(
         label=i18n("Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"),
         value=gpus,
