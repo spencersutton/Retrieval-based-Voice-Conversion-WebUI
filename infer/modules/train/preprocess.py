@@ -1,5 +1,4 @@
 import multiprocessing
-import os
 import sys
 import traceback
 from pathlib import Path
@@ -22,13 +21,13 @@ exp_dir = sys.argv[4]
 noparallel = sys.argv[5] == "True"
 per = float(sys.argv[6])
 
-f = open("%s/preprocess.log" % exp_dir, "a+")
+log = (Path(exp_dir) / "preprocess.log").open("a+")
 
 
 def println(strr):
     print(strr)
-    f.write("%s\n" % strr)
-    f.flush()
+    log.write("%s\n" % strr)
+    log.flush()
 
 
 class PreProcess:
@@ -84,17 +83,17 @@ class PreProcess:
             audio = signal.lfilter(self.bh, self.ah, audio)
 
             idx1 = 0
-            for audio in self.slicer.slice(audio):
+            for audio_slice in self.slicer.slice(audio):
                 i = 0
                 while 1:
                     start = int(self.sr * (self.per - self.overlap) * i)
                     i += 1
-                    if len(audio[start:]) > self.tail * self.sr:
-                        tmp_audio = audio[start : start + int(self.per * self.sr)]
+                    if len(audio_slice[start:]) > self.tail * self.sr:
+                        tmp_audio = audio_slice[start : start + int(self.per * self.sr)]
                         self.norm_write(tmp_audio, idx0, idx1)
                         idx1 += 1
                     else:
-                        tmp_audio = audio[start:]
+                        tmp_audio = audio_slice[start:]
                         idx1 += 1
                         break
                 self.norm_write(tmp_audio, idx0, idx1)
@@ -102,37 +101,39 @@ class PreProcess:
         except:
             println("%s\t-> %s" % (path, traceback.format_exc()))
 
-    def pipeline_mp(self, infos):
+    def pipeline_mp(self, infos: list[tuple[str, int]]):
         for path, idx0 in infos:
             self.pipeline(path, idx0)
 
-    def pipeline_mp_inp_dir(self, inp_root, n_p):
+    def pipeline_mp_inp_dir(self, input_directory: str, num_proc: int):
         try:
             infos = [
-                ("%s/%s" % (inp_root, name), idx)
-                for idx, name in enumerate(sorted(list(os.listdir(inp_root))))
+                (str(path), idx)
+                for idx, path in enumerate(sorted(Path(input_directory).iterdir()))
             ]
             if noparallel:
-                for i in range(n_p):
-                    self.pipeline_mp(infos[i::n_p])
+                for i in range(num_proc):
+                    self.pipeline_mp(infos[i::num_proc])
             else:
                 ps = []
-                for i in range(n_p):
+                for i in range(num_proc):
                     p = multiprocessing.Process(
-                        target=self.pipeline_mp, args=(infos[i::n_p],)
+                        target=self.pipeline_mp, args=(infos[i::num_proc],)
                     )
                     ps.append(p)
                     p.start()
-                for i in range(n_p):
+                for i in range(num_proc):
                     ps[i].join()
         except:
             println("Fail. %s" % traceback.format_exc())
 
 
-def preprocess_trainset(inp_root: str, sr: int, n_p: int, exp_dir: str, per: float):
-    pp = PreProcess(sr, exp_dir, per)
+def preprocess_trainset(
+    inp_root: str, sample_rate: int, num_processes: int, experiment_dir: str, per: float
+):
+    pp = PreProcess(sample_rate, experiment_dir, per)
     println("start preprocess")
-    pp.pipeline_mp_inp_dir(inp_root, n_p)
+    pp.pipeline_mp_inp_dir(inp_root, num_processes)
     println("end preprocess")
 
 
