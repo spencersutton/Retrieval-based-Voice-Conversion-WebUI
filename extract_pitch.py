@@ -180,7 +180,10 @@ def _extract_f0_feature(  # noqa: PLR0913
     leng = len(gpus)
     ps = []
     for idx, n_g in enumerate(gpus):
-        cmd = f'"{config.python_cmd}" infer/modules/train/extract_feature_print.py {config.device} {leng} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {version19} {config.is_half}'
+        cmd = (
+            f'"{config.python_cmd}" infer/modules/train/extract_feature_print.py '
+            f'{config.device} {leng} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {version19} {config.is_half}'
+        )
         logger.info("Execute: %s", cmd)
         p = Popen(cmd, shell=True, cwd=now_dir)
         ps.append(p)
