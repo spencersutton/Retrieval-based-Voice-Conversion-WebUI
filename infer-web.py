@@ -52,11 +52,11 @@ warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
 
-config = Config()
-vc = VC(config)
+_config = Config()
+_vc = VC(_config)
 
 
-if config.dml:
+if _config.dml:
 
     def forward_dml(ctx, x, scale):
         ctx.scale = scale
@@ -224,14 +224,14 @@ def _preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
     logs_directory.mkdir(parents=True, exist_ok=True)
     (logs_directory / "preprocess.log").touch()
     cmd = '"%s" infer/modules/train/preprocess.py "%s" %s %s "%s/logs/%s" %s %.1f' % (
-        config.python_cmd,
+        _config.python_cmd,
         trainset_dir,
         sr,
         n_p,
         _now_dir,
         exp_dir,
-        config.noparallel,
-        config.preprocess_per,
+        _config.noparallel,
+        _config.preprocess_per,
     )
     logger.info("Execute: " + cmd)
     p = Popen(cmd, shell=True)
@@ -268,7 +268,7 @@ def _extract_f0_feature(  # noqa: PLR0913
             cmd = (
                 '"%s" infer/modules/train/extract/extract_f0_print.py "%s/logs/%s" %s %s'
                 % (
-                    config.python_cmd,
+                    _config.python_cmd,
                     _now_dir,
                     exp_dir,
                     n_p,
@@ -293,13 +293,13 @@ def _extract_f0_feature(  # noqa: PLR0913
                 cmd = (
                     '"%s" infer/modules/train/extract/extract_f0_rmvpe.py %s %s %s "%s/logs/%s" %s '
                     % (
-                        config.python_cmd,
+                        _config.python_cmd,
                         leng,
                         idx,
                         n_g,
                         _now_dir,
                         exp_dir,
-                        config.is_half,
+                        _config.is_half,
                     )
                 )
                 logger.info("Execute: " + cmd)
@@ -315,7 +315,7 @@ def _extract_f0_feature(  # noqa: PLR0913
             ).start()
         else:
             cmd = (
-                config.python_cmd
+                _config.python_cmd
                 + ' infer/modules/train/extract/extract_f0_rmvpe_dml.py "%s/logs/%s" '
                 % (
                     _now_dir,
@@ -345,15 +345,15 @@ def _extract_f0_feature(  # noqa: PLR0913
         cmd = (
             '"%s" infer/modules/train/extract_feature_print.py %s %s %s %s "%s/logs/%s" %s %s'
             % (
-                config.python_cmd,
-                config.device,
+                _config.python_cmd,
+                _config.device,
                 leng,
                 idx,
                 n_g,
                 _now_dir,
                 exp_dir,
                 version19,
-                config.is_half,
+                _config.is_half,
             )
         )
         logger.info("Execute: " + cmd)
@@ -538,7 +538,7 @@ def _click_train(
     if not config_save_path.exists():
         with Path(config_save_path).open("w", encoding="utf-8") as f:
             json.dump(
-                config.json_config[config_path],
+                _config.json_config[config_path],
                 f,
                 ensure_ascii=False,
                 indent=4,
@@ -549,7 +549,7 @@ def _click_train(
         cmd = (
             '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -g %s -te %s -se %s %s %s -l %s -c %s -sw %s -v %s'
             % (
-                config.python_cmd,
+                _config.python_cmd,
                 exp_dir1,
                 sr2,
                 1 if if_f0_3 else 0,
@@ -569,7 +569,7 @@ def _click_train(
         cmd = (
             '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -te %s -se %s %s %s -l %s -c %s -sw %s -v %s'
             % (
-                config.python_cmd,
+                _config.python_cmd,
                 exp_dir1,
                 sr2,
                 1 if if_f0_3 else 0,
@@ -620,7 +620,7 @@ def _train_index(exp_dir1, version19):  # noqa: PLR0915
                 MiniBatchKMeans(
                     n_clusters=10000,
                     verbose=True,
-                    batch_size=256 * config.n_cpu,
+                    batch_size=256 * _config.n_cpu,
                     compute_labels=False,
                     init="random",
                 )
@@ -756,7 +756,7 @@ def _change_info_(ckpt_path: Path):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
 
 
-_F0GPUVisible = not config.dml
+_F0GPUVisible = not _config.dml
 
 
 def _change_f0_method(f0method8):
@@ -827,7 +827,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 ),
                                 choices=(
                                     ["pm", "harvest", "crepe", "rmvpe"]
-                                    if not config.dml
+                                    if not _config.dml
                                     else ["pm", "harvest", "rmvpe"]
                                 ),
                                 value="rmvpe",
@@ -904,7 +904,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                             )
 
                         but0.click(
-                            vc.vc_single,
+                            _vc.vc_single,
                             [
                                 spk_item,
                                 input_audio0,
@@ -953,7 +953,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                             ),
                             choices=(
                                 ["pm", "harvest", "crepe", "rmvpe"]
-                                if not config.dml
+                                if not _config.dml
                                 else ["pm", "harvest", "rmvpe"]
                             ),
                             value="rmvpe",
@@ -1035,7 +1035,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                     vc_output3 = gr.Textbox(label=_i18n("输出信息"))
 
                     but1.click(
-                        vc.vc_multi,
+                        _vc.vc_multi,
                         [
                             spk_item,
                             dir_input,
@@ -1056,7 +1056,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         api_name="infer_convert_batch",
                     )
                 sid0.change(
-                    fn=vc.get_vc,
+                    fn=_vc.get_vc,
                     inputs=[sid0, protect0, protect1],
                     outputs=[spk_item, protect0, protect1, file_index2, file_index4],
                     api_name="infer_change_voice",
@@ -1148,10 +1148,10 @@ with gr.Blocks(title="RVC WebUI") as app:
                 )
                 np7 = gr.Slider(
                     minimum=0,
-                    maximum=config.n_cpu,
+                    maximum=_config.n_cpu,
                     step=1,
                     label=_i18n("提取音高和处理数据使用的CPU进程数"),
-                    value=int(np.ceil(config.n_cpu / 1.5)),
+                    value=int(np.ceil(_config.n_cpu / 1.5)),
                     interactive=True,
                 )
             with gr.Group():  # 暂时单人的, 后面支持最多4人的#数据处理
@@ -1561,12 +1561,12 @@ with gr.Blocks(title="RVC WebUI") as app:
             except:
                 gr.Markdown(traceback.format_exc())
 
-    if config.iscolab:
+    if _config.iscolab:
         app.queue(max_size=1022).launch(share=True)
     else:
         app.queue(max_size=1022).launch(
             server_name="0.0.0.0",
-            inbrowser=not config.noautoopen,
-            server_port=config.listen_port,
+            inbrowser=not _config.noautoopen,
+            server_port=_config.listen_port,
             quiet=True,
         )
