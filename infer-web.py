@@ -234,7 +234,7 @@ def _preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
         _config.noparallel,
         _config.preprocess_per,
     )
-    logger.info("Execute: " + cmd)
+    logger.info("Execute: %s", cmd)
     p = Popen(cmd, shell=True)
     done = [False]
     threading.Thread(
@@ -485,30 +485,10 @@ def _click_train(
     for name in names:
         if if_f0_3:
             opt.append(
-                "%s/%s.wav|%s/%s.npy|%s/%s.wav.npy|%s/%s.wav.npy|%s"
-                % (
-                    gt_wavs_dir.replace("\\", "\\\\"),
-                    name,
-                    feature_dir.replace("\\", "\\\\"),
-                    name,
-                    f0_dir.replace("\\", "\\\\"),
-                    name,
-                    f0nsf_dir.replace("\\", "\\\\"),
-                    name,
-                    spk_id5,
-                )
+                f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{f0_dir}/{name}.wav.npy|{f0nsf_dir}/{name}.wav.npy|{spk_id5}"
             )
         else:
-            opt.append(
-                "%s/%s.wav|%s/%s.npy|%s"
-                % (
-                    gt_wavs_dir.replace("\\", "\\\\"),
-                    name,
-                    feature_dir.replace("\\", "\\\\"),
-                    name,
-                    spk_id5,
-                )
-            )
+            opt.append(f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{spk_id5}")
     fea_dim = 256 if version19 == "v1" else 768
     if if_f0_3:
         for _ in range(2):
@@ -548,42 +528,25 @@ def _click_train(
             f.write("\n")
     if gpus16:
         cmd = (
-            '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -g %s -te %s -se %s %s %s -l %s -c %s -sw %s -v %s'
-            % (
-                _config.python_cmd,
-                exp_dir1,
-                sr2,
-                1 if if_f0_3 else 0,
-                batch_size12,
-                gpus16,
-                total_epoch11,
-                save_epoch10,
-                "-pg %s" % pretrained_G14 if pretrained_G14 != "" else "",
-                "-pd %s" % pretrained_D15 if pretrained_D15 != "" else "",
-                1 if if_save_latest13 == _i18n("是") else 0,
-                1 if if_cache_gpu17 == _i18n("是") else 0,
-                1 if if_save_every_weights18 == _i18n("是") else 0,
-                version19,
-            )
+            f'"{_config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0_3 else 0} '
+            f"-bs {batch_size12} -g {gpus16} -te {total_epoch11} -se {save_epoch10} "
+            f'{"-pg %s" % pretrained_G14 if pretrained_G14 else ""} '
+            f'{"-pd %s" % pretrained_D15 if pretrained_D15 else ""} '
+            f'-l {1 if if_save_latest13 == _i18n("是") else 0} '
+            f'-c {1 if if_cache_gpu17 == _i18n("是") else 0} '
+            f'-sw {1 if if_save_every_weights18 == _i18n("是") else 0} '
+            f"-v {version19}"
         )
     else:
         cmd = (
-            '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -te %s -se %s %s %s -l %s -c %s -sw %s -v %s'
-            % (
-                _config.python_cmd,
-                exp_dir1,
-                sr2,
-                1 if if_f0_3 else 0,
-                batch_size12,
-                total_epoch11,
-                save_epoch10,
-                "-pg %s" % pretrained_G14 if pretrained_G14 != "" else "",
-                "-pd %s" % pretrained_D15 if pretrained_D15 != "" else "",
-                1 if if_save_latest13 == _i18n("是") else 0,
-                1 if if_cache_gpu17 == _i18n("是") else 0,
-                1 if if_save_every_weights18 == _i18n("是") else 0,
-                version19,
-            )
+            f'"{_config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0_3 else 0} '
+            f"-bs {batch_size12} -te {total_epoch11} -se {save_epoch10} "
+            f'{"-pg %s" % pretrained_G14 if pretrained_G14 else ""} '
+            f'{"-pd %s" % pretrained_D15 if pretrained_D15 else ""} '
+            f'-l {1 if if_save_latest13 == _i18n("是") else 0} '
+            f'-c {1 if if_cache_gpu17 == _i18n("是") else 0} '
+            f'-sw {1 if if_save_every_weights18 == _i18n("是") else 0} '
+            f"-v {version19}"
         )
     logger.info("Execute: " + cmd)
     p = Popen(cmd, shell=True, cwd=_now_dir)
@@ -808,13 +771,13 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 label=_i18n(
                                     "输入待处理音频文件路径(默认是正确格式示例)"
                                 ),
-                                placeholder="C:\\Users\\Desktop\\audio_example.wav",
+                                placeholder="~/audio_example.wav",
                             )
                             file_index1 = gr.Textbox(
                                 label=_i18n(
                                     "特征检索库文件路径,为空则使用下拉的选择结果"
                                 ),
-                                placeholder="C:\\Users\\Desktop\\model_example.index",
+                                placeholder="~/model_example.index",
                                 interactive=True,
                             )
                             file_index2 = gr.Dropdown(
@@ -1024,7 +987,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         label=_i18n(
                             "输入待处理音频文件夹路径(去文件管理器地址栏拷就行了)"
                         ),
-                        placeholder="C:\\Users\\Desktop\\input_vocal_dir",
+                        placeholder="~/input_vocal_dir",
                     )
                     inputs = gr.File(
                         file_count="multiple",
@@ -1073,7 +1036,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                     with gr.Column():
                         dir_wav_input = gr.Textbox(
                             label=_i18n("输入待处理音频文件夹路径"),
-                            placeholder="C:\\Users\\Desktop\\todo-songs",
+                            placeholder="~/todo-songs",
                         )
                         wav_inputs = gr.File(
                             file_count="multiple",
