@@ -135,13 +135,7 @@ def _extract_f0_feature(  # noqa: PLR0913
             logger.info("Execute: %s", cmd)
             p = Popen(cmd, shell=True, cwd=now_dir)
             done = [False]
-            threading.Thread(
-                target=_if_done,
-                args=(
-                    done,
-                    p,
-                ),
-            ).start()
+            threading.Thread(target=_if_done, args=(done, p)).start()
         elif gpus_rmvpe != "-":
             gpus_rmvpe = gpus_rmvpe.split("-")
             leng = len(gpus_rmvpe)
@@ -152,13 +146,7 @@ def _extract_f0_feature(  # noqa: PLR0913
                 p = Popen(cmd, shell=True, cwd=now_dir)
                 ps.append(p)
             done = [False]
-            threading.Thread(
-                target=_if_done_multi,
-                args=(
-                    done,
-                    ps,
-                ),
-            ).start()
+            threading.Thread(target=_if_done_multi, args=(done, ps)).start()
         else:
             cmd = (
                 config.python_cmd
@@ -188,13 +176,7 @@ def _extract_f0_feature(  # noqa: PLR0913
         p = Popen(cmd, shell=True, cwd=now_dir)
         ps.append(p)
     done = [False]
-    threading.Thread(
-        target=_if_done_multi,
-        args=(
-            done,
-            ps,
-        ),
-    ).start()
+    threading.Thread(target=_if_done_multi, args=(done, ps)).start()
     while True:
         yield log_file_path.read_text()
         sleep(1)
