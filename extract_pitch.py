@@ -83,11 +83,11 @@ def _extract_pitch_features(
     num_cpu_processes: int,
     extract_method: str,
     should_guide: bool,
-    expiriment_dir: str | Path,
+    project_dir: str | Path,
     extractor_version_id: str,
     gpu_ids_rmvpe: str,
 ):
-    log_dir = cwd / "logs" / expiriment_dir
+    log_dir = cwd / "logs" / project_dir
     log_dir.mkdir(parents=True, exist_ok=True)
 
     log_file = log_dir / "extract_f0_feature.log"
@@ -193,7 +193,7 @@ with gr.Blocks(title="RVC WebUI") as app:
         value=True,
         interactive=True,
     )
-    gr_experiment_dir = gr.Textbox(label=i18n("Enter experiment name"), value="mi-test")
+    project_dir = gr.Textbox(label=i18n("Enter project name"), value="mi-test")
     gr_version = gr.Radio(
         label=i18n("Version"),
         choices=["v1", "v2"],
@@ -253,7 +253,7 @@ with gr.Blocks(title="RVC WebUI") as app:
             num_cpu_processes,
             pitch_extraction_method,
             include_pitch_guidance,
-            gr_experiment_dir,
+            project_dir,
             gr_version,
             gpu_ids_rmvpe,
         ],
