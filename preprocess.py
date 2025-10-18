@@ -49,6 +49,7 @@ if config.dml:
         return res
 
     GradMultiply.forward = forward_dml
+
 i18n = I18nAuto()
 logger.info(i18n)
 
