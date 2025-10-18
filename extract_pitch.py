@@ -94,12 +94,13 @@ def _extract_pitch_features(
     log_file.touch()
 
     extract_path = "infer/modules/train/extract"
+    done = [False]
     if should_guide:
         if extract_method != "rmvpe_gpu":
             cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_print.py "{log_dir}" {num_cpu_processes} {extract_method}'
             logger.info("Execute: %s", cmd)
             p = Popen(cmd, shell=True)
-            threading.Thread(target=_wait_for_process, args=([False], p)).start()
+            threading.Thread(target=_wait_for_process, args=(done, p)).start()
         elif gpu_ids_rmvpe != "-":
             ids = gpu_ids_rmvpe.split("-")
             ps = [
@@ -110,7 +111,7 @@ def _extract_pitch_features(
                 )
                 for idx, gpu_id in enumerate(ids)
             ]
-            threading.Thread(target=_wait_for_process, args=([False], ps)).start()
+            threading.Thread(target=_wait_for_process, args=(done, ps)).start()
         else:
             cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe_dml.py "{log_dir}"'
             logger.info("Execute: %s", cmd)
@@ -165,7 +166,7 @@ with gr.Blocks(title="RVC WebUI") as app:
     )
     training_data_directory = gr.Textbox(
         label=i18n("Enter training folder path"),
-        value=i18n("E:\\VoiceAudio+Annotations\\YonezuKenshi\\src"),
+        value=i18n("~/training_data"),
         interactive=True,
     )
     speaker_id = gr.Slider(
