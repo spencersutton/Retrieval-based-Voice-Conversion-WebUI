@@ -218,7 +218,7 @@ def if_done_multi(done, ps):
     done[0] = True
 
 
-def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
+def preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
     sr = sr_dict[sr]
 
     logs_directory = now_dir / "logs" / exp_dir
@@ -663,7 +663,7 @@ def train1key(  # noqa: PLR0913
     exp_dir1,
     sr2,
     if_f0_3,
-    trainset_dir4,
+    trainset_dir4: str,
     spk_id5,
     np7,
     f0method8,
@@ -1103,8 +1103,10 @@ with gr.Blocks(title="RVC WebUI") as app:
                 )
             )
             with gr.Row():
-                exp_dir1 = gr.Textbox(label=i18n("输入实验名"), value="mi-test")
-                sr2 = gr.Radio(
+                gr_experiment_dir = gr.Textbox(
+                    label=i18n("输入实验名"), value="mi-test"
+                )
+                gr_sample_rate = gr.Radio(
                     label=i18n("目标采样率"),
                     choices=["40k", "48k"],
                     value="40k",
@@ -1154,7 +1156,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                     info1 = gr.Textbox(label=i18n("输出信息"), value="")
                     but1.click(
                         preprocess_dataset,
-                        [trainset_dir4, exp_dir1, sr2, np7],
+                        [trainset_dir4, gr_experiment_dir, gr_sample_rate, np7],
                         [info1],
                         api_name="train_preprocess",
                     )
@@ -1208,7 +1210,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                             np7,
                             f0method8,
                             if_f0_3,
-                            exp_dir1,
+                            gr_experiment_dir,
                             version19,
                             gpus_rmvpe,
                         ],
@@ -1275,19 +1277,19 @@ with gr.Blocks(title="RVC WebUI") as app:
                         value="assets/pretrained_v2/f0D40k.pth",
                         interactive=True,
                     )
-                    sr2.change(
+                    gr_sample_rate.change(
                         change_sr2,
-                        [sr2, if_f0_3, version19],
+                        [gr_sample_rate, if_f0_3, version19],
                         [pretrained_G14, pretrained_D15],
                     )
                     version19.change(
                         change_version19,
-                        [sr2, if_f0_3, version19],
-                        [pretrained_G14, pretrained_D15, sr2],
+                        [gr_sample_rate, if_f0_3, version19],
+                        [pretrained_G14, pretrained_D15, gr_sample_rate],
                     )
                     if_f0_3.change(
                         change_f0,
-                        [if_f0_3, sr2, version19],
+                        [if_f0_3, gr_sample_rate, version19],
                         [f0method8, gpus_rmvpe, pretrained_G14, pretrained_D15],
                     )
                     gpus16 = gr.Textbox(
@@ -1304,8 +1306,8 @@ with gr.Blocks(title="RVC WebUI") as app:
                     but3.click(
                         click_train,
                         [
-                            exp_dir1,
-                            sr2,
+                            gr_experiment_dir,
+                            gr_sample_rate,
                             if_f0_3,
                             spk_id5,
                             save_epoch10,
@@ -1322,12 +1324,12 @@ with gr.Blocks(title="RVC WebUI") as app:
                         info3,
                         api_name="train_start",
                     )
-                    but4.click(train_index, [exp_dir1, version19], info3)
+                    but4.click(train_index, [gr_experiment_dir, version19], info3)
                     but5.click(
                         train1key,
                         [
-                            exp_dir1,
-                            sr2,
+                            gr_experiment_dir,
+                            gr_sample_rate,
                             if_f0_3,
                             trainset_dir4,
                             spk_id5,
