@@ -85,7 +85,11 @@ if torch.cuda.is_available() and ngpu > 0:
             gpu_infos.append(f"{i}\t{gpu_name}")
 
 gpu_info = (
-    "\n".join(gpu_infos) if gpu_infos else i18n("很遗憾您这没有能用的显卡来支持您训练")
+    "\n".join(gpu_infos)
+    if gpu_infos
+    else i18n(
+        "Unfortunately, there is no available GPU on your system to support training."
+    )
 )
 gpus = "-".join(info[0] for info in gpu_infos)
 
@@ -102,7 +106,7 @@ def _wait_for_process(done, process_or_processes: Popen | list[Popen]):
     done[0] = True
 
 
-def _extract_f0_feature(
+def _extract_pitch_features(
     gpus: str,
     n_p,
     f0method: str,
@@ -174,7 +178,7 @@ def _extract_f0_feature(
 _F0GPUVisible = not config.dml
 
 
-def _change_f0_method(f0method8):
+def _change_extraction_method(f0method8):
     return {"visible": f0method8 == "rmvpe_gpu" and _F0GPUVisible, "__type__": "update"}
 
 
@@ -267,12 +271,12 @@ with gr.Blocks(title="RVC WebUI") as app:
         label=i18n("Output Information"), value="", max_lines=8
     )
     pitch_extraction_method.change(
-        fn=_change_f0_method,
+        fn=_change_extraction_method,
         inputs=[pitch_extraction_method],
         outputs=[gpus_rmvpe],
     )
     btn_extract_features.click(
-        _extract_f0_feature,
+        _extract_pitch_features,
         [
             gpu_ids_input,
             num_cpu_processes,
