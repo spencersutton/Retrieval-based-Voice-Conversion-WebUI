@@ -154,33 +154,6 @@ for name in weight_uvr5_root.iterdir():
         _uvr5_names.append(name.stem)
 
 
-def _change_choices():
-    names = []
-    for name in weight_root.iterdir():
-        if name.suffix == ".pth":
-            names.append(name)
-    index_paths = []
-    for root, _dirs, files in os.walk(index_root, topdown=False):
-        found_files = [Path(f) for f in files]
-        for name in found_files:
-            if name.suffix == ".index" and "trained" not in name.stem:
-                index_paths.append(f"{root}/{name}")
-    return {"choices": sorted(names), "__type__": "update"}, {
-        "choices": sorted(index_paths),
-        "__type__": "update",
-    }
-
-
-def _clean():
-    return {"value": "", "__type__": "update"}
-
-
-def _export_onnx(ModelPath, ExportedPath):
-    from infer.modules.onnx.export import export_onnx as eo  # noqa: PLC0415
-
-    eo(ModelPath, ExportedPath)
-
-
 _sr_dict = {
     "32k": 32000,
     "40k": 40000,
@@ -626,20 +599,6 @@ def _train1key(  # noqa: PLR0913
     yield get_info_str(i18n("全流程结束！"))
 
 
-def _change_info_(ckpt_path: Path):
-    if not (ckpt_path.parent / "train.log").exists():
-        return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
-    try:
-        with (ckpt_path.parent / "train.log").open("r") as f:
-            info = eval(f.read().strip("\n").split("\n")[0].split("\t")[-1])
-            sr, f0 = info["sample_rate"], info["if_f0"]
-            version = "v2" if ("version" in info and info["version"] == "v2") else "v1"
-            return sr, str(f0), version
-    except:
-        traceback.print_exc()
-        return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
-
-
 _F0GPUVisible = not config.dml
 
 
@@ -675,7 +634,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                     value="40k",
                     interactive=True,
                 )
-                if_f0_3 = gr.Radio(
+                include_pitch_guidance = gr.Radio(
                     label=i18n(
                         "Does the model include pitch guidance (required for singing, optional for speech)"
                     ),
@@ -690,7 +649,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                     interactive=True,
                     visible=True,
                 )
-                np7 = gr.Slider(
+                num_cpu_processes = gr.Slider(
                     minimum=0,
                     maximum=config.n_cpu,
                     step=1,
@@ -709,11 +668,11 @@ with gr.Blocks(title="RVC WebUI") as app:
                     )
                 )
                 with gr.Row():
-                    trainset_dir4 = gr.Textbox(
+                    training_data_directory = gr.Textbox(
                         label="Enter training folder path",
                         value="E:\\VoiceAudio+Annotations\\YonezuKenshi\\src",
                     )
-                    spk_id5 = gr.Slider(
+                    speaker_id = gr.Slider(
                         minimum=0,
                         maximum=4,
                         step=1,
@@ -725,7 +684,12 @@ with gr.Blocks(title="RVC WebUI") as app:
                     info1 = gr.Textbox(label="Output Info", value="")
                     but1.click(
                         _preprocess_dataset,
-                        [trainset_dir4, gr_experiment_dir, gr_sample_rate, np7],
+                        [
+                            training_data_directory,
+                            gr_experiment_dir,
+                            gr_sample_rate,
+                            num_cpu_processes,
+                        ],
                         [info1],
                         api_name="train_preprocess",
                     )
@@ -737,7 +701,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                 )
                 with gr.Row():
                     with gr.Column():
-                        gpus6 = gr.Textbox(
+                        gpu_ids_input = gr.Textbox(
                             label=i18n(
                                 "Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"
                             ),
@@ -745,13 +709,13 @@ with gr.Blocks(title="RVC WebUI") as app:
                             interactive=True,
                             visible=_F0GPUVisible,
                         )
-                        gpu_info9 = gr.Textbox(
+                        gpu_status_display = gr.Textbox(
                             label=i18n("GPU Information"),
                             value=gpu_info,
                             visible=_F0GPUVisible,
                         )
                     with gr.Column():
-                        f0method8 = gr.Radio(
+                        pitch_extraction_method = gr.Radio(
                             label=i18n(
                                 "Select pitch extraction algorithm: For singing, use pm for speed; for high-quality speech but slow CPU, use dio for speed; harvest is better quality but slower; rmvpe has the best effect and uses some CPU/GPU"
                             ),
@@ -767,27 +731,29 @@ with gr.Blocks(title="RVC WebUI") as app:
                             interactive=True,
                             visible=_F0GPUVisible,
                         )
-                    but2 = gr.Button(i18n("Extract Features"), variant="primary")
-                    info2 = gr.Textbox(
+                    btn_extract_features = gr.Button(
+                        i18n("Extract Features"), variant="primary"
+                    )
+                    feature_extraction_output = gr.Textbox(
                         label=i18n("Output Information"), value="", max_lines=8
                     )
-                    f0method8.change(
+                    pitch_extraction_method.change(
                         fn=_change_f0_method,
-                        inputs=[f0method8],
+                        inputs=[pitch_extraction_method],
                         outputs=[gpus_rmvpe],
                     )
-                    but2.click(
+                    btn_extract_features.click(
                         _extract_f0_feature,
                         [
-                            gpus6,
-                            np7,
-                            f0method8,
-                            if_f0_3,
+                            gpu_ids_input,
+                            num_cpu_processes,
+                            pitch_extraction_method,
+                            include_pitch_guidance,
                             gr_experiment_dir,
                             gr_version,
                             gpus_rmvpe,
                         ],
-                        [info2],
+                        [feature_extraction_output],
                         api_name="train_extract_f0_feature",
                     )
             with gr.Group():
@@ -797,7 +763,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                     )
                 )
                 with gr.Row():
-                    gr_save_epoch10 = gr.Slider(
+                    save_epoch_frequency = gr.Slider(
                         minimum=1,
                         maximum=50,
                         step=1,
@@ -805,7 +771,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         value=5,
                         interactive=True,
                     )
-                    gr_total_epoch11 = gr.Slider(
+                    total_training_epochs = gr.Slider(
                         minimum=2,
                         maximum=1000,
                         step=1,
@@ -813,7 +779,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         value=20,
                         interactive=True,
                     )
-                    gr_batch_size12 = gr.Slider(
+                    gpu_batch_size = gr.Slider(
                         minimum=1,
                         maximum=40,
                         step=1,
@@ -821,13 +787,13 @@ with gr.Blocks(title="RVC WebUI") as app:
                         value=default_batch_size,
                         interactive=True,
                     )
-                    gr_if_save_latest13 = gr.Radio(
+                    should_save_latest_model = gr.Radio(
                         label=i18n("Only save the latest ckpt file to save disk space"),
                         choices=[i18n("Yes"), i18n("No")],
                         value=i18n("No"),
                         interactive=True,
                     )
-                    gr_if_cache_gpu17 = gr.Radio(
+                    use_gpu_cache = gr.Radio(
                         label=i18n(
                             "Cache all training set to GPU memory. For small data under 10min, caching can speed up training. For large data, caching may cause out-of-memory and doesn't speed up much."
                         ),
@@ -835,7 +801,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         value=i18n("No"),
                         interactive=True,
                     )
-                    gr_if_save_every_weights18 = gr.Radio(
+                    is_save_every_weight = gr.Radio(
                         label=i18n(
                             "Save the final small model to the weights folder at each save time point"
                         ),
@@ -856,18 +822,23 @@ with gr.Blocks(title="RVC WebUI") as app:
                     )
                     gr_sample_rate.change(
                         _change_sr2,
-                        [gr_sample_rate, if_f0_3, gr_version],
+                        [gr_sample_rate, include_pitch_guidance, gr_version],
                         [gr_pretrained_G14, gr_pretrained_D15],
                     )
                     gr_version.change(
                         _change_version19,
-                        [gr_sample_rate, if_f0_3, gr_version],
+                        [gr_sample_rate, include_pitch_guidance, gr_version],
                         [gr_pretrained_G14, gr_pretrained_D15, gr_sample_rate],
                     )
-                    if_f0_3.change(
+                    include_pitch_guidance.change(
                         _change_f0,
-                        [if_f0_3, gr_sample_rate, gr_version],
-                        [f0method8, gpus_rmvpe, gr_pretrained_G14, gr_pretrained_D15],
+                        [include_pitch_guidance, gr_sample_rate, gr_version],
+                        [
+                            pitch_extraction_method,
+                            gpus_rmvpe,
+                            gr_pretrained_G14,
+                            gr_pretrained_D15,
+                        ],
                     )
                     gpus16 = gr.Textbox(
                         label=i18n(
@@ -887,17 +858,17 @@ with gr.Blocks(title="RVC WebUI") as app:
                         [
                             gr_experiment_dir,
                             gr_sample_rate,
-                            if_f0_3,
-                            spk_id5,
-                            gr_save_epoch10,
-                            gr_total_epoch11,
-                            gr_batch_size12,
-                            gr_if_save_latest13,
+                            include_pitch_guidance,
+                            speaker_id,
+                            save_epoch_frequency,
+                            total_training_epochs,
+                            gpu_batch_size,
+                            should_save_latest_model,
                             gr_pretrained_G14,
                             gr_pretrained_D15,
                             gpus16,
-                            gr_if_cache_gpu17,
-                            gr_if_save_every_weights18,
+                            use_gpu_cache,
+                            is_save_every_weight,
                             gr_version,
                         ],
                         info3,
@@ -909,20 +880,20 @@ with gr.Blocks(title="RVC WebUI") as app:
                         [
                             gr_experiment_dir,
                             gr_sample_rate,
-                            if_f0_3,
-                            trainset_dir4,
-                            spk_id5,
-                            np7,
-                            f0method8,
-                            gr_save_epoch10,
-                            gr_total_epoch11,
-                            gr_batch_size12,
-                            gr_if_save_latest13,
+                            include_pitch_guidance,
+                            training_data_directory,
+                            speaker_id,
+                            num_cpu_processes,
+                            pitch_extraction_method,
+                            save_epoch_frequency,
+                            total_training_epochs,
+                            gpu_batch_size,
+                            should_save_latest_model,
                             gr_pretrained_G14,
                             gr_pretrained_D15,
                             gpus16,
-                            gr_if_cache_gpu17,
-                            gr_if_save_every_weights18,
+                            use_gpu_cache,
+                            is_save_every_weight,
                             gr_version,
                             gpus_rmvpe,
                         ],
