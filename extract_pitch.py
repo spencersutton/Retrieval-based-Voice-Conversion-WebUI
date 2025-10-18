@@ -295,7 +295,7 @@ with gr.Blocks(title="RVC WebUI") as app:
             "rmvpe GPU configuration: Enter different process GPU IDs separated by '-',"
             " e.g. 0-0-1 runs 2 processes on GPU 0 and 1 process on GPU 1"
         ),
-        value="%s-%s" % (gpus, gpus),
+        value=f"{gpus}-{gpus}",
         interactive=True,
         visible=_F0GPUVisible,
     )
