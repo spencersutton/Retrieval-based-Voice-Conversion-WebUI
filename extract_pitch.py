@@ -133,22 +133,20 @@ def _extract_f0_feature(  # noqa: PLR0913
         elif gpus_rmvpe != "-":
             gpus_rmvpe = gpus_rmvpe.split("-")
             length = len(gpus_rmvpe)
-            ps = []
-            for idx, n_g in enumerate(gpus_rmvpe):
-                cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {length} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {config.is_half}'
-                logger.info("Execute: %s", cmd)
-                p = Popen(cmd, shell=True, cwd=now_dir)
-                ps.append(p)
+            ps = [
+                Popen(
+                    f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {length} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {config.is_half}',
+                    shell=True,
+                    cwd=now_dir,
+                )
+                for idx, n_g in enumerate(gpus_rmvpe)
+            ]
             done = [False]
             threading.Thread(target=_if_done_multi, args=(done, ps)).start()
         else:
-            cmd = (
-                config.python_cmd
-                + f' infer/modules/train/extract/extract_f0_rmvpe_dml.py "{now_dir}/logs/{exp_dir}"'
-            )
+            cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe_dml.py "{now_dir}/logs/{exp_dir}"'
             logger.info("Execute: %s", cmd)
-            p = Popen(cmd, shell=True, cwd=now_dir)
-            p.wait()
+            Popen(cmd, shell=True, cwd=now_dir).wait()
             done = [True]
         while True:
             yield log_file_path.read_text()
