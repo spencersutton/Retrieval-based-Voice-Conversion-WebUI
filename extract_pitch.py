@@ -90,7 +90,7 @@ gpu_info = (
 gpus = "-".join(info[0] for info in gpu_infos)
 
 
-def _wait_for_process(done, process_or_processes):
+def _wait_for_process(done, process_or_processes: Popen | list[Popen]):
     """Wait for subprocess(es) to complete."""
     processes = (
         process_or_processes
@@ -102,19 +102,26 @@ def _wait_for_process(done, process_or_processes):
     done[0] = True
 
 
-def _extract_f0_feature(  # noqa: PLR0913
-    gpus, n_p, f0method, if_f0, exp_dir: str | Path, extractor_version_id, gpus_rmvpe
+def _extract_f0_feature(
+    gpus: str,
+    n_p,
+    f0method: str,
+    if_f0,
+    exp_dir: str | Path,
+    extractor_version_id,
+    gpus_rmvpe,
 ):
-    gpus = gpus.split("-")
+    gpu_list = gpus.split("-")
 
     logs_directory = now_dir / "logs" / exp_dir
     log_file_path = logs_directory / "extract_f0_feature.log"
 
     logs_directory.mkdir(parents=True, exist_ok=True)
     log_file_path.touch()
+    extract_path = "infer/modules/train/extract"
     if if_f0:
         if f0method != "rmvpe_gpu":
-            cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{now_dir}/logs/{exp_dir}" {n_p} {f0method}'
+            cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_print.py "{logs_directory}" {n_p} {f0method}'
             logger.info("Execute: %s", cmd)
             p = Popen(cmd, shell=True, cwd=now_dir)
             done = [False]
@@ -124,7 +131,8 @@ def _extract_f0_feature(  # noqa: PLR0913
             length = len(gpus_rmvpe)
             ps = [
                 Popen(
-                    f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {length} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {config.is_half}',
+                    f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe.py {length} {idx} '
+                    f'{n_g} "{logs_directory}" {config.is_half}',
                     shell=True,
                     cwd=now_dir,
                 )
@@ -133,7 +141,7 @@ def _extract_f0_feature(  # noqa: PLR0913
             done = [False]
             threading.Thread(target=_wait_for_process, args=(done, ps)).start()
         else:
-            cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe_dml.py "{now_dir}/logs/{exp_dir}"'
+            cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe_dml.py "{logs_directory}"'
             logger.info("Execute: %s", cmd)
             Popen(cmd, shell=True, cwd=now_dir).wait()
             done = [True]
@@ -146,15 +154,15 @@ def _extract_f0_feature(  # noqa: PLR0913
         logger.info(log)
         yield log
 
-    length = len(gpus)
+    length = len(gpu_list)
     ps = [
         Popen(
             f'"{config.python_cmd}" infer/modules/train/extract_feature_print.py '
-            f'{config.device} {length} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {extractor_version_id} {config.is_half}',
+            f'{config.device} {length} {idx} {n_g} "{logs_directory}" {extractor_version_id} {config.is_half}',
             shell=True,
             cwd=now_dir,
         )
-        for idx, n_g in enumerate(gpus)
+        for idx, n_g in enumerate(gpu_list)
     ]
     done = [False]
     threading.Thread(target=_wait_for_process, args=(done, ps)).start()
