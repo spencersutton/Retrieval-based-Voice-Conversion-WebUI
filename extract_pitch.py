@@ -16,8 +16,8 @@ from fairseq.modules.grad_multiply import GradMultiply
 from configs.config import Config
 from i18n.i18n import I18nAuto
 
-now_dir = Path.cwd()
-sys.path.append(str(now_dir))
+cwd = Path.cwd()
+sys.path.append(str(cwd))
 load_dotenv()
 
 logging.getLogger("numba").setLevel(logging.WARNING)
@@ -27,11 +27,11 @@ logger = logging.getLogger(__name__)
 
 # Cleanup runtime packages
 for pack_dir in ["infer_pack", "uvr5_pack"]:
-    shutil.rmtree(now_dir / f"runtime/Lib/site-packages/{pack_dir}", ignore_errors=True)
+    shutil.rmtree(cwd / f"runtime/Lib/site-packages/{pack_dir}", ignore_errors=True)
 
 # Create necessary directories
 for dir_path in ["logs", "assets/weights"]:
-    (now_dir / dir_path).mkdir(parents=True, exist_ok=True)
+    (cwd / dir_path).mkdir(parents=True, exist_ok=True)
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
@@ -87,62 +87,61 @@ def _extract_pitch_features(
     extractor_version_id: str,
     gpu_ids_rmvpe: str,
 ):
-    gpu_list = gpus.split("-")
+    log_dir = cwd / "logs" / expiriment_dir
+    log_file = log_dir / "extract_f0_feature.log"
 
-    logs_directory = now_dir / "logs" / expiriment_dir
-    log_file_path = logs_directory / "extract_f0_feature.log"
-
-    logs_directory.mkdir(parents=True, exist_ok=True)
-    log_file_path.touch()
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file.touch()
     extract_path = "infer/modules/train/extract"
     if should_guide:
         if extract_method != "rmvpe_gpu":
-            cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_print.py "{logs_directory}" {num_cpu_processes} {extract_method}'
+            cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_print.py "{log_dir}" {num_cpu_processes} {extract_method}'
             logger.info("Execute: %s", cmd)
-            p = Popen(cmd, shell=True, cwd=now_dir)
+            p = Popen(cmd, shell=True, cwd=cwd)
             threading.Thread(target=_wait_for_process, args=([False], p)).start()
         elif gpu_ids_rmvpe != "-":
             ids = gpu_ids_rmvpe.split("-")
             ps = [
                 Popen(
                     f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe.py {len(ids)} {idx} '
-                    f'{n_g} "{logs_directory}" {config.is_half}',
+                    f'{n_g} "{log_dir}" {config.is_half}',
                     shell=True,
-                    cwd=now_dir,
+                    cwd=cwd,
                 )
                 for idx, n_g in enumerate(ids)
             ]
             threading.Thread(target=_wait_for_process, args=([False], ps)).start()
         else:
-            cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe_dml.py "{logs_directory}"'
+            cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe_dml.py "{log_dir}"'
             logger.info("Execute: %s", cmd)
-            Popen(cmd, shell=True, cwd=now_dir).wait()
+            Popen(cmd, shell=True, cwd=cwd).wait()
             done = [True]
         while True:
-            yield log_file_path.read_text()
+            yield log_file.read_text()
             sleep(1)
             if done[0]:
                 break
-        log = log_file_path.read_text()
+        log = log_file.read_text()
         logger.info(log)
         yield log
 
+    gpu_list = gpus.split("-")
     length = len(gpu_list)
     ps = [
         Popen(
             f'"{config.python_cmd}" infer/modules/train/extract_feature_print.py '
-            f'{config.device} {length} {idx} {n_g} "{logs_directory}" {extractor_version_id} {config.is_half}',
+            f'{config.device} {length} {idx} {n_g} "{log_dir}" {extractor_version_id} {config.is_half}',
             shell=True,
-            cwd=now_dir,
+            cwd=cwd,
         )
         for idx, n_g in enumerate(gpu_list)
     ]
     done = [False]
     threading.Thread(target=_wait_for_process, args=(done, ps)).start()
     while not done[0]:
-        yield log_file_path.read_text()
+        yield log_file.read_text()
         sleep(1)
-    log = log_file_path.read_text()
+    log = log_file.read_text()
     logger.info(log)
     yield log
 
