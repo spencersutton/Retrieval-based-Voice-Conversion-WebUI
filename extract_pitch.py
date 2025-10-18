@@ -124,22 +124,19 @@ def _extract_f0_feature(
             cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_print.py "{logs_directory}" {n_p} {f0method}'
             logger.info("Execute: %s", cmd)
             p = Popen(cmd, shell=True, cwd=now_dir)
-            done = [False]
-            threading.Thread(target=_wait_for_process, args=(done, p)).start()
+            threading.Thread(target=_wait_for_process, args=([False], p)).start()
         elif gpus_rmvpe != "-":
             gpus_rmvpe = gpus_rmvpe.split("-")
-            length = len(gpus_rmvpe)
             ps = [
                 Popen(
-                    f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe.py {length} {idx} '
+                    f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe.py {len(gpus_rmvpe)} {idx} '
                     f'{n_g} "{logs_directory}" {config.is_half}',
                     shell=True,
                     cwd=now_dir,
                 )
                 for idx, n_g in enumerate(gpus_rmvpe)
             ]
-            done = [False]
-            threading.Thread(target=_wait_for_process, args=(done, ps)).start()
+            threading.Thread(target=_wait_for_process, args=([False], ps)).start()
         else:
             cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe_dml.py "{logs_directory}"'
             logger.info("Execute: %s", cmd)
@@ -166,11 +163,9 @@ def _extract_f0_feature(
     ]
     done = [False]
     threading.Thread(target=_wait_for_process, args=(done, ps)).start()
-    while True:
+    while not done[0]:
         yield log_file_path.read_text()
         sleep(1)
-        if done[0]:
-            break
     log = log_file_path.read_text()
     logger.info(log)
     yield log
