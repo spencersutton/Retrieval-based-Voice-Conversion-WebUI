@@ -1,5 +1,4 @@
 import logging
-import os
 import sys
 import traceback
 from multiprocessing import Process
@@ -7,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import parselmouth
+
 import pyworld
 
 sys.path.append(str(Path.cwd()))
@@ -14,18 +14,18 @@ from infer.lib.audio import load_audio
 
 logging.getLogger("numba").setLevel(logging.WARNING)
 
-exp_dir = sys.argv[1]
+exp_dir = Path(sys.argv[1])
 f = Path(f"{exp_dir}/extract_f0_feature.log").open("a+")
 
 
 def printt(strr):
     print(strr)
-    f.write("%s\n" % strr)
+    f.write(f"{strr}\n")
     f.flush()
 
 
-n_p = int(sys.argv[2])
-f0method = sys.argv[3]
+num_processes = int(sys.argv[2])
+f0_method = sys.argv[3]
 
 
 class FeatureInput(object):
@@ -138,36 +138,34 @@ class FeatureInput(object):
 
 
 if __name__ == "__main__":
-    # exp_dir=r"E:\codes\py39\dataset\mi-test"
-    # n_p=16
-    # f = open("%s/log_extract_f0.log"%exp_dir, "w")
     printt(" ".join(sys.argv))
-    featureInput = FeatureInput()
+    feature_input = FeatureInput()
     paths = []
-    inp_root = "%s/1_16k_wavs" % (exp_dir)
-    opt_root1 = "%s/2a_f0" % (exp_dir)
-    opt_root2 = "%s/2b-f0nsf" % (exp_dir)
+    input_root = exp_dir / "1_16k_wavs"
+    opt_root1 = exp_dir / "2a_f0"
+    opt_root2 = exp_dir / "2b-f0nsf"
 
-    os.makedirs(opt_root1, exist_ok=True)
-    os.makedirs(opt_root2, exist_ok=True)
-    for name in sorted(list(os.listdir(inp_root))):
-        inp_path = "%s/%s" % (inp_root, name)
+    opt_root1.mkdir(parents=True, exist_ok=True)
+    opt_root2.mkdir(parents=True, exist_ok=True)
+    for file_path in sorted(input_root.iterdir()):
+        name = file_path.name
+        inp_path = str(file_path)
         if "spec" in inp_path:
             continue
-        opt_path1 = "%s/%s" % (opt_root1, name)
-        opt_path2 = "%s/%s" % (opt_root2, name)
+        opt_path1 = opt_root1 / name
+        opt_path2 = opt_root2 / name
         paths.append([inp_path, opt_path1, opt_path2])
 
     ps = []
-    for i in range(n_p):
+    for i in range(num_processes):
         p = Process(
-            target=featureInput.go,
+            target=feature_input.go,
             args=(
-                paths[i::n_p],
-                f0method,
+                paths[i::num_processes],
+                f0_method,
             ),
         )
         ps.append(p)
         p.start()
-    for i in range(n_p):
+    for i in range(num_processes):
         ps[i].join()
