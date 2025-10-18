@@ -1,0 +1,1251 @@
+import json
+import logging
+import os
+import platform
+import shutil
+import sys
+import threading
+import traceback
+import warnings
+from pathlib import Path
+from random import shuffle
+from subprocess import Popen
+from time import sleep
+
+import faiss
+import gradio as gr
+import numpy as np
+import torch
+from dotenv import load_dotenv
+from fairseq.modules.grad_multiply import GradMultiply
+from gradio.components import FormComponent
+from sklearn.cluster import MiniBatchKMeans
+
+from configs.config import Config
+from i18n.i18n import I18nAuto
+from infer.lib.train.process_ckpt import (
+    change_info,
+    extract_small_model,
+    merge,
+    show_info,
+)
+from infer.modules.uvr5.modules import uvr
+from infer.modules.vc.modules import VC
+
+now_dir = Path.cwd()
+sys.path.append(str(now_dir))
+load_dotenv()
+
+logging.getLogger("numba").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+logger = logging.getLogger(__name__)
+
+tmp = now_dir / "TEMP"
+shutil.rmtree(tmp, ignore_errors=True)
+shutil.rmtree(now_dir / "runtime/Lib/site-packages/infer_pack", ignore_errors=True)
+shutil.rmtree(now_dir / "runtime/Lib/site-packages/uvr5_pack", ignore_errors=True)
+tmp.mkdir(parents=True, exist_ok=True)
+(now_dir / "logs").mkdir(parents=True, exist_ok=True)
+(now_dir / "assets/weights").mkdir(parents=True, exist_ok=True)
+os.environ["TEMP"] = str(tmp)
+warnings.filterwarnings("ignore")
+torch.manual_seed(114514)
+
+config = Config()
+vc = VC(config)
+
+if config.dml:
+
+    def forward_dml(ctx, x, scale):
+        ctx.scale = scale
+        res = x.clone().detach()
+        return res
+    GradMultiply.forward = forward_dml
+i18n = I18nAuto()
+logger.info(i18n)
+
+ngpu = torch.cuda.device_count()
+gpu_infos = []
+mem = []
+if_gpu_ok = False
+
+if torch.cuda.is_available() or ngpu != 0:
+    for i in range(ngpu):
+        gpu_name = torch.cuda.get_device_name(i)
+        if any(
+            value in gpu_name.upper()
+            for value in [
+                "10",
+                "16",
+                "20",
+                "30",
+                "40",
+                "A2",
+                "A3",
+                "A4",
+                "P4",
+                "A50",
+                "500",
+                "A60",
+                "70",
+                "80",
+                "90",
+                "M4",
+                "T4",
+                "TITAN",
+                "4060",
+                "L",
+                "6000",
+            ]
+        ):
+
+            if_gpu_ok = True
+            gpu_infos.append(f"{i}\t{gpu_name}")
+            mem.append(
+                int(
+                    torch.cuda.get_device_properties(i).total_memory
+                    / 1024
+                    / 1024
+                    / 1024
+                    + 0.4
+                )
+            )
+if if_gpu_ok and len(gpu_infos) > 0:
+    gpu_info = "\n".join(gpu_infos)
+    default_batch_size = min(mem) // 2
+else:
+    gpu_info = i18n("很遗憾您这没有能用的显卡来支持您训练")
+    default_batch_size = 1
+gpus = "-".join([i[0] for i in gpu_infos])
+
+class ToolButton(gr.Button, FormComponent):
+    """Small button with single emoji as text, fits inside gradio forms"""
+
+    def __init__(self, **kwargs):
+        super().__init__(variant="secondary", **kwargs)
+
+    def get_block_name(self):
+        return "button"
+    from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence
+
+    from gradio.blocks import Block
+
+    if TYPE_CHECKING:
+        from gradio.components import Timer
+        from gradio.components.base import Component
+
+weight_root = Path(os.getenv("weight_root", ""))
+weight_uvr5_root = Path(os.getenv("weight_uvr5_root", ""))
+index_root = Path(os.getenv("index_root", ""))
+outside_index_root = Path(os.getenv("outside_index_root", ""))
+
+names = []
+for name in weight_root.iterdir():
+    if name.suffix == ".pth":
+        names.append(name)
+index_paths = []
+
+def lookup_indices(index_root: os.PathLike):
+    for root, _dirs, files in os.walk(index_root, topdown=False):
+        found_files = [Path(f) for f in files]
+        for name in found_files:
+            if name.suffix == ".index" and "trained" not in name.stem:
+                index_paths.append(f"{root}/{name}")
+
+lookup_indices(index_root)
+lookup_indices(outside_index_root)
+uvr5_names = []
+for name in weight_uvr5_root.iterdir():
+    if name.suffix == ".pth" or "onnx" in name.name:
+        uvr5_names.append(name.stem)
+
+def change_choices():
+    names = []
+    for name in weight_root.iterdir():
+        if name.suffix == ".pth":
+            names.append(name)
+    index_paths = []
+    for root, _dirs, files in os.walk(index_root, topdown=False):
+        found_files = [Path(f) for f in files]
+        for name in found_files:
+            if name.suffix == ".index" and "trained" not in name.stem:
+                index_paths.append(f"{root}/{name}")
+    return {"choices": sorted(names), "__type__": "update"}, {
+        "choices": sorted(index_paths),
+        "__type__": "update",
+    }
+
+def clean():
+    return {"value": "", "__type__": "update"}
+
+def export_onnx(ModelPath, ExportedPath):
+    from infer.modules.onnx.export import export_onnx as eo  # noqa: PLC0415
+
+    eo(ModelPath, ExportedPath)
+
+sr_dict = {
+    "32k": 32000,
+    "40k": 40000,
+    "48k": 48000,
+}
+
+def if_done(done, p):
+    while 1:
+        if p.poll() is None:
+            sleep(0.5)
+        else:
+            break
+    done[0] = True
+
+def if_done_multi(done, ps):
+    while 1:
+
+        flag = 1
+        for p in ps:
+            if p.poll() is None:
+                flag = 0
+                sleep(0.5)
+                break
+        if flag == 1:
+            break
+    done[0] = True
+
+def preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
+    sr = sr_dict[sr]
+
+    logs_directory = now_dir / "logs" / exp_dir
+    logs_directory.mkdir(parents=True, exist_ok=True)
+    (logs_directory / "preprocess.log").touch()
+    cmd = f'"{config.python_cmd}" infer/modules/train/preprocess.py "{trainset_dir}" {sr} {n_p} "{now_dir}/logs/{exp_dir}" {config.noparallel} {config.preprocess_per:.1f}'
+    logger.info("Execute: %s", cmd)
+    p = Popen(cmd, shell=True)
+    done = [False]
+    threading.Thread(
+        target=if_done,
+        args=(
+            done,
+            p,
+        ),
+    ).start()
+    while True:
+        with (now_dir / "logs" / exp_dir / "preprocess.log").open("r") as f:
+            yield (f.read())
+        sleep(1)
+        if done[0]:
+            break
+    with (now_dir / "logs" / exp_dir / "preprocess.log").open("r") as f:
+        log = f.read()
+    logger.info(log)
+    yield log
+
+def extract_f0_feature(  # noqa: PLR0913
+    gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe
+):
+    gpus = gpus.split("-")
+
+    logs_directory = now_dir / "logs" / exp_dir
+    logs_directory.mkdir(parents=True, exist_ok=True)
+    (logs_directory / "extract_f0_feature.log").touch()
+    if if_f0:
+        if f0method != "rmvpe_gpu":
+            cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{now_dir}/logs/{exp_dir}" {n_p} {f0method}'
+            logger.info("Execute: %s", cmd)
+            p = Popen(cmd, shell=True, cwd=now_dir)
+            done = [False]
+            threading.Thread(
+                target=if_done,
+                args=(
+                    done,
+                    p,
+                ),
+            ).start()
+        elif gpus_rmvpe != "-":
+            gpus_rmvpe = gpus_rmvpe.split("-")
+            leng = len(gpus_rmvpe)
+            ps = []
+            for idx, n_g in enumerate(gpus_rmvpe):
+                cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {leng} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {config.is_half}'
+                logger.info("Execute: %s", cmd)
+                p = Popen(cmd, shell=True, cwd=now_dir)
+                ps.append(p)
+            done = [False]
+            threading.Thread(
+                target=if_done_multi,
+                args=(
+                    done,
+                    ps,
+                ),
+            ).start()
+        else:
+            cmd = (
+                config.python_cmd
+                + f' infer/modules/train/extract/extract_f0_rmvpe_dml.py "{now_dir}/logs/{exp_dir}"'
+            )
+            logger.info("Execute: %s", cmd)
+            p = Popen(cmd, shell=True, cwd=now_dir)
+            p.wait()
+            done = [True]
+        while True:
+            with (now_dir / "logs" / exp_dir / "extract_f0_feature.log").open("r") as f:
+                yield (f.read())
+            sleep(1)
+            if done[0]:
+                break
+        with (now_dir / "logs" / exp_dir / "extract_f0_feature.log").open("r") as f:
+            log = f.read()
+        logger.info(log)
+        yield log
+
+    leng = len(gpus)
+    ps = []
+    for idx, n_g in enumerate(gpus):
+        cmd = f'"{config.python_cmd}" infer/modules/train/extract_feature_print.py {config.device} {leng} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {version19} {config.is_half}'
+        logger.info("Execute: %s", cmd)
+        p = Popen(cmd, shell=True, cwd=now_dir)
+        ps.append(p)
+    done = [False]
+    threading.Thread(
+        target=if_done_multi,
+        args=(
+            done,
+            ps,
+        ),
+    ).start()
+    while True:
+        with (now_dir / "logs" / exp_dir / "extract_f0_feature.log").open("r") as f:
+            yield (f.read())
+        sleep(1)
+        if done[0]:
+            break
+    with (now_dir / "logs" / exp_dir / "extract_f0_feature.log").open("r") as f:
+        log = f.read()
+    logger.info(log)
+    yield log
+
+def get_pretrained_models(path_str, f0_str, sr2):
+    if_pretrained_generator_exist = os.access(
+        f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth", os.F_OK
+    )
+    if_pretrained_discriminator_exist = os.access(
+        f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth", os.F_OK
+    )
+    if not if_pretrained_generator_exist:
+        logger.warning(
+            "assets/pretrained%s/%sG%s.pth not exist, will not use pretrained model",
+            path_str,
+            f0_str,
+            sr2,
+        )
+    if not if_pretrained_discriminator_exist:
+        logger.warning(
+            "assets/pretrained%s/%sD%s.pth not exist, will not use pretrained model",
+            path_str,
+            f0_str,
+            sr2,
+        )
+    return (
+        (
+            f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth"
+            if if_pretrained_generator_exist
+            else ""
+        ),
+        (
+            f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth"
+            if if_pretrained_discriminator_exist
+            else ""
+        ),
+    )
+
+def change_sr2(sr2, if_f0_3, version19):
+    path_str = "" if version19 == "v1" else "_v2"
+    f0_str = "f0" if if_f0_3 else ""
+    return get_pretrained_models(path_str, f0_str, sr2)
+
+def change_version19(sr2, if_f0_3, version19):
+    path_str = "" if version19 == "v1" else "_v2"
+    if sr2 == "32k" and version19 == "v1":
+        sr2 = "40k"
+    to_return_sr2 = (
+        {"choices": ["40k", "48k"], "__type__": "update", "value": sr2}
+        if version19 == "v1"
+        else {"choices": ["40k", "48k", "32k"], "__type__": "update", "value": sr2}
+    )
+    f0_str = "f0" if if_f0_3 else ""
+    return (
+        *get_pretrained_models(path_str, f0_str, sr2),
+        to_return_sr2,
+    )
+
+def change_f0(if_f0_3, sr2, version19):
+    path_str = "" if version19 == "v1" else "_v2"
+    return (
+        {"visible": if_f0_3, "__type__": "update"},
+        {"visible": if_f0_3, "__type__": "update"},
+        *get_pretrained_models(path_str, "f0" if if_f0_3 else "", sr2),
+    )
+
+def click_train(
+    exp_dir1: str,
+    sr2,
+    if_f0_3,
+    spk_id5,
+    save_epoch10,
+    total_epoch11,
+    batch_size12,
+    if_save_latest13,
+    pretrained_G14,
+    pretrained_D15,
+    gpus16,
+    if_cache_gpu17,
+    if_save_every_weights18,
+    version19,
+):
+    exp_dir = now_dir / "logs" / exp_dir1
+    exp_dir.mkdir(parents=True, exist_ok=True)
+    gt_wavs_dir = exp_dir / "0_gt_wavs"
+    feature_dir = (
+        exp_dir / "3_feature256" if version19 == "v1" else exp_dir / "3_feature768"
+    )
+    if if_f0_3:
+        f0_dir = exp_dir / "2a_f0"
+        f0nsf_dir = exp_dir / "2b-f0nsf"
+        names = (
+            {name.stem for name in gt_wavs_dir.iterdir()}
+            & {name.stem for name in feature_dir.iterdir()}
+            & {name.stem for name in f0_dir.iterdir()}
+            & {name.stem for name in f0nsf_dir.iterdir()}
+        )
+    else:
+        names = {name.stem for name in gt_wavs_dir.iterdir()} & {
+            name.stem for name in feature_dir.iterdir()
+        }
+    opt = []
+    for name in names:
+        if if_f0_3:
+            opt.append(
+                f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{f0_dir}/{name}.wav.npy|{f0nsf_dir}/{name}.wav.npy|{spk_id5}"
+            )
+        else:
+            opt.append(f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{spk_id5}")
+    fea_dim = 256 if version19 == "v1" else 768
+    if if_f0_3:
+        for _ in range(2):
+            opt.append(
+                f"{now_dir}/logs/mute/0_gt_wavs/mute{sr2}.wav|{now_dir}/logs/mute/3_feature{fea_dim}/mute.npy|{now_dir}/logs/mute/2a_f0/mute.wav.npy|{now_dir}/logs/mute/2b-f0nsf/mute.wav.npy|{spk_id5}"
+            )
+    else:
+        for _ in range(2):
+            opt.append(
+                f"{now_dir}/logs/mute/0_gt_wavs/mute{sr2}.wav|{now_dir}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id5}"
+            )
+    shuffle(opt)
+    with Path(exp_dir).open("w") as f:
+        f.write("\n".join(opt))
+    logger.debug("Write filelist done")
+    logger.info("Use gpus: %s", str(gpus16))
+    if pretrained_G14 == "":
+        logger.info("No pretrained Generator")
+    if pretrained_D15 == "":
+        logger.info("No pretrained Discriminator")
+    if version19 == "v1" or sr2 == "40k":
+        config_path = "v1/%s.json" % sr2
+    else:
+        config_path = "v2/%s.json" % sr2
+    config_save_path = exp_dir / "config.json"
+    if not config_save_path.exists():
+        with Path(config_save_path).open("w", encoding="utf-8") as f:
+            json.dump(
+                config.json_config[config_path],
+                f,
+                ensure_ascii=False,
+                indent=4,
+                sort_keys=True,
+            )
+            f.write("\n")
+    if gpus16:
+        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0_3 else 0} -bs {batch_size12} -g {gpus16} -te {total_epoch11} -se {save_epoch10} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest13 == i18n("是") else 0} -c {1 if if_cache_gpu17 == i18n("是") else 0} -sw {1 if if_save_every_weights18 == i18n("是") else 0} -v {version19}'
+    else:
+        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0_3 else 0} -bs {batch_size12} -te {total_epoch11} -se {save_epoch10} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest13 == i18n("是") else 0} -c {1 if if_cache_gpu17 == i18n("是") else 0} -sw {1 if if_save_every_weights18 == i18n("是") else 0} -v {version19}'
+    logger.info("Execute: %s", cmd)
+    p = Popen(cmd, shell=True, cwd=now_dir)
+    p.wait()
+    return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
+
+def train_index(exp_dir1, version19):  # noqa: PLR0915
+    exp_dir = Path(f"logs/{exp_dir1}")
+    exp_dir.mkdir(parents=True, exist_ok=True)
+    feature_dir = (
+        exp_dir / "3_feature256" if version19 == "v1" else exp_dir / "3_feature768"
+    )
+    if not feature_dir.exists():
+        return "请先进行特征提取!"
+    listdir_res = list(feature_dir.iterdir())
+    if len(listdir_res) == 0:
+        return "请先进行特征提取！"
+    infos = []
+    npys = []
+    for name in sorted(listdir_res):
+        phone = np.load(f"{feature_dir}/{name}")
+        npys.append(phone)
+    big_npy = np.concatenate(npys, 0)
+    big_npy_idx = np.arange(big_npy.shape[0])
+    np.random.shuffle(big_npy_idx)
+    big_npy = big_npy[big_npy_idx]
+    if big_npy.shape[0] > 2e5:
+        infos.append(f"Trying doing kmeans {big_npy.shape[0]} shape to 10k centers.")
+        yield "\n".join(infos)
+        try:
+            big_npy = (
+                MiniBatchKMeans(
+                    n_clusters=10000,
+                    verbose=True,
+                    batch_size=256 * config.n_cpu,
+                    compute_labels=False,
+                    init="random",
+                )
+                .fit(big_npy)
+                .cluster_centers_
+            )
+        except:
+            info = traceback.format_exc()
+            logger.info(info)
+            infos.append(info)
+            yield "\n".join(infos)
+
+    np.save(f"{exp_dir}/total_fea.npy", big_npy)
+    n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
+    infos.append(f"{big_npy.shape},{n_ivf}")
+    yield "\n".join(infos)
+    index = faiss.index_factory(256 if version19 == "v1" else 768, f"IVF{n_ivf},Flat")
+
+    infos.append("training")
+    yield "\n".join(infos)
+    index_ivf = faiss.extract_index_ivf(index)
+    index_ivf.nprobe = 1
+    index.train(big_npy)
+    faiss.write_index(
+        index,
+        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index",
+    )
+    infos.append("adding")
+    yield "\n".join(infos)
+    batch_size_add = 8192
+    for i in range(0, big_npy.shape[0], batch_size_add):
+        index.add(big_npy[i : i + batch_size_add])
+    faiss.write_index(
+        index,
+        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index",
+    )
+    infos.append(
+        f"成功构建索引 added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index"
+    )
+    try:
+        file_name = (
+            f"IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index"
+        )
+        source_path = Path(exp_dir) / f"added_{file_name}"
+        target_path = outside_index_root / f"{exp_dir1}_{file_name}"
+        if platform.system() == "Windows":
+            source_path.hardlink_to(target_path)
+        else:
+            source_path.symlink_to(target_path)
+        infos.append(f"链接索引到外部-{outside_index_root}")
+    except:
+        infos.append(f"链接索引到外部-{outside_index_root}失败")
+
+    yield "\n".join(infos)
+
+def train1key(  # noqa: PLR0913
+    exp_dir1,
+    sr2,
+    if_f0_3,
+    trainset_dir4: str,
+    spk_id5,
+    np7,
+    f0method8,
+    save_epoch10,
+    total_epoch11,
+    batch_size12,
+    if_save_latest13,
+    pretrained_G14,
+    pretrained_D15,
+    gpus16,
+    if_cache_gpu17,
+    if_save_every_weights18,
+    version19,
+    gpus_rmvpe,
+):
+    infos = []
+
+    def get_info_str(strr):
+        infos.append(strr)
+        return "\n".join(infos)
+    yield get_info_str(i18n("step1:正在处理数据"))
+    [get_info_str(_) for _ in preprocess_dataset(trainset_dir4, exp_dir1, sr2, np7)]
+
+    yield get_info_str(i18n("step2:正在提取音高&正在提取特征"))
+    [
+        get_info_str(_)
+        for _ in extract_f0_feature(
+            gpus16, np7, f0method8, if_f0_3, exp_dir1, version19, gpus_rmvpe
+        )
+    ]
+
+    yield get_info_str(i18n("step3a:正在训练模型"))
+    click_train(
+        exp_dir1,
+        sr2,
+        if_f0_3,
+        spk_id5,
+        save_epoch10,
+        total_epoch11,
+        batch_size12,
+        if_save_latest13,
+        pretrained_G14,
+        pretrained_D15,
+        gpus16,
+        if_cache_gpu17,
+        if_save_every_weights18,
+        version19,
+    )
+    yield get_info_str(
+        i18n("训练结束, 您可查看控制台训练日志或实验文件夹下的train.log")
+    )
+
+    [get_info_str(_) for _ in train_index(exp_dir1, version19)]
+    yield get_info_str(i18n("全流程结束！"))
+
+def change_info_(ckpt_path: Path):
+    if not (ckpt_path.parent / "train.log").exists():
+        return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
+    try:
+        with (ckpt_path.parent / "train.log").open("r") as f:
+            info = eval(f.read().strip("\n").split("\n")[0].split("\t")[-1])
+            sr, f0 = info["sample_rate"], info["if_f0"]
+            version = "v2" if ("version" in info and info["version"] == "v2") else "v1"
+            return sr, str(f0), version
+    except:
+        traceback.print_exc()
+        return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
+
+F0GPUVisible = not config.dml
+
+def change_f0_method(f0method8):
+    if f0method8 == "rmvpe_gpu":
+        visible = F0GPUVisible
+    else:
+        visible = False
+    return {"visible": visible, "__type__": "update"}
+
+with gr.Blocks(title="RVC WebUI") as app:
+    gr.Markdown("## RVC WebUI")
+    gr.Markdown(
+        value=i18n(
+            "本软件以MIT协议开源, 作者不对软件具备任何控制力, 使用软件者、传播软件导出的声音者自负全责. <br>如不认可该条款, 则不能使用或引用软件包内任何代码和文件. 详见根目录<b>LICENSE</b>."
+        )
+    )
+    with gr.Tabs():
+        with gr.TabItem(i18n("模型推理")):
+            with gr.Row():
+                sid0 = gr.Dropdown(label=i18n("推理音色"), choices=sorted(names))
+                with gr.Column():
+                    refresh_button = gr.Button(
+                        i18n("刷新音色列表和索引路径"), variant="primary"
+                    )
+                    clean_button = gr.Button(i18n("卸载音色省显存"), variant="primary")
+                spk_item = gr.Slider(
+                    minimum=0,
+                    maximum=2333,
+                    step=1,
+                    label=i18n("请选择说话人id"),
+                    value=0,
+                    visible=False,
+                    interactive=True,
+                )
+                clean_button.click(
+                    fn=clean, inputs=[], outputs=[sid0], api_name="infer_clean"
+                )
+            with gr.TabItem(i18n("单次推理")):
+                with gr.Group():
+                    with gr.Row():
+                        with gr.Column():
+                            vc_transform0 = gr.Number(
+                                label=i18n("变调(整数, 半音数量, 升八度12降八度-12)"),
+                                value=0,
+                            )
+                            input_audio0 = gr.Textbox(
+                                label=i18n(
+                                    "输入待处理音频文件路径(默认是正确格式示例)"
+                                ),
+                                placeholder="C:\\Users\\Desktop\\audio_example.wav",
+                            )
+                            file_index1 = gr.Textbox(
+                                label=i18n(
+                                    "特征检索库文件路径,为空则使用下拉的选择结果"
+                                ),
+                                placeholder="C:\\Users\\Desktop\\model_example.index",
+                                interactive=True,
+                            )
+                            file_index2 = gr.Dropdown(
+                                label=i18n("自动检测index路径,下拉式选择(dropdown)"),
+                                choices=sorted(index_paths),
+                                interactive=True,
+                            )
+                            f0method0 = gr.Radio(
+                                label=i18n(
+                                    "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
+                                ),
+                                choices=(
+                                    ["pm", "harvest", "crepe", "rmvpe"]
+                                    if not config.dml
+                                    else ["pm", "harvest", "rmvpe"]
+                                ),
+                                value="rmvpe",
+                                interactive=True,
+                            )
+
+                        with gr.Column():
+                            resample_sr0 = gr.Slider(
+                                minimum=0,
+                                maximum=48000,
+                                label=i18n("后处理重采样至最终采样率，0为不进行重采样"),
+                                value=0,
+                                step=1,
+                                interactive=True,
+                            )
+                            rms_mix_rate0 = gr.Slider(
+                                minimum=0,
+                                maximum=1,
+                                label=i18n(
+                                    "输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"
+                                ),
+                                value=0.25,
+                                interactive=True,
+                            )
+                            protect0 = gr.Slider(
+                                minimum=0,
+                                maximum=0.5,
+                                label=i18n(
+                                    "保护清辅音和呼吸声，防止电音撕裂等artifact，拉满0.5不开启，调低加大保护力度但可能降低索引效果"
+                                ),
+                                value=0.33,
+                                step=0.01,
+                                interactive=True,
+                            )
+                            filter_radius0 = gr.Slider(
+                                minimum=0,
+                                maximum=7,
+                                label=i18n(
+                                    ">=3则使用对harvest音高识别的结果使用中值滤波，数值为滤波半径，使用可以削弱哑音"
+                                ),
+                                value=3,
+                                step=1,
+                                interactive=True,
+                            )
+                            index_rate1 = gr.Slider(
+                                minimum=0,
+                                maximum=1,
+                                label=i18n("检索特征占比"),
+                                value=0.75,
+                                interactive=True,
+                            )
+                            f0_file = gr.File(
+                                label=i18n(
+                                    "F0曲线文件, 可选, 一行一个音高, 代替默认F0及升降调"
+                                ),
+                                visible=False,
+                            )
+
+                            refresh_button.click(
+                                fn=change_choices,
+                                inputs=[],
+                                outputs=[sid0, file_index2],
+                                api_name="infer_refresh",
+                            )
+                with gr.Group():
+                    with gr.Column():
+                        but0 = gr.Button(i18n("转换"), variant="primary")
+                        with gr.Row():
+                            vc_output1 = gr.Textbox(label=i18n("输出信息"))
+                            vc_output2 = gr.Audio(
+                                label=i18n("输出音频(右下角三个点,点了可以下载)")
+                            )
+
+                        but0.click(
+                            vc.vc_single,
+                            [
+                                spk_item,
+                                input_audio0,
+                                vc_transform0,
+                                f0_file,
+                                f0method0,
+                                file_index1,
+                                file_index2,
+                                index_rate1,
+                                filter_radius0,
+                                resample_sr0,
+                                rms_mix_rate0,
+                                protect0,
+                            ],
+                            [vc_output1, vc_output2],
+                            api_name="infer_convert",
+                        )
+            with gr.TabItem(i18n("批量推理")):
+                gr.Markdown(
+                    value=i18n(
+                        "批量转换, 输入待转换音频文件夹, 或上传多个音频文件, 在指定文件夹(默认opt)下输出转换的音频. "
+                    )
+                )
+                with gr.Row():
+                    with gr.Column():
+                        vc_transform1 = gr.Number(
+                            label=i18n("变调(整数, 半音数量, 升八度12降八度-12)"),
+                            value=0,
+                        )
+                        opt_input = gr.Textbox(
+                            label=i18n("指定输出文件夹"), value="opt"
+                        )
+                        file_index3 = gr.Textbox(
+                            label=i18n("特征检索库文件路径,为空则使用下拉的选择结果"),
+                            value="",
+                            interactive=True,
+                        )
+                        file_index4 = gr.Dropdown(
+                            label=i18n("自动检测index路径,下拉式选择(dropdown)"),
+                            choices=sorted(index_paths),
+                            interactive=True,
+                        )
+                        f0method1 = gr.Radio(
+                            label=i18n(
+                                "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
+                            ),
+                            choices=(
+                                ["pm", "harvest", "crepe", "rmvpe"]
+                                if not config.dml
+                                else ["pm", "harvest", "rmvpe"]
+                            ),
+                            value="rmvpe",
+                            interactive=True,
+                        )
+                        format1 = gr.Radio(
+                            label=i18n("导出文件格式"),
+                            choices=["wav", "flac", "mp3", "m4a"],
+                            value="wav",
+                            interactive=True,
+                        )
+
+                        refresh_button.click(
+                            fn=lambda: change_choices()[1],
+                            inputs=[],
+                            outputs=file_index4,
+                            api_name="infer_refresh_batch",
+                        )
+
+                    with gr.Column():
+                        resample_sr1 = gr.Slider(
+                            minimum=0,
+                            maximum=48000,
+                            label=i18n("后处理重采样至最终采样率，0为不进行重采样"),
+                            value=0,
+                            step=1,
+                            interactive=True,
+                        )
+                        rms_mix_rate1 = gr.Slider(
+                            minimum=0,
+                            maximum=1,
+                            label=i18n(
+                                "输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"
+                            ),
+                            value=1,
+                            interactive=True,
+                        )
+                        protect1 = gr.Slider(
+                            minimum=0,
+                            maximum=0.5,
+                            label=i18n(
+                                "保护清辅音和呼吸声，防止电音撕裂等artifact，拉满0.5不开启，调低加大保护力度但可能降低索引效果"
+                            ),
+                            value=0.33,
+                            step=0.01,
+                            interactive=True,
+                        )
+                        filter_radius1 = gr.Slider(
+                            minimum=0,
+                            maximum=7,
+                            label=i18n(
+                                ">=3则使用对harvest音高识别的结果使用中值滤波，数值为滤波半径，使用可以削弱哑音"
+                            ),
+                            value=3,
+                            step=1,
+                            interactive=True,
+                        )
+                        index_rate2 = gr.Slider(
+                            minimum=0,
+                            maximum=1,
+                            label=i18n("检索特征占比"),
+                            value=1,
+                            interactive=True,
+                        )
+                with gr.Row():
+                    dir_input = gr.Textbox(
+                        label=i18n(
+                            "输入待处理音频文件夹路径(去文件管理器地址栏拷就行了)"
+                        ),
+                        placeholder="C:\\Users\\Desktop\\input_vocal_dir",
+                    )
+                    inputs = gr.File(
+                        file_count="multiple",
+                        label=i18n("也可批量输入音频文件, 二选一, 优先读文件夹"),
+                    )
+
+                with gr.Row():
+                    but1 = gr.Button(i18n("转换"), variant="primary")
+                    vc_output3 = gr.Textbox(label=i18n("输出信息"))
+
+                    but1.click(
+                        vc.vc_multi,
+                        [
+                            spk_item,
+                            dir_input,
+                            opt_input,
+                            inputs,
+                            vc_transform1,
+                            f0method1,
+                            file_index3,
+                            file_index4,
+                            index_rate2,
+                            filter_radius1,
+                            resample_sr1,
+                            rms_mix_rate1,
+                            protect1,
+                            format1,
+                        ],
+                        [vc_output3],
+                        api_name="infer_convert_batch",
+                    )
+                sid0.change(
+                    fn=vc.get_vc,
+                    inputs=[sid0, protect0, protect1],
+                    outputs=[spk_item, protect0, protect1, file_index2, file_index4],
+                    api_name="infer_change_voice",
+                )
+        with gr.TabItem(i18n("伴奏人声分离&去混响&去回声")):
+            with gr.Group():
+                gr.Markdown(
+                    value=i18n(
+                        "人声伴奏分离批量处理， 使用UVR5模型。 <br>合格的文件夹路径格式举例： E:\\codes\\py39\\vits_vc_gpu\\白鹭霜华测试样例(去文件管理器地址栏拷就行了)。 <br>模型分为三类： <br>1、保留人声：不带和声的音频选这个，对主人声保留比HP5更好。内置HP2和HP3两个模型，HP3可能轻微漏伴奏但对主人声保留比HP2稍微好一丁点； <br>2、仅保留主人声：带和声的音频选这个，对主人声可能有削弱。内置HP5一个模型； <br> 3、去混响、去延迟模型（by FoxJoy）：<br>  (1)MDX-Net(onnx_dereverb):对于双通道混响是最好的选择，不能去除单通道混响；<br>&emsp;(234)DeEcho:去除延迟效果。Aggressive比Normal去除得更彻底，DeReverb额外去除混响，可去除单声道混响，但是对高频重的板式混响去不干净。<br>去混响/去延迟，附：<br>1、DeEcho-DeReverb模型的耗时是另外2个DeEcho模型的接近2倍；<br>2、MDX-Net-Dereverb模型挺慢的；<br>3、个人推荐的最干净的配置是先MDX-Net再DeEcho-Aggressive。"
+                    )
+                )
+                with gr.Row():
+                    with gr.Column():
+                        dir_wav_input = gr.Textbox(
+                            label=i18n("输入待处理音频文件夹路径"),
+                            placeholder="C:\\Users\\Desktop\\todo-songs",
+                        )
+                        wav_inputs = gr.File(
+                            file_count="multiple",
+                            label=i18n("也可批量输入音频文件, 二选一, 优先读文件夹"),
+                        )
+                    with gr.Column():
+                        model_choose = gr.Dropdown(
+                            label=i18n("模型"), choices=uvr5_names
+                        )
+                        agg = gr.Slider(
+                            minimum=0,
+                            maximum=20,
+                            step=1,
+                            label="人声提取激进程度",
+                            value=10,
+                            interactive=True,
+                            visible=False,  # 先不开放调整
+                        )
+                        opt_vocal_root = gr.Textbox(
+                            label=i18n("指定输出主人声文件夹"), value="opt"
+                        )
+                        opt_ins_root = gr.Textbox(
+                            label=i18n("指定输出非主人声文件夹"), value="opt"
+                        )
+                        format0 = gr.Radio(
+                            label=i18n("导出文件格式"),
+                            choices=["wav", "flac", "mp3", "m4a"],
+                            value="flac",
+                            interactive=True,
+                        )
+                    but2 = gr.Button(i18n("转换"), variant="primary")
+                    vc_output4 = gr.Textbox(label=i18n("输出信息"))
+                    but2.click(
+                        uvr,
+                        [
+                            model_choose,
+                            dir_wav_input,
+                            opt_vocal_root,
+                            wav_inputs,
+                            opt_ins_root,
+                            agg,
+                            format0,
+                        ],
+                        [vc_output4],
+                        api_name="uvr_convert",
+                    )
+        with gr.TabItem(i18n("训练")):
+            gr.Markdown(
+                value=i18n(
+                    "step1: 填写实验配置. 实验数据放在logs下, 每个实验一个文件夹, 需手工输入实验名路径, 内含实验配置, 日志, 训练得到的模型文件. "
+                )
+            )
+            with gr.Row():
+                gr_experiment_dir = gr.Textbox(
+                    label=i18n("输入实验名"), value="mi-test"
+                )
+                gr_sample_rate = gr.Radio(
+                    label=i18n("目标采样率"),
+                    choices=["40k", "48k"],
+                    value="40k",
+                    interactive=True,
+                )
+                if_f0_3 = gr.Radio(
+                    label=i18n("模型是否带音高指导(唱歌一定要, 语音可以不要)"),
+                    choices=[True, False],
+                    value=True,
+                    interactive=True,
+                )
+                gr_version = gr.Radio(
+                    label=i18n("版本"),
+                    choices=["v1", "v2"],
+                    value="v2",
+                    interactive=True,
+                    visible=True,
+                )
+                np7 = gr.Slider(
+                    minimum=0,
+                    maximum=config.n_cpu,
+                    step=1,
+                    label=i18n("提取音高和处理数据使用的CPU进程数"),
+                    value=int(np.ceil(config.n_cpu / 1.5)),
+                    interactive=True,
+                )
+            with gr.Group():  # 暂时单人的, 后面支持最多4人的#数据处理
+                gr.Markdown(
+                    value=i18n(
+                        "step2a: 自动遍历训练文件夹下所有可解码成音频的文件并进行切片归一化, 在实验目录下生成2个wav文件夹; 暂时只支持单人训练. "
+                    )
+                )
+                with gr.Row():
+                    trainset_dir4 = gr.Textbox(
+                        label=i18n("输入训练文件夹路径"),
+                        value=i18n("E:\\语音音频+标注\\米津玄师\\src"),
+                    )
+                    spk_id5 = gr.Slider(
+                        minimum=0,
+                        maximum=4,
+                        step=1,
+                        label=i18n("请指定说话人id"),
+                        value=0,
+                        interactive=True,
+                    )
+                    but1 = gr.Button(i18n("处理数据"), variant="primary")
+                    info1 = gr.Textbox(label=i18n("输出信息"), value="")
+                    but1.click(
+                        preprocess_dataset,
+                        [trainset_dir4, gr_experiment_dir, gr_sample_rate, np7],
+                        [info1],
+                        api_name="train_preprocess",
+                    )
+
+        with gr.TabItem(i18n("ckpt处理")):
+            with gr.Group():
+                gr.Markdown(value=i18n("模型融合, 可用于测试音色融合"))
+                with gr.Row():
+                    ckpt_a = gr.Textbox(
+                        label=i18n("A模型路径"), value="", interactive=True
+                    )
+                    ckpt_b = gr.Textbox(
+                        label=i18n("B模型路径"), value="", interactive=True
+                    )
+                    alpha_a = gr.Slider(
+                        minimum=0,
+                        maximum=1,
+                        label=i18n("A模型权重"),
+                        value=0.5,
+                        interactive=True,
+                    )
+                with gr.Row():
+                    sr_ = gr.Radio(
+                        label=i18n("目标采样率"),
+                        choices=["40k", "48k"],
+                        value="40k",
+                        interactive=True,
+                    )
+                    if_f0_ = gr.Radio(
+                        label=i18n("模型是否带音高指导"),
+                        choices=[i18n("是"), i18n("否")],
+                        value=i18n("是"),
+                        interactive=True,
+                    )
+                    info__ = gr.Textbox(
+                        label=i18n("要置入的模型信息"),
+                        value="",
+                        max_lines=8,
+                        interactive=True,
+                    )
+                    name_to_save0 = gr.Textbox(
+                        label=i18n("保存的模型名不带后缀"),
+                        value="",
+                        max_lines=1,
+                        interactive=True,
+                    )
+                    version_2 = gr.Radio(
+                        label=i18n("模型版本型号"),
+                        choices=["v1", "v2"],
+                        value="v1",
+                        interactive=True,
+                    )
+                with gr.Row():
+                    but6 = gr.Button(i18n("融合"), variant="primary")
+                    info4 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
+                but6.click(
+                    merge,
+                    [
+                        ckpt_a,
+                        ckpt_b,
+                        alpha_a,
+                        sr_,
+                        if_f0_,
+                        info__,
+                        name_to_save0,
+                        version_2,
+                    ],
+                    info4,
+                    api_name="ckpt_merge",
+                )
+            with gr.Group():
+                gr.Markdown(
+                    value=i18n("修改模型信息(仅支持weights文件夹下提取的小模型文件)")
+                )
+                with gr.Row():
+                    ckpt_path0 = gr.Textbox(
+                        label=i18n("模型路径"), value="", interactive=True
+                    )
+                    info_ = gr.Textbox(
+                        label=i18n("要改的模型信息"),
+                        value="",
+                        max_lines=8,
+                        interactive=True,
+                    )
+                    name_to_save1 = gr.Textbox(
+                        label=i18n("保存的文件名, 默认空为和源文件同名"),
+                        value="",
+                        max_lines=8,
+                        interactive=True,
+                    )
+                with gr.Row():
+                    but7 = gr.Button(i18n("修改"), variant="primary")
+                    info5 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
+                but7.click(
+                    change_info,
+                    [ckpt_path0, info_, name_to_save1],
+                    info5,
+                    api_name="ckpt_modify",
+                )
+            with gr.Group():
+                gr.Markdown(
+                    value=i18n("查看模型信息(仅支持weights文件夹下提取的小模型文件)")
+                )
+                with gr.Row():
+                    ckpt_path1 = gr.Textbox(
+                        label=i18n("模型路径"), value="", interactive=True
+                    )
+                    but8 = gr.Button(i18n("查看"), variant="primary")
+                    info6 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
+                but8.click(show_info, [ckpt_path1], info6, api_name="ckpt_show")
+            with gr.Group():
+                gr.Markdown(
+                    value=i18n(
+                        "模型提取(输入logs文件夹下大文件模型路径),适用于训一半不想训了模型没有自动提取保存小文件模型,或者想测试中间模型的情况"
+                    )
+                )
+                with gr.Row():
+                    ckpt_path2 = gr.Textbox(
+                        label=i18n("模型路径"),
+                        value="E:\\codes\\py39\\logs\\mi-test_f0_48k\\G_23333.pth",
+                        interactive=True,
+                    )
+                    save_name = gr.Textbox(
+                        label=i18n("保存名"), value="", interactive=True
+                    )
+                    sr__ = gr.Radio(
+                        label=i18n("目标采样率"),
+                        choices=["32k", "40k", "48k"],
+                        value="40k",
+                        interactive=True,
+                    )
+                    if_f0__ = gr.Radio(
+                        label=i18n("模型是否带音高指导,1是0否"),
+                        choices=["1", "0"],
+                        value="1",
+                        interactive=True,
+                    )
+                    version_1 = gr.Radio(
+                        label=i18n("模型版本型号"),
+                        choices=["v1", "v2"],
+                        value="v2",
+                        interactive=True,
+                    )
+                    info___ = gr.Textbox(
+                        label=i18n("要置入的模型信息"),
+                        value="",
+                        max_lines=8,
+                        interactive=True,
+                    )
+                    but9 = gr.Button(i18n("提取"), variant="primary")
+                    info7 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
+                    ckpt_path2.change(
+                        change_info_, [ckpt_path2], [sr__, if_f0__, version_1]
+                    )
+                but9.click(
+                    extract_small_model,
+                    [ckpt_path2, save_name, sr__, if_f0__, info___, version_1],
+                    info7,
+                    api_name="ckpt_extract",
+                )
+
+        with gr.TabItem(i18n("Onnx导出")):
+            with gr.Row():
+                ckpt_dir = gr.Textbox(
+                    label=i18n("RVC模型路径"), value="", interactive=True
+                )
+            with gr.Row():
+                onnx_dir = gr.Textbox(
+                    label=i18n("Onnx输出路径"), value="", interactive=True
+                )
+            with gr.Row():
+                infoOnnx = gr.Label(label="info")
+            with gr.Row():
+                butOnnx = gr.Button(i18n("导出Onnx模型"), variant="primary")
+            butOnnx.click(
+                export_onnx, [ckpt_dir, onnx_dir], infoOnnx, api_name="export_onnx"
+            )
+
+        tab_faq = i18n("常见问题解答")
+        with gr.TabItem(tab_faq):
+            try:
+                if tab_faq == "常见问题解答":
+                    with (Path("docs/cn/faq.md")).open("r", encoding="utf8") as f:
+                        info = f.read()
+                else:
+                    with (Path("docs/en/faq_en.md")).open("r", encoding="utf8") as f:
+                        info = f.read()
+                gr.Markdown(value=info)
+            except:
+                gr.Markdown(traceback.format_exc())
+
+    if config.iscolab:
+        app.queue(max_size=1022).launch(share=True)
+    else:
+        app.queue(max_size=1022).launch(
+            server_name="0.0.0.0",
+            inbrowser=not config.noautoopen,
+            server_port=config.listen_port,
+            quiet=True,
+        )
