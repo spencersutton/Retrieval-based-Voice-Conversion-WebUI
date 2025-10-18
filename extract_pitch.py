@@ -208,7 +208,7 @@ with gr.Blocks(title="RVC WebUI") as app:
         )
     )
     project_dir = gr.Textbox(label=i18n("Enter project name"), value="mi-test")
-    trainset_dir4 = gr.File(
+    training_file = gr.File(
         label=i18n("Upload training file"),
         file_count="single",
     )
@@ -232,22 +232,17 @@ with gr.Blocks(title="RVC WebUI") as app:
         label=i18n("Output Information"),
         value="",
         max_lines=8,
-        lines=8,
+        lines=4,
         autoscroll=True,
     )
-    but1 = gr.Button(i18n("Process data"), variant="primary")
-    but1.click(
+    preprocess_button = gr.Button(i18n("Process data"), variant="primary")
+    preprocess_button.click(
         _preprocess_dataset,
-        [trainset_dir4, project_dir, gr_sample_rate, num_cpu_processes],
+        [training_file, project_dir, gr_sample_rate, num_cpu_processes],
         [preprocess_output],
         api_name="train_preprocess",
     )
 
-    training_data_directory = gr.Textbox(
-        label=i18n("Enter training folder path"),
-        value=i18n("~/training_data"),
-        interactive=True,
-    )
     speaker_id = gr.Slider(
         minimum=0,
         maximum=4,
@@ -308,7 +303,7 @@ with gr.Blocks(title="RVC WebUI") as app:
         label=i18n("Output Information"),
         value="",
         max_lines=8,
-        lines=8,
+        lines=4,
         autoscroll=True,
     )
     pitch_extraction_method.change(
