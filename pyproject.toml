@@ -3,13 +3,13 @@ name = "rvc-beta"
 version = "0.1.0"
 requires-python = ">=3.12"
 description = ""
-authors = ["lj1995"]
 license = "MIT"
 dependencies = [
     "av>=16.0.1",
     "dotenv>=0.9.9",
     "fairseq>=0.12.2",
     "faiss",
+    "faiss-cpu>=1.8.0",
     "ffmpeg-python>=0.2.0",
     "gradio>=5.49.1",
     "librosa>=0.11.0",
@@ -27,8 +27,8 @@ dependencies = [
 url = "https://download.pytorch.org/whl/cu130"
 
 [tool.uv.sources]
-faiss = { path = "../repos/faiss/build/faiss/python" }
 fairseq = { git = "https://github.com/One-sixth/fairseq.git" }
+faiss = { path = "../repos/faiss/build/faiss/python" }
 
 [tool.ruff]
 lint.extend-select = ["I", "PTH", "B", "C4", "G", "LOG", "PIE"]
