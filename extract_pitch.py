@@ -167,12 +167,12 @@ def _extract_f0_feature(  # noqa: PLR0913
             p.wait()
             done = [True]
         while True:
-            with (now_dir / "logs" / exp_dir / "extract_f0_feature.log").open("r") as f:
+            with (logs_directory / "extract_f0_feature.log").open("r") as f:
                 yield (f.read())
             sleep(1)
             if done[0]:
                 break
-        with (now_dir / "logs" / exp_dir / "extract_f0_feature.log").open("r") as f:
+        with (logs_directory / "extract_f0_feature.log").open("r") as f:
             log = f.read()
         logger.info(log)
         yield log
@@ -192,13 +192,14 @@ def _extract_f0_feature(  # noqa: PLR0913
             ps,
         ),
     ).start()
+    log_file_path = logs_directory / "extract_f0_feature.log"
     while True:
-        with (now_dir / "logs" / exp_dir / "extract_f0_feature.log").open("r") as f:
+        with log_file_path.open("r") as f:
             yield (f.read())
         sleep(1)
         if done[0]:
             break
-    with (now_dir / "logs" / exp_dir / "extract_f0_feature.log").open("r") as f:
+    with log_file_path.open("r") as f:
         log = f.read()
     logger.info(log)
     yield log
