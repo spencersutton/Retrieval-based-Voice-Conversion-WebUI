@@ -12,12 +12,13 @@ from random import shuffle
 from subprocess import Popen
 from time import sleep
 
-import fairseq
 import faiss
 import gradio as gr
 import numpy as np
 import torch
 from dotenv import load_dotenv
+from fairseq.modules.grad_multiply import GradMultiply
+from gradio.components import FormComponent
 from sklearn.cluster import MiniBatchKMeans
 
 from configs.config import Config
@@ -63,7 +64,7 @@ if _config.dml:
         res = x.clone().detach()
         return res
 
-    fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
+    GradMultiply.forward = forward_dml
 _i18n = I18nAuto()
 logger.info(_i18n)
 
@@ -122,7 +123,7 @@ else:
 _gpus = "-".join([i[0] for i in _gpu_infos])
 
 
-class ToolButton(gr.Button, gr.components.FormComponent):
+class ToolButton(gr.Button, FormComponent):
     """Small button with single emoji as text, fits inside gradio forms"""
 
     def __init__(self, **kwargs):
