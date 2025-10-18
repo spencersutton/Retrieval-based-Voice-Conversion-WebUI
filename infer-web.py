@@ -18,6 +18,7 @@ import gradio as gr
 import numpy as np
 import torch
 from dotenv import load_dotenv
+from gradio.components import FormComponent
 from sklearn.cluster import MiniBatchKMeans
 
 from configs.config import Config
@@ -122,7 +123,7 @@ else:
 gpus = "-".join([i[0] for i in gpu_infos])
 
 
-class ToolButton(gr.Button, gr.components.FormComponent):
+class ToolButton(gr.Button, FormComponent):
     """Small button with single emoji as text, fits inside gradio forms"""
 
     def __init__(self, **kwargs):
@@ -233,7 +234,7 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
         config.noparallel,
         config.preprocess_per,
     )
-    logger.info("Execute: " + cmd)
+    logger.info("Execute: %s", cmd)
     p = Popen(cmd, shell=True)
     done = [False]
     threading.Thread(
@@ -275,7 +276,7 @@ def extract_f0_feature(  # noqa: PLR0913
                     f0method,
                 )
             )
-            logger.info("Execute: " + cmd)
+            logger.info("Execute: %s", cmd)
             p = Popen(cmd, shell=True, cwd=now_dir)
             done = [False]
             threading.Thread(
@@ -302,7 +303,7 @@ def extract_f0_feature(  # noqa: PLR0913
                         config.is_half,
                     )
                 )
-                logger.info("Execute: " + cmd)
+                logger.info("Execute: %s", cmd)
                 p = Popen(cmd, shell=True, cwd=now_dir)
                 ps.append(p)
             done = [False]
@@ -322,7 +323,7 @@ def extract_f0_feature(  # noqa: PLR0913
                     exp_dir,
                 )
             )
-            logger.info("Execute: " + cmd)
+            logger.info("Execute: %s", cmd)
             p = Popen(cmd, shell=True, cwd=now_dir)
             p.wait()
             done = [True]
@@ -354,7 +355,7 @@ def extract_f0_feature(  # noqa: PLR0913
                 config.is_half,
             )
         )
-        logger.info("Execute: " + cmd)
+        logger.info("Execute: %s", cmd)
         p = Popen(cmd, shell=True, cwd=now_dir)
         ps.append(p)
     done = [False]
@@ -482,30 +483,10 @@ def click_train(
     for name in names:
         if if_f0_3:
             opt.append(
-                "%s/%s.wav|%s/%s.npy|%s/%s.wav.npy|%s/%s.wav.npy|%s"
-                % (
-                    gt_wavs_dir.replace("\\", "\\\\"),
-                    name,
-                    feature_dir.replace("\\", "\\\\"),
-                    name,
-                    f0_dir.replace("\\", "\\\\"),
-                    name,
-                    f0nsf_dir.replace("\\", "\\\\"),
-                    name,
-                    spk_id5,
-                )
+                f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{f0_dir}/{name}.wav.npy|{f0nsf_dir}/{name}.wav.npy|{spk_id5}"
             )
         else:
-            opt.append(
-                "%s/%s.wav|%s/%s.npy|%s"
-                % (
-                    gt_wavs_dir.replace("\\", "\\\\"),
-                    name,
-                    feature_dir.replace("\\", "\\\\"),
-                    name,
-                    spk_id5,
-                )
-            )
+            opt.append(f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{spk_id5}")
     fea_dim = 256 if version19 == "v1" else 768
     if if_f0_3:
         for _ in range(2):
@@ -582,7 +563,7 @@ def click_train(
                 version19,
             )
         )
-    logger.info("Execute: " + cmd)
+    logger.info("Execute: %s", cmd)
     p = Popen(cmd, shell=True, cwd=now_dir)
     p.wait()
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
