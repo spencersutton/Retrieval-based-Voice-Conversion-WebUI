@@ -104,7 +104,7 @@ if torch.cuda.is_available() or ngpu != 0:
         ):
 
             if_gpu_ok = True
-            gpu_infos.append("%s\t%s" % (i, gpu_name))
+            gpu_infos.append(f"{i}\t{gpu_name}")
             mem.append(
                 int(
                     torch.cuda.get_device_properties(i).total_memory
@@ -150,7 +150,7 @@ def lookup_indices(index_root: os.PathLike):
         found_files = [Path(f) for f in files]
         for name in found_files:
             if name.suffix == ".index" and "trained" not in name.stem:
-                index_paths.append("%s/%s" % (root, name))
+                index_paths.append(f"{root}/{name}")
 
 
 lookup_indices(index_root)
@@ -171,7 +171,7 @@ def change_choices():
         found_files = [Path(f) for f in files]
         for name in found_files:
             if name.suffix == ".index" and "trained" not in name.stem:
-                index_paths.append("%s/%s" % (root, name))
+                index_paths.append(f"{root}/{name}")
     return {"choices": sorted(names), "__type__": "update"}, {
         "choices": sorted(index_paths),
         "__type__": "update",
@@ -224,16 +224,7 @@ def preprocess_dataset(trainset_dir: str, exp_dir, sr, n_p):
     logs_directory = now_dir / "logs" / exp_dir
     logs_directory.mkdir(parents=True, exist_ok=True)
     (logs_directory / "preprocess.log").touch()
-    cmd = '"%s" infer/modules/train/preprocess.py "%s" %s %s "%s/logs/%s" %s %.1f' % (
-        config.python_cmd,
-        trainset_dir,
-        sr,
-        n_p,
-        now_dir,
-        exp_dir,
-        config.noparallel,
-        config.preprocess_per,
-    )
+    cmd = f'"{config.python_cmd}" infer/modules/train/preprocess.py "{trainset_dir}" {sr} {n_p} "{now_dir}/logs/{exp_dir}" {config.noparallel} {config.preprocess_per:.1f}'
     logger.info("Execute: %s", cmd)
     p = Popen(cmd, shell=True)
     done = [False]
@@ -266,16 +257,7 @@ def extract_f0_feature(  # noqa: PLR0913
     (logs_directory / "extract_f0_feature.log").touch()
     if if_f0:
         if f0method != "rmvpe_gpu":
-            cmd = (
-                '"%s" infer/modules/train/extract/extract_f0_print.py "%s/logs/%s" %s %s'
-                % (
-                    config.python_cmd,
-                    now_dir,
-                    exp_dir,
-                    n_p,
-                    f0method,
-                )
-            )
+            cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{now_dir}/logs/{exp_dir}" {n_p} {f0method}'
             logger.info("Execute: %s", cmd)
             p = Popen(cmd, shell=True, cwd=now_dir)
             done = [False]
@@ -291,18 +273,7 @@ def extract_f0_feature(  # noqa: PLR0913
             leng = len(gpus_rmvpe)
             ps = []
             for idx, n_g in enumerate(gpus_rmvpe):
-                cmd = (
-                    '"%s" infer/modules/train/extract/extract_f0_rmvpe.py %s %s %s "%s/logs/%s" %s '
-                    % (
-                        config.python_cmd,
-                        leng,
-                        idx,
-                        n_g,
-                        now_dir,
-                        exp_dir,
-                        config.is_half,
-                    )
-                )
+                cmd = f'"{config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {leng} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {config.is_half}'
                 logger.info("Execute: %s", cmd)
                 p = Popen(cmd, shell=True, cwd=now_dir)
                 ps.append(p)
@@ -317,11 +288,7 @@ def extract_f0_feature(  # noqa: PLR0913
         else:
             cmd = (
                 config.python_cmd
-                + ' infer/modules/train/extract/extract_f0_rmvpe_dml.py "%s/logs/%s" '
-                % (
-                    now_dir,
-                    exp_dir,
-                )
+                + f' infer/modules/train/extract/extract_f0_rmvpe_dml.py "{now_dir}/logs/{exp_dir}"'
             )
             logger.info("Execute: %s", cmd)
             p = Popen(cmd, shell=True, cwd=now_dir)
@@ -341,20 +308,7 @@ def extract_f0_feature(  # noqa: PLR0913
     leng = len(gpus)
     ps = []
     for idx, n_g in enumerate(gpus):
-        cmd = (
-            '"%s" infer/modules/train/extract_feature_print.py %s %s %s %s "%s/logs/%s" %s %s'
-            % (
-                config.python_cmd,
-                config.device,
-                leng,
-                idx,
-                n_g,
-                now_dir,
-                exp_dir,
-                version19,
-                config.is_half,
-            )
-        )
+        cmd = f'"{config.python_cmd}" infer/modules/train/extract_feature_print.py {config.device} {leng} {idx} {n_g} "{now_dir}/logs/{exp_dir}" {version19} {config.is_half}'
         logger.info("Execute: %s", cmd)
         p = Popen(cmd, shell=True, cwd=now_dir)
         ps.append(p)
@@ -380,10 +334,10 @@ def extract_f0_feature(  # noqa: PLR0913
 
 def get_pretrained_models(path_str, f0_str, sr2):
     if_pretrained_generator_exist = os.access(
-        "assets/pretrained%s/%sG%s.pth" % (path_str, f0_str, sr2), os.F_OK
+        f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth", os.F_OK
     )
     if_pretrained_discriminator_exist = os.access(
-        "assets/pretrained%s/%sD%s.pth" % (path_str, f0_str, sr2), os.F_OK
+        f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth", os.F_OK
     )
     if not if_pretrained_generator_exist:
         logger.warning(
@@ -401,12 +355,12 @@ def get_pretrained_models(path_str, f0_str, sr2):
         )
     return (
         (
-            "assets/pretrained%s/%sG%s.pth" % (path_str, f0_str, sr2)
+            f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth"
             if if_pretrained_generator_exist
             else ""
         ),
         (
-            "assets/pretrained%s/%sD%s.pth" % (path_str, f0_str, sr2)
+            f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth"
             if if_pretrained_discriminator_exist
             else ""
         ),
@@ -491,14 +445,12 @@ def click_train(
     if if_f0_3:
         for _ in range(2):
             opt.append(
-                "%s/logs/mute/0_gt_wavs/mute%s.wav|%s/logs/mute/3_feature%s/mute.npy|%s/logs/mute/2a_f0/mute.wav.npy|%s/logs/mute/2b-f0nsf/mute.wav.npy|%s"
-                % (now_dir, sr2, now_dir, fea_dim, now_dir, now_dir, spk_id5)
+                f"{now_dir}/logs/mute/0_gt_wavs/mute{sr2}.wav|{now_dir}/logs/mute/3_feature{fea_dim}/mute.npy|{now_dir}/logs/mute/2a_f0/mute.wav.npy|{now_dir}/logs/mute/2b-f0nsf/mute.wav.npy|{spk_id5}"
             )
     else:
         for _ in range(2):
             opt.append(
-                "%s/logs/mute/0_gt_wavs/mute%s.wav|%s/logs/mute/3_feature%s/mute.npy|%s"
-                % (now_dir, sr2, now_dir, fea_dim, spk_id5)
+                f"{now_dir}/logs/mute/0_gt_wavs/mute{sr2}.wav|{now_dir}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id5}"
             )
     shuffle(opt)
     with Path(exp_dir).open("w") as f:
@@ -525,44 +477,9 @@ def click_train(
             )
             f.write("\n")
     if gpus16:
-        cmd = (
-            '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -g %s -te %s -se %s %s %s -l %s -c %s -sw %s -v %s'
-            % (
-                config.python_cmd,
-                exp_dir1,
-                sr2,
-                1 if if_f0_3 else 0,
-                batch_size12,
-                gpus16,
-                total_epoch11,
-                save_epoch10,
-                "-pg %s" % pretrained_G14 if pretrained_G14 != "" else "",
-                "-pd %s" % pretrained_D15 if pretrained_D15 != "" else "",
-                1 if if_save_latest13 == i18n("是") else 0,
-                1 if if_cache_gpu17 == i18n("是") else 0,
-                1 if if_save_every_weights18 == i18n("是") else 0,
-                version19,
-            )
-        )
+        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0_3 else 0} -bs {batch_size12} -g {gpus16} -te {total_epoch11} -se {save_epoch10} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest13 == i18n("是") else 0} -c {1 if if_cache_gpu17 == i18n("是") else 0} -sw {1 if if_save_every_weights18 == i18n("是") else 0} -v {version19}'
     else:
-        cmd = (
-            '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -te %s -se %s %s %s -l %s -c %s -sw %s -v %s'
-            % (
-                config.python_cmd,
-                exp_dir1,
-                sr2,
-                1 if if_f0_3 else 0,
-                batch_size12,
-                total_epoch11,
-                save_epoch10,
-                "-pg %s" % pretrained_G14 if pretrained_G14 != "" else "",
-                "-pd %s" % pretrained_D15 if pretrained_D15 != "" else "",
-                1 if if_save_latest13 == i18n("是") else 0,
-                1 if if_cache_gpu17 == i18n("是") else 0,
-                1 if if_save_every_weights18 == i18n("是") else 0,
-                version19,
-            )
-        )
+        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0_3 else 0} -bs {batch_size12} -te {total_epoch11} -se {save_epoch10} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest13 == i18n("是") else 0} -c {1 if if_cache_gpu17 == i18n("是") else 0} -sw {1 if if_save_every_weights18 == i18n("是") else 0} -v {version19}'
     logger.info("Execute: %s", cmd)
     p = Popen(cmd, shell=True, cwd=now_dir)
     p.wait()
@@ -570,12 +487,12 @@ def click_train(
 
 
 def train_index(exp_dir1, version19):  # noqa: PLR0915
-    exp_dir = "logs/%s" % (exp_dir1)
+    exp_dir = Path(f"logs/{exp_dir1}")
     exp_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = (
-        "%s/3_feature256" % (exp_dir)
+        exp_dir / "3_feature256"
         if version19 == "v1"
-        else "%s/3_feature768" % (exp_dir)
+        else exp_dir / "3_feature768"
     )
     if not feature_dir.exists():
         return "请先进行特征提取!"
@@ -585,14 +502,14 @@ def train_index(exp_dir1, version19):  # noqa: PLR0915
     infos = []
     npys = []
     for name in sorted(listdir_res):
-        phone = np.load("%s/%s" % (feature_dir, name))
+        phone = np.load(f"{feature_dir}/{name}")
         npys.append(phone)
     big_npy = np.concatenate(npys, 0)
     big_npy_idx = np.arange(big_npy.shape[0])
     np.random.shuffle(big_npy_idx)
     big_npy = big_npy[big_npy_idx]
     if big_npy.shape[0] > 2e5:
-        infos.append("Trying doing kmeans %s shape to 10k centers." % big_npy.shape[0])
+        infos.append(f"Trying doing kmeans {big_npy.shape[0]} shape to 10k centers.")
         yield "\n".join(infos)
         try:
             big_npy = (
@@ -612,11 +529,11 @@ def train_index(exp_dir1, version19):  # noqa: PLR0915
             infos.append(info)
             yield "\n".join(infos)
 
-    np.save("%s/total_fea.npy" % exp_dir, big_npy)
+    np.save(f"{exp_dir}/total_fea.npy", big_npy)
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
-    infos.append("%s,%s" % (big_npy.shape, n_ivf))
+    infos.append(f"{big_npy.shape},{n_ivf}")
     yield "\n".join(infos)
-    index = faiss.index_factory(256 if version19 == "v1" else 768, "IVF%s,Flat" % n_ivf)
+    index = faiss.index_factory(256 if version19 == "v1" else 768, f"IVF{n_ivf},Flat")
 
     infos.append("training")
     yield "\n".join(infos)
@@ -625,8 +542,7 @@ def train_index(exp_dir1, version19):  # noqa: PLR0915
     index.train(big_npy)
     faiss.write_index(
         index,
-        "%s/trained_IVF%s_Flat_nprobe_%s_%s_%s.index"
-        % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1, version19),
+        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index",
     )
     infos.append("adding")
     yield "\n".join(infos)
@@ -635,12 +551,10 @@ def train_index(exp_dir1, version19):  # noqa: PLR0915
         index.add(big_npy[i : i + batch_size_add])
     faiss.write_index(
         index,
-        "%s/added_IVF%s_Flat_nprobe_%s_%s_%s.index"
-        % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1, version19),
+        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index",
     )
     infos.append(
-        "成功构建索引 added_IVF%s_Flat_nprobe_%s_%s_%s.index"
-        % (n_ivf, index_ivf.nprobe, exp_dir1, version19)
+        f"成功构建索引 added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index"
     )
     try:
         file_name = (
@@ -652,9 +566,9 @@ def train_index(exp_dir1, version19):  # noqa: PLR0915
             source_path.hardlink_to(target_path)
         else:
             source_path.symlink_to(target_path)
-        infos.append("链接索引到外部-%s" % (outside_index_root))
+        infos.append(f"链接索引到外部-{outside_index_root}")
     except:
-        infos.append("链接索引到外部-%s失败" % (outside_index_root))
+        infos.append(f"链接索引到外部-{outside_index_root}失败")
 
     yield "\n".join(infos)
 
