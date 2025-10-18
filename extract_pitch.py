@@ -87,17 +87,18 @@ if torch.cuda.is_available() and ngpu > 0:
 gpu_info = (
     "\n".join(gpu_infos) if gpu_infos else i18n("很遗憾您这没有能用的显卡来支持您训练")
 )
-gpus = "-".join([info[0] for info in gpu_infos])
+gpus = "-".join(info[0] for info in gpu_infos)
 
 
 def _wait_for_process(done, process_or_processes):
     """Wait for subprocess(es) to complete."""
-    if isinstance(process_or_processes, list):
-        while any(p.poll() is None for p in process_or_processes):
-            sleep(0.5)
-    else:
-        while process_or_processes.poll() is None:
-            sleep(0.5)
+    processes = (
+        process_or_processes
+        if isinstance(process_or_processes, list)
+        else [process_or_processes]
+    )
+    while any(p.poll() is None for p in processes):
+        sleep(0.5)
     done[0] = True
 
 
