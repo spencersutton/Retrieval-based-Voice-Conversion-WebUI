@@ -88,33 +88,33 @@ def _extract_pitch_features(
     gpu_ids_rmvpe: str,
 ):
     log_dir = cwd / "logs" / expiriment_dir
-    log_file = log_dir / "extract_f0_feature.log"
-
     log_dir.mkdir(parents=True, exist_ok=True)
+
+    log_file = log_dir / "extract_f0_feature.log"
     log_file.touch()
+
     extract_path = "infer/modules/train/extract"
     if should_guide:
         if extract_method != "rmvpe_gpu":
             cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_print.py "{log_dir}" {num_cpu_processes} {extract_method}'
             logger.info("Execute: %s", cmd)
-            p = Popen(cmd, shell=True, cwd=cwd)
+            p = Popen(cmd, shell=True)
             threading.Thread(target=_wait_for_process, args=([False], p)).start()
         elif gpu_ids_rmvpe != "-":
             ids = gpu_ids_rmvpe.split("-")
             ps = [
                 Popen(
                     f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe.py {len(ids)} {idx} '
-                    f'{n_g} "{log_dir}" {config.is_half}',
+                    f'{gpu_id} "{log_dir}" {config.is_half}',
                     shell=True,
-                    cwd=cwd,
                 )
-                for idx, n_g in enumerate(ids)
+                for idx, gpu_id in enumerate(ids)
             ]
             threading.Thread(target=_wait_for_process, args=([False], ps)).start()
         else:
             cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe_dml.py "{log_dir}"'
             logger.info("Execute: %s", cmd)
-            Popen(cmd, shell=True, cwd=cwd).wait()
+            Popen(cmd, shell=True).wait()
             done = [True]
         while True:
             yield log_file.read_text()
@@ -126,13 +126,11 @@ def _extract_pitch_features(
         yield log
 
     gpu_list = gpus.split("-")
-    length = len(gpu_list)
     ps = [
         Popen(
             f'"{config.python_cmd}" infer/modules/train/extract_feature_print.py '
-            f'{config.device} {length} {idx} {n_g} "{log_dir}" {extractor_version_id} {config.is_half}',
+            f'{config.device} {len(gpu_list)} {idx} {n_g} "{log_dir}" {extractor_version_id} {config.is_half}',
             shell=True,
-            cwd=cwd,
         )
         for idx, n_g in enumerate(gpu_list)
     ]
@@ -149,8 +147,8 @@ def _extract_pitch_features(
 _GPUVisible = not config.dml
 
 
-def _change_extraction_method(f0method8):
-    return {"visible": f0method8 == "rmvpe_gpu" and _GPUVisible, "__type__": "update"}
+def _change_extraction_method(method):
+    return {"visible": method == "rmvpe_gpu" and _GPUVisible, "__type__": "update"}
 
 
 with gr.Blocks(title="RVC WebUI") as app:
