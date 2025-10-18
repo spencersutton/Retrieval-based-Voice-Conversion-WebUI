@@ -174,7 +174,7 @@ def _if_done_multi(done, ps):
 
 
 def _preprocess_dataset(trainset_dir: str, exp_dir: str, sr: str, n_p: int):
-    sr = _sr_dict[sr]
+    sr = _sr_dict[sr]  # type: ignore
 
     logs_directory = now_dir / "logs" / exp_dir
     logs_directory.mkdir(parents=True, exist_ok=True)
@@ -613,84 +613,15 @@ with gr.Blocks(title="RVC WebUI") as app:
     )
     with gr.Tabs():
         with gr.TabItem(i18n("Train")):
-            gr.Markdown(
-                value=i18n(
-                    "step1: Fill in experiment configuration. "
-                    "Experiment data is placed under logs, each experiment has a folder, "
-                    "you need to manually enter the experiment name path, "
-                    "which contains experiment configuration, logs, and model files obtained from training."
-                )
-            )
-            with gr.Row():
-                gr_experiment_dir = gr.Textbox(
-                    label=i18n("Enter experiment name"), value="mi-test"
-                )
-                gr_sample_rate = gr.Radio(
-                    label=i18n("Target sample rate"),
-                    choices=["40k", "48k"],
-                    value="40k",
-                    interactive=True,
-                )
-                include_pitch_guidance = gr.Radio(
-                    label=i18n(
-                        "Does the model include pitch guidance (required for singing, optional for speech)"
-                    ),
-                    choices=[True, False],
-                    value=True,
-                    interactive=True,
-                )
-                gr_version = gr.Radio(
-                    label=i18n("Version"),
-                    choices=["v1", "v2"],
-                    value="v2",
-                    interactive=True,
-                    visible=True,
-                )
-                num_cpu_processes = gr.Slider(
-                    minimum=0,
-                    maximum=config.n_cpu,
-                    step=1,
-                    label=i18n(
-                        "Number of CPU processes for pitch extraction and data processing"
-                    ),
-                    value=int(np.ceil(config.n_cpu / 1.5)),
-                    interactive=True,
-                )
-            with (
-                gr.Group()
-            ):  # Temporarily single-person, will support up to 4 people later # Data processing
-                gr.Markdown(
-                    value=i18n(
-                        "step2a: Automatically traverse all files in the training folder that can be decoded into audio and perform slicing and normalization, generating 2 wav folders in the experiment directory; currently only supports single-person training."
-                    )
-                )
-                with gr.Row():
-                    training_data_directory = gr.Textbox(
-                        label="Enter training folder path",
-                        value="~/training_data",
-                    )
-                    speaker_id = gr.Slider(
-                        minimum=0,
-                        maximum=4,
-                        step=1,
-                        label="Please specify speaker id",
-                        value=0,
-                        interactive=True,
-                    )
-                    but1 = gr.Button("Process Data", variant="primary")
-                    info1 = gr.Textbox(label="Output Info", value="")
-                    but1.click(
-                        _preprocess_dataset,
-                        [
-                            training_data_directory,
-                            gr_experiment_dir,
-                            gr_sample_rate,
-                            num_cpu_processes,
-                        ],
-                        [info1],
-                        api_name="train_preprocess",
-                    )
             with gr.Group():
+                # trainset_dir4 = gr.File(
+                #     label=i18n("Upload training file"),
+                #     file_count="single",
+                # )
+                trainset_dir4 = gr.Textbox(
+                    label=i18n("Enter training folder path"),
+                    value=i18n("E:\\VoiceAudio+Annotations\\YonezuKenshi\\src"),
+                )
                 gr.Markdown(
                     value=i18n(
                         "step2b: Use CPU to extract pitch (if the model includes pitch), "
@@ -698,6 +629,48 @@ with gr.Blocks(title="RVC WebUI") as app:
                     )
                 )
                 with gr.Row():
+                    speaker_id = gr.Slider(
+                        minimum=0,
+                        maximum=4,
+                        step=1,
+                        label=i18n("Please specify speaker id"),
+                        value=0,
+                        interactive=True,
+                    )
+                    num_cpu_processes = gr.Slider(
+                        minimum=0,
+                        maximum=config.n_cpu,
+                        step=1,
+                        label=i18n(
+                            "Number of CPU processes for pitch extraction and data processing"
+                        ),
+                        value=int(np.ceil(config.n_cpu / 1.5)),
+                        interactive=True,
+                    )
+                    include_pitch_guidance = gr.Radio(
+                        label=i18n(
+                            "Does the model use pitch guidance? (Required for singing, optional for speech)"
+                        ),
+                        choices=[True, False],
+                        value=True,
+                        interactive=True,
+                    )
+                    gr_experiment_dir = gr.Textbox(
+                        label=i18n("Enter experiment name"), value="mi-test"
+                    )
+                    gr_version = gr.Radio(
+                        label=i18n("Version"),
+                        choices=["v1", "v2"],
+                        value="v2",
+                        interactive=True,
+                        visible=True,
+                    )
+                    gr_sample_rate = gr.Radio(
+                        label=i18n("Target sample rate"),
+                        choices=["40k", "48k"],
+                        value="40k",
+                        interactive=True,
+                    )
                     with gr.Column():
                         gpu_ids_input = gr.Textbox(
                             label=i18n(
