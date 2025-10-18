@@ -24,7 +24,6 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
-(now_dir / "logs").mkdir(parents=True, exist_ok=True)
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 

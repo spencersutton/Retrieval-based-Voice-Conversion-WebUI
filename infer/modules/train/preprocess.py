@@ -1,11 +1,19 @@
 import multiprocessing
 import os
 import sys
+import traceback
+from pathlib import Path
 
+import librosa
+import numpy as np
 from scipy import signal
+from scipy.io import wavfile
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
+sys.path.append(str(Path.cwd()))
+from infer.lib.audio import load_audio
+from infer.lib.slicer2 import Slicer
+
+print(*sys.argv[1:])
 print(*sys.argv[1:])
 inp_root = sys.argv[1]
 sr = int(sys.argv[2])
@@ -13,15 +21,6 @@ n_p = int(sys.argv[3])
 exp_dir = sys.argv[4]
 noparallel = sys.argv[5] == "True"
 per = float(sys.argv[6])
-import os
-import traceback
-
-import librosa
-import numpy as np
-from scipy.io import wavfile
-
-from infer.lib.audio import load_audio
-from infer.lib.slicer2 import Slicer
 
 f = open("%s/preprocess.log" % exp_dir, "a+")
 
