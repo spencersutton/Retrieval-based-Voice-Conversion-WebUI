@@ -1030,7 +1030,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                     value=True,
                     interactive=True,
                 )
-                version19 = gr.Radio(
+                gr_version = gr.Radio(
                     label=i18n("版本"),
                     choices=["v1", "v2"],
                     value="v2",
@@ -1123,7 +1123,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                             f0method8,
                             if_f0_3,
                             gr_experiment_dir,
-                            version19,
+                            gr_version,
                             gpus_rmvpe,
                         ],
                         [info2],
@@ -1132,7 +1132,7 @@ with gr.Blocks(title="RVC WebUI") as app:
             with gr.Group():
                 gr.Markdown(value=i18n("step3: 填写训练设置, 开始训练模型和索引"))
                 with gr.Row():
-                    save_epoch10 = gr.Slider(
+                    gr_save_epoch10 = gr.Slider(
                         minimum=1,
                         maximum=50,
                         step=1,
@@ -1140,7 +1140,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         value=5,
                         interactive=True,
                     )
-                    total_epoch11 = gr.Slider(
+                    gr_total_epoch11 = gr.Slider(
                         minimum=2,
                         maximum=1000,
                         step=1,
@@ -1148,7 +1148,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         value=20,
                         interactive=True,
                     )
-                    batch_size12 = gr.Slider(
+                    gr_batch_size12 = gr.Slider(
                         minimum=1,
                         maximum=40,
                         step=1,
@@ -1156,13 +1156,13 @@ with gr.Blocks(title="RVC WebUI") as app:
                         value=default_batch_size,
                         interactive=True,
                     )
-                    if_save_latest13 = gr.Radio(
+                    gr_if_save_latest13 = gr.Radio(
                         label=i18n("是否仅保存最新的ckpt文件以节省硬盘空间"),
                         choices=[i18n("是"), i18n("否")],
                         value=i18n("否"),
                         interactive=True,
                     )
-                    if_cache_gpu17 = gr.Radio(
+                    gr_if_cache_gpu17 = gr.Radio(
                         label=i18n(
                             "是否缓存所有训练集至显存. 10min以下小数据可缓存以加速训练, 大数据缓存会炸显存也加不了多少速"
                         ),
@@ -1170,7 +1170,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         value=i18n("否"),
                         interactive=True,
                     )
-                    if_save_every_weights18 = gr.Radio(
+                    gr_if_save_every_weights18 = gr.Radio(
                         label=i18n(
                             "是否在每次保存时间点将最终小模型保存至weights文件夹"
                         ),
@@ -1179,30 +1179,30 @@ with gr.Blocks(title="RVC WebUI") as app:
                         interactive=True,
                     )
                 with gr.Row():
-                    pretrained_G14 = gr.Textbox(
+                    gr_pretrained_G14 = gr.Textbox(
                         label=i18n("加载预训练底模G路径"),
                         value="assets/pretrained_v2/f0G40k.pth",
                         interactive=True,
                     )
-                    pretrained_D15 = gr.Textbox(
+                    gr_pretrained_D15 = gr.Textbox(
                         label=i18n("加载预训练底模D路径"),
                         value="assets/pretrained_v2/f0D40k.pth",
                         interactive=True,
                     )
                     gr_sample_rate.change(
                         change_sr2,
-                        [gr_sample_rate, if_f0_3, version19],
-                        [pretrained_G14, pretrained_D15],
+                        [gr_sample_rate, if_f0_3, gr_version],
+                        [gr_pretrained_G14, gr_pretrained_D15],
                     )
-                    version19.change(
+                    gr_version.change(
                         change_version19,
-                        [gr_sample_rate, if_f0_3, version19],
-                        [pretrained_G14, pretrained_D15, gr_sample_rate],
+                        [gr_sample_rate, if_f0_3, gr_version],
+                        [gr_pretrained_G14, gr_pretrained_D15, gr_sample_rate],
                     )
                     if_f0_3.change(
                         change_f0,
-                        [if_f0_3, gr_sample_rate, version19],
-                        [f0method8, gpus_rmvpe, pretrained_G14, pretrained_D15],
+                        [if_f0_3, gr_sample_rate, gr_version],
+                        [f0method8, gpus_rmvpe, gr_pretrained_G14, gr_pretrained_D15],
                     )
                     gpus16 = gr.Textbox(
                         label=i18n(
@@ -1222,21 +1222,21 @@ with gr.Blocks(title="RVC WebUI") as app:
                             gr_sample_rate,
                             if_f0_3,
                             spk_id5,
-                            save_epoch10,
-                            total_epoch11,
-                            batch_size12,
-                            if_save_latest13,
-                            pretrained_G14,
-                            pretrained_D15,
+                            gr_save_epoch10,
+                            gr_total_epoch11,
+                            gr_batch_size12,
+                            gr_if_save_latest13,
+                            gr_pretrained_G14,
+                            gr_pretrained_D15,
                             gpus16,
-                            if_cache_gpu17,
-                            if_save_every_weights18,
-                            version19,
+                            gr_if_cache_gpu17,
+                            gr_if_save_every_weights18,
+                            gr_version,
                         ],
                         info3,
                         api_name="train_start",
                     )
-                    but4.click(train_index, [gr_experiment_dir, version19], info3)
+                    but4.click(train_index, [gr_experiment_dir, gr_version], info3)
                     but5.click(
                         train1key,
                         [
@@ -1247,16 +1247,16 @@ with gr.Blocks(title="RVC WebUI") as app:
                             spk_id5,
                             np7,
                             f0method8,
-                            save_epoch10,
-                            total_epoch11,
-                            batch_size12,
-                            if_save_latest13,
-                            pretrained_G14,
-                            pretrained_D15,
+                            gr_save_epoch10,
+                            gr_total_epoch11,
+                            gr_batch_size12,
+                            gr_if_save_latest13,
+                            gr_pretrained_G14,
+                            gr_pretrained_D15,
                             gpus16,
-                            if_cache_gpu17,
-                            if_save_every_weights18,
-                            version19,
+                            gr_if_cache_gpu17,
+                            gr_if_save_every_weights18,
+                            gr_version,
                             gpus_rmvpe,
                         ],
                         info3,
