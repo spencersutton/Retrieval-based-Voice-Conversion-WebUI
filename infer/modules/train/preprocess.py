@@ -32,7 +32,7 @@ def println(strr):
 
 
 class PreProcess:
-    def __init__(self, sr, exp_dir, per=3.7):
+    def __init__(self, sr: int, exp_dir: str, per: float = 3.7):
         self.slicer = Slicer(
             sr=sr,
             threshold=-42,
@@ -42,18 +42,19 @@ class PreProcess:
             max_sil_kept=500,
         )
         self.sr = sr
-        self.bh, self.ah = signal.butter(N=5, Wn=48, btype="high", fs=self.sr)
+        butter_filter_coeffs = signal.butter(N=5, Wn=48, btype="high", fs=self.sr)
+        self.bh, self.ah = butter_filter_coeffs  # type: ignore
         self.per = per
         self.overlap = 0.3
         self.tail = self.per + self.overlap
         self.max = 0.9
         self.alpha = 0.75
-        self.exp_dir = exp_dir
-        self.gt_wavs_dir = "%s/0_gt_wavs" % exp_dir
-        self.wavs16k_dir = "%s/1_16k_wavs" % exp_dir
-        os.makedirs(self.exp_dir, exist_ok=True)
-        os.makedirs(self.gt_wavs_dir, exist_ok=True)
-        os.makedirs(self.wavs16k_dir, exist_ok=True)
+        self.exp_dir = Path(exp_dir)
+        self.gt_wavs_dir = self.exp_dir / "0_gt_wavs"
+        self.wavs16k_dir = self.exp_dir / "1_16k_wavs"
+        self.exp_dir.mkdir(parents=True, exist_ok=True)
+        self.gt_wavs_dir.mkdir(parents=True, exist_ok=True)
+        self.wavs16k_dir.mkdir(parents=True, exist_ok=True)
 
     def norm_write(self, tmp_audio, idx0, idx1):
         tmp_max = np.abs(tmp_audio).max()
@@ -64,22 +65,20 @@ class PreProcess:
             1 - self.alpha
         ) * tmp_audio
         wavfile.write(
-            "%s/%s_%s.wav" % (self.gt_wavs_dir, idx0, idx1),
+            str(self.gt_wavs_dir / f"{idx0}_{idx1}.wav"),
             self.sr,
             tmp_audio.astype(np.float32),
         )
-        tmp_audio = librosa.resample(
-            tmp_audio, orig_sr=self.sr, target_sr=16000
-        )  # , res_type="soxr_vhq"
+        tmp_audio = librosa.resample(tmp_audio, orig_sr=self.sr, target_sr=16000)
         wavfile.write(
-            "%s/%s_%s.wav" % (self.wavs16k_dir, idx0, idx1),
+            str(self.wavs16k_dir / f"{idx0}_{idx1}.wav"),
             16000,
             tmp_audio.astype(np.float32),
         )
 
-    def pipeline(self, path, idx0):
+    def pipeline(self, path: str, idx0: int):
         try:
-            audio = load_audio(path, self.sr)
+            audio = load_audio(Path(path), self.sr)
             # zero phased digital filter cause pre-ringing noise...
             # audio = signal.filtfilt(self.bh, self.ah, audio)
             audio = signal.lfilter(self.bh, self.ah, audio)
@@ -130,7 +129,7 @@ class PreProcess:
             println("Fail. %s" % traceback.format_exc())
 
 
-def preprocess_trainset(inp_root, sr, n_p, exp_dir, per):
+def preprocess_trainset(inp_root: str, sr: int, n_p: int, exp_dir: str, per: float):
     pp = PreProcess(sr, exp_dir, per)
     println("start preprocess")
     pp.pipeline_mp_inp_dir(inp_root, n_p)

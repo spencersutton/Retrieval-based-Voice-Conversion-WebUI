@@ -1,7 +1,5 @@
-import os
-import platform
-import re
 import traceback
+from pathlib import Path
 
 import av
 import ffmpeg
@@ -31,16 +29,11 @@ def wav2(i, o, format):
     inp.close()
 
 
-def load_audio(file, sr):
+def load_audio(file: Path, sr: int):
     try:
         # https://github.com/openai/whisper/blob/main/whisper/audio.py#L26
         # This launches a subprocess to decode audio while down-mixing and resampling as necessary.
         # Requires the ffmpeg CLI and `ffmpeg-python` package to be installed.
-        file = clean_path(file)  # 防止小白拷路径头尾带了空格和"和回车
-        if os.path.exists(file) == False:
-            raise RuntimeError(
-                "You input a wrong audio path that does not exists, please fix it!"
-            )
         out, _ = (
             ffmpeg.input(file, threads=0)
             .output("-", format="f32le", acodec="pcm_f32le", ac=1, ar=sr)
@@ -48,15 +41,6 @@ def load_audio(file, sr):
         )
     except Exception as e:
         traceback.print_exc()
-        raise RuntimeError(f"Failed to load audio: {e}")
+        raise RuntimeError(f"Failed to load audio: {e}") from e
 
     return np.frombuffer(out, np.float32).flatten()
-
-
-def clean_path(path_str):
-    if platform.system() == "Windows":
-        path_str = path_str.replace("/", "\\")
-    path_str = re.sub(
-        r"[\u202a\u202b\u202c\u202d\u202e]", "", path_str
-    )  # 移除 Unicode 控制字符
-    return path_str.strip(" ").strip('"').strip("\n").strip('"').strip(" ")
