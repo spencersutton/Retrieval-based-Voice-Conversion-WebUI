@@ -530,7 +530,7 @@ def _train1key(  # noqa: PLR0913
     exp_dir1,
     sr2,
     if_f0_3,
-    trainset_dir4: str,
+    training_data_directory: str,
     spk_id5,
     np7,
     f0method8,
@@ -553,7 +553,10 @@ def _train1key(  # noqa: PLR0913
         return "\n".join(infos)
 
     yield get_info_str(i18n("step1:正在处理数据"))
-    [get_info_str(_) for _ in _preprocess_dataset(trainset_dir4, exp_dir1, sr2, np7)]
+    [
+        get_info_str(_)
+        for _ in _preprocess_dataset(training_data_directory, exp_dir1, sr2, np7)
+    ]
 
     yield get_info_str(i18n("step2:正在提取音高&正在提取特征"))
     [
@@ -611,277 +614,244 @@ with gr.Blocks(title="RVC WebUI") as app:
             "See <b>LICENSE</b> in the root directory for details."
         )
     )
-    with gr.Tabs():
-        with gr.TabItem(i18n("Train")):
-            with gr.Group():
-                # trainset_dir4 = gr.File(
-                #     label=i18n("Upload training file"),
-                #     file_count="single",
-                # )
-                trainset_dir4 = gr.Textbox(
-                    label=i18n("Enter training folder path"),
-                    value=i18n("E:\\VoiceAudio+Annotations\\YonezuKenshi\\src"),
-                )
-                gr.Markdown(
-                    value=i18n(
-                        "step2b: Use CPU to extract pitch (if the model includes pitch), "
-                        "use GPU to extract features (select GPU IDs)"
-                    )
-                )
-                with gr.Row():
-                    speaker_id = gr.Slider(
-                        minimum=0,
-                        maximum=4,
-                        step=1,
-                        label=i18n("Please specify speaker id"),
-                        value=0,
-                        interactive=True,
-                    )
-                    num_cpu_processes = gr.Slider(
-                        minimum=0,
-                        maximum=config.n_cpu,
-                        step=1,
-                        label=i18n(
-                            "Number of CPU processes for pitch extraction and data processing"
-                        ),
-                        value=int(np.ceil(config.n_cpu / 1.5)),
-                        interactive=True,
-                    )
-                    include_pitch_guidance = gr.Radio(
-                        label=i18n(
-                            "Does the model use pitch guidance? (Required for singing, optional for speech)"
-                        ),
-                        choices=[True, False],
-                        value=True,
-                        interactive=True,
-                    )
-                    gr_experiment_dir = gr.Textbox(
-                        label=i18n("Enter experiment name"), value="mi-test"
-                    )
-                    gr_version = gr.Radio(
-                        label=i18n("Version"),
-                        choices=["v1", "v2"],
-                        value="v2",
-                        interactive=True,
-                        visible=True,
-                    )
-                    gr_sample_rate = gr.Radio(
-                        label=i18n("Target sample rate"),
-                        choices=["40k", "48k"],
-                        value="40k",
-                        interactive=True,
-                    )
-                    with gr.Column():
-                        gpu_ids_input = gr.Textbox(
-                            label=i18n(
-                                "Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"
-                            ),
-                            value=gpus,
-                            interactive=True,
-                            visible=_F0GPUVisible,
-                        )
-                        gpu_status_display = gr.Textbox(
-                            label=i18n("GPU Information"),
-                            value=gpu_info,
-                            visible=_F0GPUVisible,
-                        )
-                    with gr.Column():
-                        pitch_extraction_method = gr.Radio(
-                            label=i18n(
-                                "Select pitch extraction algorithm: For singing, use pm for speed; "
-                                "for high-quality speech but slow CPU, use dio for speed; harvest is "
-                                "better quality but slower; rmvpe has the best effect and uses some CPU/GPU"
-                            ),
-                            choices=["pm", "harvest", "dio", "rmvpe", "rmvpe_gpu"],
-                            value="rmvpe_gpu",
-                            interactive=True,
-                        )
-                        gpus_rmvpe = gr.Textbox(
-                            label=i18n(
-                                "rmvpe GPU configuration: Enter different process GPU IDs separated by '-',"
-                                " e.g. 0-0-1 runs 2 processes on GPU 0 and 1 process on GPU 1"
-                            ),
-                            value="%s-%s" % (gpus, gpus),
-                            interactive=True,
-                            visible=_F0GPUVisible,
-                        )
-                    btn_extract_features = gr.Button(
-                        i18n("Extract Features"), variant="primary"
-                    )
-                    feature_extraction_output = gr.Textbox(
-                        label=i18n("Output Information"), value="", max_lines=8
-                    )
-                    pitch_extraction_method.change(
-                        fn=_change_f0_method,
-                        inputs=[pitch_extraction_method],
-                        outputs=[gpus_rmvpe],
-                    )
-                    btn_extract_features.click(
-                        _extract_f0_feature,
-                        [
-                            gpu_ids_input,
-                            num_cpu_processes,
-                            pitch_extraction_method,
-                            include_pitch_guidance,
-                            gr_experiment_dir,
-                            gr_version,
-                            gpus_rmvpe,
-                        ],
-                        [feature_extraction_output],
-                        api_name="train_extract_f0_feature",
-                    )
-            with gr.Group():
-                gr.Markdown(
-                    value=i18n(
-                        "step3: Fill in training settings, start training model and index"
-                    )
-                )
-                with gr.Row():
-                    save_epoch_frequency = gr.Slider(
-                        minimum=1,
-                        maximum=50,
-                        step=1,
-                        label=i18n("Save frequency (save_every_epoch)"),
-                        value=5,
-                        interactive=True,
-                    )
-                    total_training_epochs = gr.Slider(
-                        minimum=2,
-                        maximum=1000,
-                        step=1,
-                        label=i18n("Total training epochs (total_epoch)"),
-                        value=20,
-                        interactive=True,
-                    )
-                    gpu_batch_size = gr.Slider(
-                        minimum=1,
-                        maximum=40,
-                        step=1,
-                        label=i18n("Batch size per GPU"),
-                        value=default_batch_size,
-                        interactive=True,
-                    )
-                    should_save_latest_model = gr.Radio(
-                        label=i18n("Only save the latest ckpt file to save disk space"),
-                        choices=[i18n("Yes"), i18n("No")],
-                        value=i18n("No"),
-                        interactive=True,
-                    )
-                    use_gpu_cache = gr.Radio(
-                        label=i18n(
-                            "Cache all training set to GPU memory. For small data under 10min, caching can speed up training. For large data, caching may cause out-of-memory and doesn't speed up much."
-                        ),
-                        choices=[i18n("Yes"), i18n("No")],
-                        value=i18n("No"),
-                        interactive=True,
-                    )
-                    is_save_every_weight = gr.Radio(
-                        label=i18n(
-                            "Save the final small model to the weights folder at each save time point"
-                        ),
-                        choices=[i18n("Yes"), i18n("No")],
-                        value=i18n("No"),
-                        interactive=True,
-                    )
-                with gr.Row():
-                    gr_pretrained_G14 = gr.Textbox(
-                        label=i18n("Load pretrained base model G path"),
-                        value="assets/pretrained_v2/f0G40k.pth",
-                        interactive=True,
-                    )
-                    gr_pretrained_D15 = gr.Textbox(
-                        label=i18n("Load pretrained base model D path"),
-                        value="assets/pretrained_v2/f0D40k.pth",
-                        interactive=True,
-                    )
-                    gr_sample_rate.change(
-                        _change_sr2,
-                        [gr_sample_rate, include_pitch_guidance, gr_version],
-                        [gr_pretrained_G14, gr_pretrained_D15],
-                    )
-                    gr_version.change(
-                        _change_version19,
-                        [gr_sample_rate, include_pitch_guidance, gr_version],
-                        [gr_pretrained_G14, gr_pretrained_D15, gr_sample_rate],
-                    )
-                    include_pitch_guidance.change(
-                        _change_f0,
-                        [include_pitch_guidance, gr_sample_rate, gr_version],
-                        [
-                            pitch_extraction_method,
-                            gpus_rmvpe,
-                            gr_pretrained_G14,
-                            gr_pretrained_D15,
-                        ],
-                    )
-                    input_gpu_ids = gr.Textbox(
-                        label=i18n(
-                            "Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"
-                        ),
-                        value=gpus,
-                        interactive=True,
-                    )
-                    btn_train_model = gr.Button(i18n("Train Model"), variant="primary")
-                    btn_train_feature_index = gr.Button(
-                        i18n("Train Feature Index"), variant="primary"
-                    )
-                    btn_one_click_training = gr.Button(
-                        i18n("One-click Training"), variant="primary"
-                    )
-                    training_output_info = gr.Textbox(
-                        label=i18n("Output Information"), value="", max_lines=10
-                    )
-                    btn_train_model.click(
-                        _click_train,
-                        [
-                            gr_experiment_dir,
-                            gr_sample_rate,
-                            include_pitch_guidance,
-                            speaker_id,
-                            save_epoch_frequency,
-                            total_training_epochs,
-                            gpu_batch_size,
-                            should_save_latest_model,
-                            gr_pretrained_G14,
-                            gr_pretrained_D15,
-                            input_gpu_ids,
-                            use_gpu_cache,
-                            is_save_every_weight,
-                            gr_version,
-                        ],
-                        training_output_info,
-                        api_name="train_start",
-                    )
-                    btn_train_feature_index.click(
-                        _train_index,
-                        [gr_experiment_dir, gr_version],
-                        training_output_info,
-                    )
-                    btn_one_click_training.click(
-                        _train1key,
-                        [
-                            gr_experiment_dir,
-                            gr_sample_rate,
-                            include_pitch_guidance,
-                            training_data_directory,
-                            speaker_id,
-                            num_cpu_processes,
-                            pitch_extraction_method,
-                            save_epoch_frequency,
-                            total_training_epochs,
-                            gpu_batch_size,
-                            should_save_latest_model,
-                            gr_pretrained_G14,
-                            gr_pretrained_D15,
-                            input_gpu_ids,
-                            use_gpu_cache,
-                            is_save_every_weight,
-                            gr_version,
-                            gpus_rmvpe,
-                        ],
-                        training_output_info,
-                        api_name="train_start_all",
-                    )
+    training_data_directory = gr.Textbox(
+        label=i18n("Enter training folder path"),
+        value=i18n("E:\\VoiceAudio+Annotations\\YonezuKenshi\\src"),
+    )
+    speaker_id = gr.Slider(
+        minimum=0,
+        maximum=4,
+        step=1,
+        label=i18n("Please specify speaker id"),
+        value=0,
+        interactive=True,
+    )
+    num_cpu_processes = gr.Slider(
+        minimum=0,
+        maximum=config.n_cpu,
+        step=1,
+        label=i18n("Number of CPU processes for pitch extraction and data processing"),
+        value=int(np.ceil(config.n_cpu / 1.5)),
+        interactive=True,
+    )
+    include_pitch_guidance = gr.Radio(
+        label=i18n(
+            "Does the model use pitch guidance? (Required for singing, optional for speech)"
+        ),
+        choices=[True, False],
+        value=True,
+        interactive=True,
+    )
+    gr_experiment_dir = gr.Textbox(label=i18n("Enter experiment name"), value="mi-test")
+    gr_version = gr.Radio(
+        label=i18n("Version"),
+        choices=["v1", "v2"],
+        value="v2",
+        interactive=True,
+        visible=True,
+    )
+    gr_sample_rate = gr.Radio(
+        label=i18n("Target sample rate"),
+        choices=["40k", "48k"],
+        value="40k",
+        interactive=True,
+    )
+    gpu_ids_input = gr.Textbox(
+        label=i18n(
+            "Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"
+        ),
+        value=gpus,
+        interactive=True,
+        visible=_F0GPUVisible,
+    )
+    gpu_status_display = gr.Textbox(
+        label=i18n("GPU Information"),
+        value=gpu_info,
+        visible=_F0GPUVisible,
+    )
+    pitch_extraction_method = gr.Radio(
+        label=i18n(
+            "Select pitch extraction algorithm: For singing, use pm for speed; "
+            "for high-quality speech but slow CPU, use dio for speed; harvest is "
+            "better quality but slower; rmvpe has the best effect and uses some CPU/GPU"
+        ),
+        choices=["pm", "harvest", "dio", "rmvpe", "rmvpe_gpu"],
+        value="rmvpe_gpu",
+        interactive=True,
+    )
+    gpus_rmvpe = gr.Textbox(
+            label=i18n(
+                "rmvpe GPU configuration: Enter different process GPU IDs separated by '-',"
+                " e.g. 0-0-1 runs 2 processes on GPU 0 and 1 process on GPU 1"
+            ),
+            value="%s-%s" % (gpus, gpus),
+            interactive=True,
+            visible=_F0GPUVisible,
+        )
+    btn_extract_features = gr.Button(i18n("Extract Features"), variant="primary")
+    feature_extraction_output = gr.Textbox(
+        label=i18n("Output Information"), value="", max_lines=8
+    )
+    pitch_extraction_method.change(
+        fn=_change_f0_method,
+        inputs=[pitch_extraction_method],
+        outputs=[gpus_rmvpe],
+    )
+    btn_extract_features.click(
+        _extract_f0_feature,
+        [
+            gpu_ids_input,
+            num_cpu_processes,
+            pitch_extraction_method,
+            include_pitch_guidance,
+            gr_experiment_dir,
+            gr_version,
+            gpus_rmvpe,
+        ],
+        [feature_extraction_output],
+        api_name="train_extract_f0_feature",
+    )
+    gr.Markdown(
+        value=i18n("step3: Fill in training settings, start training model and index")
+    )
+    save_epoch_frequency = gr.Slider(
+        minimum=1,
+        maximum=50,
+        step=1,
+        label=i18n("Save frequency (save_every_epoch)"),
+        value=5,
+        interactive=True,
+    )
+    total_training_epochs = gr.Slider(
+        minimum=2,
+        maximum=1000,
+        step=1,
+        label=i18n("Total training epochs (total_epoch)"),
+        value=20,
+        interactive=True,
+    )
+    gpu_batch_size = gr.Slider(
+        minimum=1,
+        maximum=40,
+        step=1,
+        label=i18n("Batch size per GPU"),
+        value=default_batch_size,
+        interactive=True,
+    )
+    should_save_latest_model = gr.Radio(
+        label=i18n("Only save the latest ckpt file to save disk space"),
+        choices=[i18n("Yes"), i18n("No")],
+        value=i18n("No"),
+        interactive=True,
+    )
+    use_gpu_cache = gr.Radio(
+        label=i18n(
+            "Cache all training set to GPU memory. For small data under 10min, caching can speed up training. For large data, caching may cause out-of-memory and doesn't speed up much."
+        ),
+        choices=[i18n("Yes"), i18n("No")],
+        value=i18n("No"),
+        interactive=True,
+    )
+    is_save_every_weight = gr.Radio(
+        label=i18n(
+            "Save the final small model to the weights folder at each save time point"
+        ),
+        choices=[i18n("Yes"), i18n("No")],
+        value=i18n("No"),
+        interactive=True,
+    )
+    gr_pretrained_G14 = gr.Textbox(
+        label=i18n("Load pretrained base model G path"),
+        value="assets/pretrained_v2/f0G40k.pth",
+        interactive=True,
+    )
+    gr_pretrained_D15 = gr.Textbox(
+        label=i18n("Load pretrained base model D path"),
+        value="assets/pretrained_v2/f0D40k.pth",
+        interactive=True,
+    )
+    gr_sample_rate.change(
+        _change_sr2,
+        [gr_sample_rate, include_pitch_guidance, gr_version],
+        [gr_pretrained_G14, gr_pretrained_D15],
+    )
+    gr_version.change(
+        _change_version19,
+        [gr_sample_rate, include_pitch_guidance, gr_version],
+        [gr_pretrained_G14, gr_pretrained_D15, gr_sample_rate],
+    )
+    include_pitch_guidance.change(
+        _change_f0,
+        [include_pitch_guidance, gr_sample_rate, gr_version],
+        [
+            pitch_extraction_method,
+            gpus_rmvpe,
+            gr_pretrained_G14,
+            gr_pretrained_D15,
+        ],
+    )
+    input_gpu_ids = gr.Textbox(
+        label=i18n("Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"),
+        value=gpus,
+        interactive=True,
+    )
+    btn_train_model = gr.Button(i18n("Train Model"), variant="primary")
+    btn_train_feature_index = gr.Button(i18n("Train Feature Index"), variant="primary")
+    btn_one_click_training = gr.Button(i18n("One-click Training"), variant="primary")
+    training_output_info = gr.Textbox(
+        label=i18n("Output Information"), value="", max_lines=10
+    )
+    btn_train_model.click(
+        _click_train,
+        [
+            gr_experiment_dir,
+            gr_sample_rate,
+            include_pitch_guidance,
+            speaker_id,
+            save_epoch_frequency,
+            total_training_epochs,
+            gpu_batch_size,
+            should_save_latest_model,
+            gr_pretrained_G14,
+            gr_pretrained_D15,
+            input_gpu_ids,
+            use_gpu_cache,
+            is_save_every_weight,
+            gr_version,
+        ],
+        training_output_info,
+        api_name="train_start",
+    )
+    btn_train_feature_index.click(
+        _train_index,
+        [gr_experiment_dir, gr_version],
+        training_output_info,
+    )
+    btn_one_click_training.click(
+        _train1key,
+        [
+            gr_experiment_dir,
+            gr_sample_rate,
+            include_pitch_guidance,
+            training_data_directory,
+            speaker_id,
+            num_cpu_processes,
+            pitch_extraction_method,
+            save_epoch_frequency,
+            total_training_epochs,
+            gpu_batch_size,
+            should_save_latest_model,
+            gr_pretrained_G14,
+            gr_pretrained_D15,
+            input_gpu_ids,
+            use_gpu_cache,
+            is_save_every_weight,
+            gr_version,
+            gpus_rmvpe,
+        ],
+        training_output_info,
+        api_name="train_start_all",
+    )
 
     if config.iscolab:
         app.queue(max_size=1022).launch(share=True)
