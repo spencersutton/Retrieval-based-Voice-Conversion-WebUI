@@ -584,7 +584,9 @@ def _train1key(  # noqa: PLR0913
         version19,
     )
     yield get_info_str(
-        i18n("训练结束, 您可查看控制台训练日志或实验文件夹下的train.log")
+        i18n(
+            "Training finished, you can check the training log in the console or in the experiment folder's train.log"
+        )
     )
 
     [get_info_str(_) for _ in _train_index(exp_dir1, version19)]
@@ -657,9 +659,7 @@ with gr.Blocks(title="RVC WebUI") as app:
         interactive=True,
     )
     gpu_ids_input = gr.Textbox(
-        label=i18n(
-            "Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"
-        ),
+        label=i18n("Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"),
         value=gpus,
         interactive=True,
         visible=_F0GPUVisible,
@@ -680,14 +680,14 @@ with gr.Blocks(title="RVC WebUI") as app:
         interactive=True,
     )
     gpus_rmvpe = gr.Textbox(
-            label=i18n(
-                "rmvpe GPU configuration: Enter different process GPU IDs separated by '-',"
-                " e.g. 0-0-1 runs 2 processes on GPU 0 and 1 process on GPU 1"
-            ),
-            value="%s-%s" % (gpus, gpus),
-            interactive=True,
-            visible=_F0GPUVisible,
-        )
+        label=i18n(
+            "rmvpe GPU configuration: Enter different process GPU IDs separated by '-',"
+            " e.g. 0-0-1 runs 2 processes on GPU 0 and 1 process on GPU 1"
+        ),
+        value="%s-%s" % (gpus, gpus),
+        interactive=True,
+        visible=_F0GPUVisible,
+    )
     btn_extract_features = gr.Button(i18n("Extract Features"), variant="primary")
     feature_extraction_output = gr.Textbox(
         label=i18n("Output Information"), value="", max_lines=8
