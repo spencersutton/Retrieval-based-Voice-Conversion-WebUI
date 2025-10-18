@@ -155,30 +155,28 @@ class FeatureInput(object):
 if __name__ == "__main__":
     println(" ".join(sys.argv))
     feature_input = FeatureInput()
-    paths: list[list[Path]] = []
     input_root = project_dir / "1_16k_wavs"
     opt_root1 = project_dir / "2a_f0"
     opt_root2 = project_dir / "2b-f0nsf"
 
     opt_root1.mkdir(parents=True, exist_ok=True)
     opt_root2.mkdir(parents=True, exist_ok=True)
-    for file_path in sorted(input_root.iterdir()):
-        if "spec" in str(file_path):
-            continue
-        opt_path1 = opt_root1 / file_path.name
-        opt_path2 = opt_root2 / file_path.name
-        paths.append([file_path, opt_path1, opt_path2])
 
-    ps = []
-    for i in range(num_processes):
-        p = Process(
+    paths = [
+        [file_path, opt_root1 / file_path.name, opt_root2 / file_path.name]
+        for file_path in sorted(input_root.iterdir())
+        if "spec" not in str(file_path)
+    ]
+
+    processes = [
+        Process(
             target=feature_input.go,
-            args=(
-                paths[i::num_processes],
-                f0_method,
-            ),
+            args=(paths[i::num_processes], f0_method),
         )
-        ps.append(p)
+        for i in range(num_processes)
+    ]
+
+    for p in processes:
         p.start()
-    for i in range(num_processes):
-        ps[i].join()
+    for p in processes:
+        p.join()
