@@ -40,8 +40,6 @@ sys.path.append(str(cwd))
 
 
 hps = utils.get_hparams()
-os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
-n_gpus = len(hps.gpus.split("-"))
 
 
 try:
@@ -101,15 +99,15 @@ def main():
         # patch to unblock people without gpus. there is probably a better way.
         print("NO GPU DETECTED: falling back to CPU - this may take a while")
         n_gpus = 1
+
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = str(randint(20000, 55555))
-    children = []
+
     logger = utils.get_logger(hps.model_dir)  # type: ignore
+    children = []
+
     for i in range(n_gpus):
-        subproc = mp.Process(
-            target=run,
-            args=(i, n_gpus, hps, logger),
-        )
+        subproc = mp.Process(target=run, args=(i, n_gpus, hps, logger))
         children.append(subproc)
         subproc.start()
 
@@ -120,9 +118,7 @@ def main():
 def run(rank, n_gpus, hps, logger: logging.Logger):
     global global_step
     if rank == 0:
-        # logger = utils.get_logger(hps.model_dir)
         logger.info(hps)
-        # utils.check_git_hash(hps.model_dir)
         writer = SummaryWriter(log_dir=hps.model_dir)
         writer_eval = SummaryWriter(log_dir=Path(hps.model_dir) / "eval")
 
@@ -140,18 +136,15 @@ def run(rank, n_gpus, hps, logger: logging.Logger):
     train_sampler = DistributedBucketSampler(
         train_dataset,
         hps.train.batch_size * n_gpus,
-        # [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1200,1400],  # 16s
-        [100, 200, 300, 400, 500, 600, 700, 800, 900],  # 16s
+        [100, 200, 300, 400, 500, 600, 700, 800, 900],
         num_replicas=n_gpus,
         rank=rank,
         shuffle=True,
     )
-    # It is possible that dataloader's workers are out of shared memory. Please try to raise your shared memory limit.
-    # num_workers=8 -> num_workers=4
-    if hps.if_f0 == 1:
-        collate_fn = TextAudioCollateMultiNSFsid()
-    else:
-        collate_fn = TextAudioCollate()
+
+    collate_fn = TextAudioCollateMultiNSFsid() if hps.if_f0 == 1 else TextAudioCollate()
+
+    # num_workers reduced from 8 to 4 to avoid shared memory issues
     train_loader = DataLoader(
         train_dataset,
         num_workers=4,
@@ -179,9 +172,11 @@ def run(rank, n_gpus, hps, logger: logging.Logger):
         )
     if torch.cuda.is_available():
         net_g = net_g.cuda(rank)
+
     net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm)
     if torch.cuda.is_available():
         net_d = net_d.cuda(rank)
+
     optim_g = torch.optim.AdamW(
         net_g.parameters(),
         hps.train.learning_rate,
@@ -194,10 +189,11 @@ def run(rank, n_gpus, hps, logger: logging.Logger):
         betas=hps.train.betas,
         eps=hps.train.eps,
     )
-    # net_g = DDP(net_g, device_ids=[rank], find_unused_parameters=True)
-    # net_d = DDP(net_d, device_ids=[rank], find_unused_parameters=True)
+
+    # Wrap models with DDP
     if hasattr(torch, "xpu") and torch.xpu.is_available():
-        pass
+        net_g = DDP(net_g)
+        net_d = DDP(net_d)
     elif torch.cuda.is_available():
         net_g = DDP(net_g, device_ids=[rank])
         net_d = DDP(net_d, device_ids=[rank])
@@ -205,50 +201,37 @@ def run(rank, n_gpus, hps, logger: logging.Logger):
         net_g = DDP(net_g)
         net_d = DDP(net_d)
 
-    try:  # 如果能加载自动resume
-        epoch_str: int
+    try:
+        # Load checkpoint to resume training
         _, _, _, epoch_str = utils.load_checkpoint(
             utils.latest_checkpoint_path(hps.model_dir, "D_*.pth"), net_d, optim_d
-        )  # D多半加载没事
+        )
         if rank == 0:
             logger.info("loaded D")
         _, _, _, epoch_str = utils.load_checkpoint(
             utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g
         )
         global_step = (epoch_str - 1) * len(train_loader)
-    except:  # If loading for the first time fails, load pretrain
+    except:
+        # Load pretrained models for first-time training
         epoch_str = 1
         global_step = 0
         if hps.pretrainG != "":
             if rank == 0:
                 logger.info("loaded pretrained %s", hps.pretrainG)
+            pretrained_dict = torch.load(hps.pretrainG, map_location="cpu")["model"]
             if hasattr(net_g, "module"):
-                logger.info(
-                    net_g.module.load_state_dict(
-                        torch.load(hps.pretrainG, map_location="cpu")["model"]
-                    )
-                )  ##测试不加载优化器
+                net_g.module.load_state_dict(pretrained_dict)
             else:
-                logger.info(
-                    net_g.load_state_dict(
-                        torch.load(hps.pretrainG, map_location="cpu")["model"]
-                    )
-                )  ##测试不加载优化器
+                net_g.load_state_dict(pretrained_dict)
         if hps.pretrainD != "":
             if rank == 0:
                 logger.info("loaded pretrained %s", hps.pretrainD)
+            pretrained_dict = torch.load(hps.pretrainD, map_location="cpu")["model"]
             if hasattr(net_d, "module"):
-                logger.info(
-                    net_d.module.load_state_dict(
-                        torch.load(hps.pretrainD, map_location="cpu")["model"]
-                    )
-                )
+                net_d.module.load_state_dict(pretrained_dict)
             else:
-                logger.info(
-                    net_d.load_state_dict(
-                        torch.load(hps.pretrainD, map_location="cpu")["model"]
-                    )
-                )
+                net_d.load_state_dict(pretrained_dict)
 
     scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
         optim_g, gamma=hps.train.lr_decay, last_epoch=epoch_str - 2
@@ -312,7 +295,7 @@ def train_and_evaluate(
     if hps.if_cache_data_in_gpu:
         # Use Cache
         data_iterator = cache
-        if cache == []:
+        if not cache:
             # Make new cache
             for batch_idx, info in enumerate(train_loader):
                 # Unpack
@@ -563,41 +546,28 @@ def train_and_evaluate(
 
     model_dir = Path(hps.model_dir)
     if epoch % hps.save_every_epoch == 0 and rank == 0:
-        if hps.if_latest == 0:
-            utils.save_checkpoint(
-                net_g,
-                optim_g,
-                hps.train.learning_rate,
-                epoch,
-                model_dir / f"G_{global_step}.pth",
+        checkpoint_suffix = 2333333 if hps.if_latest == 1 else global_step
+        utils.save_checkpoint(
+            net_g,
+            optim_g,
+            hps.train.learning_rate,
+            epoch,
+            model_dir / f"G_{checkpoint_suffix}.pth",
+        )
+        utils.save_checkpoint(
+            net_d,
+            optim_d,
+            hps.train.learning_rate,
+            epoch,
+            model_dir / f"D_{checkpoint_suffix}.pth",
+        )
+
+        if hps.save_every_weights == "1":
+            ckpt = (
+                net_g.module.state_dict()
+                if hasattr(net_g, "module")
+                else net_g.state_dict()
             )
-            utils.save_checkpoint(
-                net_d,
-                optim_d,
-                hps.train.learning_rate,
-                epoch,
-                model_dir / f"D_{global_step}.pth",
-            )
-        else:
-            utils.save_checkpoint(
-                net_g,
-                optim_g,
-                hps.train.learning_rate,
-                epoch,
-                model_dir / f"G_{2333333}.pth",
-            )
-            utils.save_checkpoint(
-                net_d,
-                optim_d,
-                hps.train.learning_rate,
-                epoch,
-                model_dir / f"D_{2333333}.pth",
-            )
-        if rank == 0 and hps.save_every_weights == "1":
-            if hasattr(net_g, "module"):
-                ckpt = net_g.module.state_dict()
-            else:
-                ckpt = net_g.state_dict()
             saved_checkpoint = savee(
                 ckpt,
                 hps.sample_rate,
@@ -607,23 +577,19 @@ def train_and_evaluate(
                 hps.version,
                 hps,
             )
-
-            logger.info(
-                "saving ckpt %s_e%s:%s",
-                hps.name,
-                epoch,
-                saved_checkpoint,
-            )
+            logger.info("saving ckpt %s_e%s:%s", hps.name, epoch, saved_checkpoint)
 
     if rank == 0:
         logger.info("====> Epoch: %s %s", epoch, epoch_recorder.record())
+
     if epoch >= hps.total_epoch and rank == 0:
         logger.info("Training is done. The program is closed.")
 
-        if hasattr(net_g, "module"):
-            ckpt = net_g.module.state_dict()
-        else:
-            ckpt = net_g.state_dict()
+        ckpt = (
+            net_g.module.state_dict()
+            if hasattr(net_g, "module")
+            else net_g.state_dict()
+        )
         final_checkpoint_path = savee(
             ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps.version, hps
         )
