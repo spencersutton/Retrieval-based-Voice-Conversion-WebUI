@@ -5,6 +5,7 @@ import logging
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -281,31 +282,32 @@ def load_wav_to_torch(full_path):
 
 def load_filepaths_and_text(filename, split="|"):
     try:
-        with open(filename, encoding="utf-8") as f:
+        with Path(filename).open(encoding="utf-8") as f:
             filepaths_and_text = [line.strip().split(split) for line in f]
     except UnicodeDecodeError:
-        with open(filename) as f:
+        with Path(filename).open() as f:
             filepaths_and_text = [line.strip().split(split) for line in f]
 
+    return filepaths_and_text
     return filepaths_and_text
 
 
 def get_hparams(init=True):
     """
     todo:
-      结尾七人组：
-        保存频率、总epoch                     done
-        bs                                    done
-        pretrainG、pretrainD                  done
-        卡号：os.en["CUDA_VISIBLE_DEVICES"]   done
-        if_latest                             done
-      模型：if_f0                             done
-      采样率：自动选择config                  done
-      是否缓存数据集进GPU:if_cache_data_in_gpu done
+      Final seven items:
+        Save frequency, total epochs                  done
+        batch size                                    done
+        pretrainG, pretrainD                          done
+        GPU id: os.en["CUDA_VISIBLE_DEVICES"]         done
+        if_latest                                     done
+      Model: if_f0                                    done
+      Sample rate: auto-select from config            done
+      Whether to cache dataset in GPU: if_cache_data_in_gpu done
 
       -m:
-        自动决定training_files路径,改掉train_nsf_load_pretrain.py里的hps.data.training_files    done
-      -c不要了
+        Automatically determine training_files path, modify hps.data.training_files in train_nsf_load_pretrain.py    done
+      -c is no longer needed
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
