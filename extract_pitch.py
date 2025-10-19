@@ -106,7 +106,10 @@ def _preprocess_dataset(
     log_file = log_dir / "preprocess.log"
     log_file.touch()
 
-    cmd = f'"{config.python_cmd}" infer/modules/train/preprocess.py "{training_dir}" {sr} {n_p} "{log_dir}" {config.noparallel} {config.preprocess_per:.1f}'
+    cmd = (
+        f'"{config.python_cmd}" infer/modules/train/preprocess.py '
+        f'"{training_dir}" {sr} {n_p} "{log_dir}" {config.noparallel} {config.preprocess_per:.1f}'
+    )
     logger.info("Execute: %s", cmd)
     p = Popen(cmd, shell=True)
     done = [False]
@@ -141,7 +144,10 @@ def _extract_pitch_features(
     done = [False]
     if should_guide:
         if extract_method != "rmvpe_gpu":
-            cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_print.py "{log_dir}" {num_cpu_processes} {extract_method}'
+            cmd = (
+                f'"{config.python_cmd}" {extract_path}/extract_f0_print.py '
+                f'"{log_dir}" {num_cpu_processes} {extract_method}'
+            )
             logger.info("Execute: %s", cmd)
             p = Popen(cmd, shell=True)
             threading.Thread(target=_wait_for_process, args=(done, p)).start()
