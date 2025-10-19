@@ -635,12 +635,16 @@ if __name__ == "__main__":
         default_batch_size = int(
             torch.cuda.get_device_properties(0).total_memory / 1024 / 1024 / 1024 + 0.4
         )
-        gr.Markdown(value=i18n("step3: 填写训练设置, 开始训练模型和索引"))
+        gr.Markdown(
+            value=i18n(
+                "step3: Fill in training settings and start training model and index"
+            )
+        )
         save_interval = gr.Slider(
             minimum=1,
             maximum=50,
             step=1,
-            label=i18n("保存频率save_every_epoch"),
+            label=i18n("Save frequency (save_every_epoch)"),
             value=5,
             interactive=True,
         )
@@ -648,7 +652,7 @@ if __name__ == "__main__":
             minimum=2,
             maximum=1000,
             step=1,
-            label=i18n("总训练轮数total_epoch"),
+            label=i18n("Total training epochs (total_epoch)"),
             value=20,
             interactive=True,
         )
@@ -656,49 +660,53 @@ if __name__ == "__main__":
             minimum=1,
             maximum=40,
             step=1,
-            label=i18n("每张显卡的batch_size"),
+            label=i18n("Batch size per GPU"),
             value=default_batch_size,
             interactive=True,
         )
         if_save_latest = gr.Radio(
-            label=i18n("是否仅保存最新的ckpt文件以节省硬盘空间"),
-            choices=[i18n("是"), i18n("否")],
-            value=i18n("否"),
+            label=i18n("Only save the latest ckpt file to save disk space"),
+            choices=[i18n("Yes"), i18n("No")],
+            value=i18n("No"),
             interactive=True,
         )
         if_cache = gr.Radio(
             label=i18n(
-                "是否缓存所有训练集至显存. 10min以下小数据可缓存以加速训练, 大数据缓存会炸显存也加不了多少速"
+                "Cache all training set to GPU memory. For small data under 10min, caching can speed up training. Large data may cause out-of-memory and doesn't speed up much."
             ),
-            choices=[i18n("是"), i18n("否")],
-            value=i18n("否"),
+            choices=[i18n("Yes"), i18n("No")],
+            value=i18n("No"),
             interactive=True,
         )
         if_save_every_weights = gr.Radio(
-            label=i18n("是否在每次保存时间点将最终小模型保存至weights文件夹"),
-            choices=[i18n("是"), i18n("否")],
-            value=i18n("否"),
+            label=i18n(
+                "Save the final small model to the weights folder at every save point"
+            ),
+            choices=[i18n("Yes"), i18n("No")],
+            value=i18n("No"),
             interactive=True,
         )
         pretrained_G14 = gr.Textbox(
-            label=i18n("加载预训练底模G路径"),
+            label=i18n("Load pretrained base model G path"),
             value="assets/pretrained_v2/f0G40k.pth",
             interactive=True,
         )
         pretrained_D15 = gr.Textbox(
-            label=i18n("加载预训练底模D路径"),
+            label=i18n("Load pretrained base model D path"),
             value="assets/pretrained_v2/f0D40k.pth",
             interactive=True,
         )
         use_pitch_guidance = gr.Radio(
-            label=i18n("模型是否带音高指导(唱歌一定要, 语音可以不要)"),
+            label=i18n(
+                "Does the model use pitch guidance? (Required for singing, optional for speech)"
+            ),
             choices=[True, False],
             value=True,
             interactive=True,
         )
         pitch_extraction_algorithm = gr.Radio(
             label=i18n(
-                "选择音高提取算法:输入歌声可用pm提速,高质量语音但CPU差可用dio提速,harvest质量更好但慢,rmvpe效果最好且微吃CPU/GPU"
+                "Select pitch extraction algorithm: For singing, use pm for speed; for high-quality speech but slow CPU, use dio for speed; harvest is better quality but slower; rmvpe has the best effect and uses some CPU/GPU"
             ),
             choices=["pm", "harvest", "dio", "rmvpe", "rmvpe_gpu"],
             value="rmvpe_gpu",
@@ -707,7 +715,7 @@ if __name__ == "__main__":
 
         gpus_rmvpe = gr.Textbox(
             label=i18n(
-                "rmvpe卡号配置：以-分隔输入使用的不同进程卡号,例如0-0-1使用在卡0上跑2个进程并在卡1上跑1个进程"
+                "rmvpe GPU configuration: Enter different process GPU IDs separated by '-', e.g. 0-0-1 runs 2 processes on GPU 0 and 1 process on GPU 1"
             ),
             value="%s-%s" % (gpus, gpus),
             interactive=True,
@@ -731,7 +739,9 @@ if __name__ == "__main__":
         )
 
         gpu_ids_input = gr.Textbox(
-            label=i18n("以-分隔输入使用的卡号, 例如   0-1-2   使用卡0和卡1和卡2"),
+            label=i18n(
+                "Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"
+            ),
             value=gpus,
             interactive=True,
         )
@@ -739,13 +749,17 @@ if __name__ == "__main__":
             minimum=0,
             maximum=4,
             step=1,
-            label=i18n("请指定说话人id"),
+            label=i18n("Please specify speaker id"),
             value=0,
             interactive=True,
         )
-        train_model = gr.Button(i18n("训练模型"), variant="primary")
-        btn_train_feature_index = gr.Button(i18n("训练特征索引"), variant="primary")
-        output_info_textbox = gr.Textbox(label=i18n("输出信息"), value="", max_lines=10)
+        train_model = gr.Button(i18n("Train Model"), variant="primary")
+        btn_train_feature_index = gr.Button(
+            i18n("Train Feature Index"), variant="primary"
+        )
+        output_info_textbox = gr.Textbox(
+            label=i18n("Output Information"), value="", max_lines=10
+        )
 
         train_model.click(
             _click_train,
