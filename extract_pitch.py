@@ -500,7 +500,10 @@ def _train_index(exp_dir1, version19):  # noqa: PLR0915
     yield "\n".join(infos)
 
 
-def main():
+if __name__ == "__main__":
+    # Create necessary directories
+    for dir_path in ["logs", "assets/weights"]:
+        (cwd / dir_path).mkdir(parents=True, exist_ok=True)
 
     gpus = get_gpu_info()
 
@@ -732,9 +735,6 @@ def main():
             value=gpus,
             interactive=True,
         )
-        train_model = gr.Button(i18n("训练模型"), variant="primary")
-        train_feature_index = gr.Button(i18n("训练特征索引"), variant="primary")
-        output_info_textbox = gr.Textbox(label=i18n("输出信息"), value="", max_lines=10)
         speaker_id = gr.Slider(
             minimum=0,
             maximum=4,
@@ -743,6 +743,9 @@ def main():
             value=0,
             interactive=True,
         )
+        train_model = gr.Button(i18n("训练模型"), variant="primary")
+        btn_train_feature_index = gr.Button(i18n("训练特征索引"), variant="primary")
+        output_info_textbox = gr.Textbox(label=i18n("输出信息"), value="", max_lines=10)
 
         train_model.click(
             _click_train,
@@ -765,7 +768,7 @@ def main():
             output_info_textbox,
             api_name="train_start",
         )
-        train_feature_index.click(
+        btn_train_feature_index.click(
             _train_index, [project_dir, version], output_info_textbox
         )
 
@@ -778,11 +781,3 @@ def main():
                 server_port=config.listen_port,
                 quiet=True,
             )
-
-
-if __name__ == "__main__":
-    # Create necessary directories
-    for dir_path in ["logs", "assets/weights"]:
-        (cwd / dir_path).mkdir(parents=True, exist_ok=True)
-
-    main()
