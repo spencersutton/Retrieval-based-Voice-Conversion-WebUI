@@ -521,7 +521,7 @@ def main():
             label=i18n("Upload training file"),
             file_count="single",
         )
-        gr_sample_rate = gr.Radio(
+        sample_rate = gr.Radio(
             label=i18n("Target sample rate"),
             choices=["40k", "48k"],
             value="40k",
@@ -549,7 +549,7 @@ def main():
         preprocess_button = gr.Button(i18n("Process data"), variant="primary")
         preprocess_button.click(
             _preprocess_dataset,
-            [training_file, project_dir, gr_sample_rate, num_cpu_processes],
+            [training_file, project_dir, sample_rate, num_cpu_processes],
             [preprocess_output],
             api_name="train_preprocess",
         )
@@ -562,7 +562,7 @@ def main():
             value=True,
             interactive=True,
         )
-        gr_version = gr.Radio(
+        version = gr.Radio(
             label=i18n("Version"),
             choices=["v1", "v2"],
             value="v2",
@@ -622,7 +622,7 @@ def main():
                 pitch_extraction_method,
                 include_pitch_guidance,
                 project_dir,
-                gr_version,
+                version,
                 gpu_ids_rmvpe,
             ],
             [feature_extraction_output],
@@ -633,7 +633,7 @@ def main():
             torch.cuda.get_device_properties(0).total_memory / 1024 / 1024 / 1024 + 0.4
         )
         gr.Markdown(value=i18n("step3: 填写训练设置, 开始训练模型和索引"))
-        gr_save_epoch10 = gr.Slider(
+        save_interval = gr.Slider(
             minimum=1,
             maximum=50,
             step=1,
@@ -641,7 +641,7 @@ def main():
             value=5,
             interactive=True,
         )
-        gr_total_epoch11 = gr.Slider(
+        total_epochs = gr.Slider(
             minimum=2,
             maximum=1000,
             step=1,
@@ -649,7 +649,7 @@ def main():
             value=20,
             interactive=True,
         )
-        gr_batch_size12 = gr.Slider(
+        batch_size = gr.Slider(
             minimum=1,
             maximum=40,
             step=1,
@@ -657,13 +657,13 @@ def main():
             value=default_batch_size,
             interactive=True,
         )
-        gr_if_save_latest13 = gr.Radio(
+        if_save_latest = gr.Radio(
             label=i18n("是否仅保存最新的ckpt文件以节省硬盘空间"),
             choices=[i18n("是"), i18n("否")],
             value=i18n("否"),
             interactive=True,
         )
-        gr_if_cache_gpu17 = gr.Radio(
+        if_cache = gr.Radio(
             label=i18n(
                 "是否缓存所有训练集至显存. 10min以下小数据可缓存以加速训练, 大数据缓存会炸显存也加不了多少速"
             ),
@@ -671,29 +671,29 @@ def main():
             value=i18n("否"),
             interactive=True,
         )
-        gr_if_save_every_weights18 = gr.Radio(
+        if_save_every_weights = gr.Radio(
             label=i18n("是否在每次保存时间点将最终小模型保存至weights文件夹"),
             choices=[i18n("是"), i18n("否")],
             value=i18n("否"),
             interactive=True,
         )
-        gr_pretrained_G14 = gr.Textbox(
+        pretrained_G14 = gr.Textbox(
             label=i18n("加载预训练底模G路径"),
             value="assets/pretrained_v2/f0G40k.pth",
             interactive=True,
         )
-        gr_pretrained_D15 = gr.Textbox(
+        pretrained_D15 = gr.Textbox(
             label=i18n("加载预训练底模D路径"),
             value="assets/pretrained_v2/f0D40k.pth",
             interactive=True,
         )
-        if_f0_3 = gr.Radio(
+        use_pitch_guidance = gr.Radio(
             label=i18n("模型是否带音高指导(唱歌一定要, 语音可以不要)"),
             choices=[True, False],
             value=True,
             interactive=True,
         )
-        f0method8 = gr.Radio(
+        pitch_extraction_algorithm = gr.Radio(
             label=i18n(
                 "选择音高提取算法:输入歌声可用pm提速,高质量语音但CPU差可用dio提速,harvest质量更好但慢,rmvpe效果最好且微吃CPU/GPU"
             ),
@@ -710,32 +710,32 @@ def main():
             interactive=True,
             visible=_GPUVisible,
         )
-        if_f0_3.change(
+        use_pitch_guidance.change(
             _change_f0,
-            [if_f0_3, gr_sample_rate, gr_version],
-            [f0method8, gpus_rmvpe, gr_pretrained_G14, gr_pretrained_D15],
+            [use_pitch_guidance, sample_rate, version],
+            [pitch_extraction_algorithm, gpus_rmvpe, pretrained_G14, pretrained_D15],
         )
 
-        gr_sample_rate.change(
+        sample_rate.change(
             _change_sr2,
-            [gr_sample_rate, if_f0_3, gr_version],
-            [gr_pretrained_G14, gr_pretrained_D15],
+            [sample_rate, use_pitch_guidance, version],
+            [pretrained_G14, pretrained_D15],
         )
-        gr_version.change(
+        version.change(
             _change_version19,
-            [gr_sample_rate, if_f0_3, gr_version],
-            [gr_pretrained_G14, gr_pretrained_D15, gr_sample_rate],
+            [sample_rate, use_pitch_guidance, version],
+            [pretrained_G14, pretrained_D15, sample_rate],
         )
 
-        gpus16 = gr.Textbox(
+        gpu_ids_input = gr.Textbox(
             label=i18n("以-分隔输入使用的卡号, 例如   0-1-2   使用卡0和卡1和卡2"),
             value=gpus,
             interactive=True,
         )
-        but3 = gr.Button(i18n("训练模型"), variant="primary")
-        but4 = gr.Button(i18n("训练特征索引"), variant="primary")
-        info3 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=10)
-        spk_id5 = gr.Slider(
+        train_model = gr.Button(i18n("训练模型"), variant="primary")
+        train_feature_index = gr.Button(i18n("训练特征索引"), variant="primary")
+        output_info_textbox = gr.Textbox(label=i18n("输出信息"), value="", max_lines=10)
+        speaker_id = gr.Slider(
             minimum=0,
             maximum=4,
             step=1,
@@ -744,28 +744,30 @@ def main():
             interactive=True,
         )
 
-        but3.click(
+        train_model.click(
             _click_train,
             [
                 project_dir,
-                gr_sample_rate,
-                if_f0_3,
-                spk_id5,
-                gr_save_epoch10,
-                gr_total_epoch11,
-                gr_batch_size12,
-                gr_if_save_latest13,
-                gr_pretrained_G14,
-                gr_pretrained_D15,
-                gpus16,
-                gr_if_cache_gpu17,
-                gr_if_save_every_weights18,
-                gr_version,
+                sample_rate,
+                use_pitch_guidance,
+                speaker_id,
+                save_interval,
+                total_epochs,
+                batch_size,
+                if_save_latest,
+                pretrained_G14,
+                pretrained_D15,
+                gpu_ids_input,
+                if_cache,
+                if_save_every_weights,
+                version,
             ],
-            info3,
+            output_info_textbox,
             api_name="train_start",
         )
-        but4.click(_train_index, [project_dir, gr_version], info3)
+        train_feature_index.click(
+            _train_index, [project_dir, version], output_info_textbox
+        )
 
         if config.iscolab:
             app.queue(max_size=1022).launch(share=True)
