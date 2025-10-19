@@ -9,7 +9,6 @@ from pathlib import Path
 from subprocess import Popen
 from time import sleep
 
-import fairseq
 import ffmpeg
 import gradio as gr
 import numpy as np
@@ -18,6 +17,7 @@ import soundfile as sf
 import torch
 import torch.nn.functional as F
 from dotenv import load_dotenv
+from fairseq import checkpoint_utils
 from fairseq.modules.grad_multiply import GradMultiply
 
 import pyworld
@@ -245,10 +245,11 @@ class _FeatureExtractor:
         logger.info(msg)
         with log_file.open("a") as f:
             f.write(f"{msg}\n")
-
-        models, saved_cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(
+        models, saved_cfg, _ = checkpoint_utils.load_model_ensemble_and_task(
             [model_path], suffix=""
         )
+        assert saved_cfg is not None, "Failed to load model configuration."
+
         model = models[0].to(device)
         if is_half and device not in ["mps", "cpu"]:
             model = model.half()
