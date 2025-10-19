@@ -73,26 +73,25 @@ _sr_dict = {
 
 
 # Module-level worker functions for multiprocessing
-def _worker_process_f0_gpu(gpu_id: str, paths: list, log_file: Path):
+def _worker_process_f0_gpu(paths: list, log_file: Path, gpu_id: str):
     """Worker function for GPU-based F0 extraction."""
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
-    extractor = FeatureExtractor()
-    extractor.extract_f0_for_files(paths, "rmvpe_gpu", log_file, device="cuda")
+    FeatureExtractor().extract_f0_for_files(paths, "rmvpe_gpu", log_file, device="cuda")
 
 
 def _worker_process_f0_cpu(paths: list, log_file: Path, extract_method: str):
     """Worker function for CPU-based F0 extraction."""
-    extractor = FeatureExtractor()
-    extractor.extract_f0_for_files(paths, extract_method, log_file, device="cpu")
+    FeatureExtractor().extract_f0_for_files(
+        paths, extract_method, log_file, device="cpu"
+    )
 
 
 def _worker_process_features_gpu(
-    gpu_id: str, paths: list, log_file: Path, version: str
+    paths: list, log_file: Path, gpu_id: str, version: str
 ):
     """Worker function for GPU-based feature extraction."""
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
-    extractor = FeatureExtractor()
-    extractor.extract_model_features_for_files(paths, log_file, version)
+    FeatureExtractor().extract_model_features_for_files(paths, log_file, version)
 
 
 def _preprocess_dataset(
@@ -163,7 +162,7 @@ def _extract_pitch_features(
             processes = [
                 Process(
                     target=_worker_process_f0_gpu,
-                    args=(gpu_id, file_paths[idx::n_processes], log_file),
+                    args=(file_paths[idx::n_processes], log_file, gpu_id),
                 )
                 for idx, gpu_id in enumerate(gpu_ids)
             ]
@@ -187,9 +186,10 @@ def _extract_pitch_features(
                 device = "cpu"
                 logger.warning("torch_directml not available, falling back to CPU")
 
-            extractor = FeatureExtractor()
             # Process in main thread for DML
-            extractor.extract_f0_for_files(file_paths, "rmvpe", log_file, device=device)
+            FeatureExtractor().extract_f0_for_files(
+                file_paths, "rmvpe", log_file, device=device
+            )
             yield log_file.read_text()
         else:
             # CPU-based extraction (pm, harvest, dio, rmvpe on CPU)
@@ -236,7 +236,7 @@ def _extract_pitch_features(
     processes = [
         Process(
             target=_worker_process_features_gpu,
-            args=(gpu_id, wav_files[idx :: len(gpu_list)], log_file, version),
+            args=(wav_files[idx :: len(gpu_list)], log_file, gpu_id, version),
         )
         for idx, gpu_id in enumerate(gpu_list)
     ]
