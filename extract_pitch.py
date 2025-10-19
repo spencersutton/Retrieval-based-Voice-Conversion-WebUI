@@ -65,13 +65,6 @@ def get_gpu_info():
     return gpus
 
 
-_sr_dict = {
-    "32k": 32000,
-    "40k": 40000,
-    "48k": 48000,
-}
-
-
 # Module-level worker functions for multiprocessing
 def _worker_process_f0_gpu(paths: list, log_file: Path, gpu_id: str):
     """Worker function for GPU-based F0 extraction."""
@@ -99,7 +92,7 @@ def _preprocess_dataset(
 ):
     """Preprocess dataset by resampling audio files."""
     training_dir = Path(str(training_file)).parent
-    sr = _sr_dict[sample_rate_str]
+    sr = int(sample_rate_str[:-1]) * 1000
 
     log_dir = cwd / "logs" / exp_dir
     log_dir.mkdir(parents=True, exist_ok=True)
