@@ -347,17 +347,14 @@ def _click_train(
     if_save_every_weights18,
     version,
 ):
-    project_dir = Path.cwd() / "logs" / exp_dir1
-    project_dir.mkdir(parents=True, exist_ok=True)
-    gt_wavs_dir = project_dir / "0_gt_wavs"
-    feature_dir = (
-        project_dir / "3_feature256"
-        if version == "v1"
-        else project_dir / "3_feature768"
-    )
+    p_dir = Path.cwd() / "logs" / exp_dir1
+    p_dir.mkdir(parents=True, exist_ok=True)
+    """Project directory"""
+    gt_wavs_dir = p_dir / "0_gt_wavs"
+    feature_dir = p_dir / "3_feature256" if version == "v1" else p_dir / "3_feature768"
     if if_f0:
-        f0_dir = project_dir / "2a_f0"
-        f0nsf_dir = project_dir / "2b-f0nsf"
+        f0_dir = p_dir / "2a_f0"
+        f0nsf_dir = p_dir / "2b-f0nsf"
         names = (
             {name.stem for name in gt_wavs_dir.iterdir()}
             & {name.stem for name in feature_dir.iterdir()}
@@ -365,10 +362,10 @@ def _click_train(
             & {name.stem for name in f0nsf_dir.iterdir()}
         )
     else:
-        names = {name.stem for name in gt_wavs_dir.iterdir()} & {
-            name.stem for name in feature_dir.iterdir()
+        names = {x.stem for x in gt_wavs_dir.iterdir()} & {
+            x.stem for x in feature_dir.iterdir()
         }
-    opt = []
+    opt: list[str] = []
     for name in names:
         if if_f0:
             opt.append(
@@ -388,7 +385,7 @@ def _click_train(
                 f"{Path.cwd()}/logs/mute/0_gt_wavs/mute{sr2}.wav|{Path.cwd()}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id5}"
             )
     shuffle(opt)
-    with (project_dir / "filelist.txt").open("w") as f:
+    with (p_dir / "filelist.txt").open("w") as f:
         f.write("\n".join(opt))
     logger.debug("Write filelist done")
     logger.info("Use gpus: %s", str(gpus16))
@@ -400,7 +397,7 @@ def _click_train(
         config_path = "v1/%s.json" % sr2
     else:
         config_path = "v2/%s.json" % sr2
-    config_save_path = project_dir / "config.json"
+    config_save_path = p_dir / "config.json"
     if not config_save_path.exists():
         with Path(config_save_path).open("w", encoding="utf-8") as f:
             json.dump(
