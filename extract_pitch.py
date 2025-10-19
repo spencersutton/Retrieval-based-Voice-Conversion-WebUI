@@ -1,20 +1,26 @@
+import json
 import logging
 import multiprocessing
 import os
+import platform
 import shutil
 import sys
+import traceback
 import warnings
 from collections.abc import Generator
 from multiprocessing import Process
 from pathlib import Path
+from random import shuffle
 from subprocess import Popen
 from time import sleep
 
+import faiss
 import gradio as gr
 import numpy as np
 import torch
 from dotenv import load_dotenv
 from fairseq.modules.grad_multiply import GradMultiply
+from sklearn.cluster import MiniBatchKMeans
 
 from configs.config import Config
 from i18n.i18n import I18nAuto
@@ -26,8 +32,13 @@ load_dotenv()
 
 logging.getLogger("numba").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
-
 logger = logging.getLogger(__name__)
+
+weight_root = Path(os.getenv("weight_root", ""))
+weight_uvr5_root = Path(os.getenv("weight_uvr5_root", ""))
+index_root = Path(os.getenv("index_root", ""))
+outside_index_root = Path(os.getenv("outside_index_root", ""))
+
 
 # Cleanup runtime packages
 for pack_dir in ["infer_pack", "uvr5_pack"]:
@@ -250,6 +261,245 @@ def _extract_pitch_features(
 _GPUVisible = not config.dml
 
 
+def _get_pretrained_models(path_str, f0_str, sr2):
+    if_pretrained_generator_exist = os.access(
+        f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth", os.F_OK
+    )
+    if_pretrained_discriminator_exist = os.access(
+        f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth", os.F_OK
+    )
+    if not if_pretrained_generator_exist:
+        logger.warning(
+            "assets/pretrained%s/%sG%s.pth not exist, will not use pretrained model",
+            path_str,
+            f0_str,
+            sr2,
+        )
+    if not if_pretrained_discriminator_exist:
+        logger.warning(
+            "assets/pretrained%s/%sD%s.pth not exist, will not use pretrained model",
+            path_str,
+            f0_str,
+            sr2,
+        )
+    return (
+        (
+            f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth"
+            if if_pretrained_generator_exist
+            else ""
+        ),
+        (
+            f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth"
+            if if_pretrained_discriminator_exist
+            else ""
+        ),
+    )
+
+
+def _change_sr2(sr2, if_f0_3, version19):
+    path_str = "" if version19 == "v1" else "_v2"
+    f0_str = "f0" if if_f0_3 else ""
+    return _get_pretrained_models(path_str, f0_str, sr2)
+
+
+def _change_f0(if_f0_3, sr2, version19):
+    path_str = "" if version19 == "v1" else "_v2"
+    return (
+        {"visible": if_f0_3, "__type__": "update"},
+        {"visible": if_f0_3, "__type__": "update"},
+        *_get_pretrained_models(path_str, "f0" if if_f0_3 else "", sr2),
+    )
+
+
+def _change_version19(sr2, if_f0_3, version19):
+    path_str = "" if version19 == "v1" else "_v2"
+    if sr2 == "32k" and version19 == "v1":
+        sr2 = "40k"
+    to_return_sr2 = (
+        {"choices": ["40k", "48k"], "__type__": "update", "value": sr2}
+        if version19 == "v1"
+        else {"choices": ["40k", "48k", "32k"], "__type__": "update", "value": sr2}
+    )
+    f0_str = "f0" if if_f0_3 else ""
+    return (
+        *_get_pretrained_models(path_str, f0_str, sr2),
+        to_return_sr2,
+    )
+
+
+def _click_train(
+    exp_dir1: str,
+    sr2,
+    if_f0_3,
+    spk_id5,
+    save_epoch10,
+    total_epoch11,
+    batch_size12,
+    if_save_latest13,
+    pretrained_G14,
+    pretrained_D15,
+    gpus16,
+    if_cache_gpu17,
+    if_save_every_weights18,
+    version19,
+):
+    exp_dir = Path.cwd() / "logs" / exp_dir1
+    exp_dir.mkdir(parents=True, exist_ok=True)
+    gt_wavs_dir = exp_dir / "0_gt_wavs"
+    feature_dir = (
+        exp_dir / "3_feature256" if version19 == "v1" else exp_dir / "3_feature768"
+    )
+    if if_f0_3:
+        f0_dir = exp_dir / "2a_f0"
+        f0nsf_dir = exp_dir / "2b-f0nsf"
+        names = (
+            {name.stem for name in gt_wavs_dir.iterdir()}
+            & {name.stem for name in feature_dir.iterdir()}
+            & {name.stem for name in f0_dir.iterdir()}
+            & {name.stem for name in f0nsf_dir.iterdir()}
+        )
+    else:
+        names = {name.stem for name in gt_wavs_dir.iterdir()} & {
+            name.stem for name in feature_dir.iterdir()
+        }
+    opt = []
+    for name in names:
+        if if_f0_3:
+            opt.append(
+                f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{f0_dir}/{name}.wav.npy|{f0nsf_dir}/{name}.wav.npy|{spk_id5}"
+            )
+        else:
+            opt.append(f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{spk_id5}")
+    fea_dim = 256 if version19 == "v1" else 768
+    if if_f0_3:
+        for _ in range(2):
+            opt.append(
+                f"{Path.cwd()}/logs/mute/0_gt_wavs/mute{sr2}.wav|{Path.cwd()}/logs/mute/3_feature{fea_dim}/mute.npy|{Path.cwd()}/logs/mute/2a_f0/mute.wav.npy|{Path.cwd()}/logs/mute/2b-f0nsf/mute.wav.npy|{spk_id5}"
+            )
+    else:
+        for _ in range(2):
+            opt.append(
+                f"{Path.cwd()}/logs/mute/0_gt_wavs/mute{sr2}.wav|{Path.cwd()}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id5}"
+            )
+    shuffle(opt)
+    with Path(exp_dir).open("w") as f:
+        f.write("\n".join(opt))
+    logger.debug("Write filelist done")
+    logger.info("Use gpus: %s", str(gpus16))
+    if pretrained_G14 == "":
+        logger.info("No pretrained Generator")
+    if pretrained_D15 == "":
+        logger.info("No pretrained Discriminator")
+    if version19 == "v1" or sr2 == "40k":
+        config_path = "v1/%s.json" % sr2
+    else:
+        config_path = "v2/%s.json" % sr2
+    config_save_path = exp_dir / "config.json"
+    if not config_save_path.exists():
+        with Path(config_save_path).open("w", encoding="utf-8") as f:
+            json.dump(
+                config.json_config[config_path],
+                f,
+                ensure_ascii=False,
+                indent=4,
+                sort_keys=True,
+            )
+            f.write("\n")
+    if gpus16:
+        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0_3 else 0} -bs {batch_size12} -g {gpus16} -te {total_epoch11} -se {save_epoch10} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest13 == i18n("是") else 0} -c {1 if if_cache_gpu17 == i18n("是") else 0} -sw {1 if if_save_every_weights18 == i18n("是") else 0} -v {version19}'
+    else:
+        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0_3 else 0} -bs {batch_size12} -te {total_epoch11} -se {save_epoch10} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest13 == i18n("是") else 0} -c {1 if if_cache_gpu17 == i18n("是") else 0} -sw {1 if if_save_every_weights18 == i18n("是") else 0} -v {version19}'
+    logger.info("Execute: %s", cmd)
+    p = Popen(cmd, shell=True, cwd=Path.cwd())
+    p.wait()
+    return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
+
+
+def _train_index(exp_dir1, version19):  # noqa: PLR0915
+    exp_dir = Path(f"logs/{exp_dir1}")
+    exp_dir.mkdir(parents=True, exist_ok=True)
+    feature_dir = (
+        exp_dir / "3_feature256" if version19 == "v1" else exp_dir / "3_feature768"
+    )
+    if not feature_dir.exists():
+        return "请先进行特征提取!"
+    listdir_res = list(feature_dir.iterdir())
+    if len(listdir_res) == 0:
+        return "请先进行特征提取！"
+    infos = []
+    npys = []
+    for name in sorted(listdir_res):
+        phone = np.load(f"{feature_dir}/{name}")
+        npys.append(phone)
+    big_npy = np.concatenate(npys, 0)
+    big_npy_idx = np.arange(big_npy.shape[0])
+    np.random.shuffle(big_npy_idx)
+    big_npy = big_npy[big_npy_idx]
+    if big_npy.shape[0] > 2e5:
+        infos.append(f"Trying doing kmeans {big_npy.shape[0]} shape to 10k centers.")
+        yield "\n".join(infos)
+        try:
+            big_npy = (
+                MiniBatchKMeans(
+                    n_clusters=10000,
+                    verbose=True,
+                    batch_size=256 * config.n_cpu,
+                    compute_labels=False,
+                    init="random",
+                )
+                .fit(big_npy)
+                .cluster_centers_
+            )
+        except:
+            info = traceback.format_exc()
+            logger.info(info)
+            infos.append(info)
+            yield "\n".join(infos)
+
+    np.save(f"{exp_dir}/total_fea.npy", big_npy)
+    n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
+    infos.append(f"{big_npy.shape},{n_ivf}")
+    yield "\n".join(infos)
+    index = faiss.index_factory(256 if version19 == "v1" else 768, f"IVF{n_ivf},Flat")
+
+    infos.append("training")
+    yield "\n".join(infos)
+    index_ivf = faiss.extract_index_ivf(index)
+    index_ivf.nprobe = 1
+    index.train(big_npy)
+    faiss.write_index(
+        index,
+        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index",
+    )
+    infos.append("adding")
+    yield "\n".join(infos)
+    batch_size_add = 8192
+    for i in range(0, big_npy.shape[0], batch_size_add):
+        index.add(big_npy[i : i + batch_size_add])
+    faiss.write_index(
+        index,
+        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index",
+    )
+    infos.append(
+        f"成功构建索引 added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index"
+    )
+    try:
+        file_name = (
+            f"IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index"
+        )
+        source_path = Path(exp_dir) / f"added_{file_name}"
+        target_path = outside_index_root / f"{exp_dir1}_{file_name}"
+        if platform.system() == "Windows":
+            source_path.hardlink_to(target_path)
+        else:
+            source_path.symlink_to(target_path)
+        infos.append(f"链接索引到外部-{outside_index_root}")
+    except:
+        infos.append(f"链接索引到外部-{outside_index_root}失败")
+
+    yield "\n".join(infos)
+
+
 def main():
 
     gpus = get_gpu_info()
@@ -378,6 +628,149 @@ def main():
             [feature_extraction_output],
             api_name="train_extract_f0_feature",
         )
+
+        default_batch_size = int(
+            torch.cuda.get_device_properties(0).total_memory / 1024 / 1024 / 1024 + 0.4
+        )
+        with gr.Group():
+            gr.Markdown(value=i18n("step3: 填写训练设置, 开始训练模型和索引"))
+            with gr.Row():
+                gr_save_epoch10 = gr.Slider(
+                    minimum=1,
+                    maximum=50,
+                    step=1,
+                    label=i18n("保存频率save_every_epoch"),
+                    value=5,
+                    interactive=True,
+                )
+                gr_total_epoch11 = gr.Slider(
+                    minimum=2,
+                    maximum=1000,
+                    step=1,
+                    label=i18n("总训练轮数total_epoch"),
+                    value=20,
+                    interactive=True,
+                )
+                gr_batch_size12 = gr.Slider(
+                    minimum=1,
+                    maximum=40,
+                    step=1,
+                    label=i18n("每张显卡的batch_size"),
+                    value=default_batch_size,
+                    interactive=True,
+                )
+                gr_if_save_latest13 = gr.Radio(
+                    label=i18n("是否仅保存最新的ckpt文件以节省硬盘空间"),
+                    choices=[i18n("是"), i18n("否")],
+                    value=i18n("否"),
+                    interactive=True,
+                )
+                gr_if_cache_gpu17 = gr.Radio(
+                    label=i18n(
+                        "是否缓存所有训练集至显存. 10min以下小数据可缓存以加速训练, 大数据缓存会炸显存也加不了多少速"
+                    ),
+                    choices=[i18n("是"), i18n("否")],
+                    value=i18n("否"),
+                    interactive=True,
+                )
+                gr_if_save_every_weights18 = gr.Radio(
+                    label=i18n("是否在每次保存时间点将最终小模型保存至weights文件夹"),
+                    choices=[i18n("是"), i18n("否")],
+                    value=i18n("否"),
+                    interactive=True,
+                )
+            with gr.Row():
+                gr_pretrained_G14 = gr.Textbox(
+                    label=i18n("加载预训练底模G路径"),
+                    value="assets/pretrained_v2/f0G40k.pth",
+                    interactive=True,
+                )
+                gr_pretrained_D15 = gr.Textbox(
+                    label=i18n("加载预训练底模D路径"),
+                    value="assets/pretrained_v2/f0D40k.pth",
+                    interactive=True,
+                )
+                if_f0_3 = gr.Radio(
+                    label=i18n("模型是否带音高指导(唱歌一定要, 语音可以不要)"),
+                    choices=[True, False],
+                    value=True,
+                    interactive=True,
+                )
+                f0method8 = gr.Radio(
+                    label=i18n(
+                        "选择音高提取算法:输入歌声可用pm提速,高质量语音但CPU差可用dio提速,harvest质量更好但慢,rmvpe效果最好且微吃CPU/GPU"
+                    ),
+                    choices=["pm", "harvest", "dio", "rmvpe", "rmvpe_gpu"],
+                    value="rmvpe_gpu",
+                    interactive=True,
+                )
+
+                gpus_rmvpe = gr.Textbox(
+                    label=i18n(
+                        "rmvpe卡号配置：以-分隔输入使用的不同进程卡号,例如0-0-1使用在卡0上跑2个进程并在卡1上跑1个进程"
+                    ),
+                    value="%s-%s" % (gpus, gpus),
+                    interactive=True,
+                    visible=_GPUVisible,
+                )
+                if_f0_3.change(
+                    _change_f0,
+                    [if_f0_3, gr_sample_rate, gr_version],
+                    [f0method8, gpus_rmvpe, gr_pretrained_G14, gr_pretrained_D15],
+                )
+
+                gr_sample_rate.change(
+                    _change_sr2,
+                    [gr_sample_rate, if_f0_3, gr_version],
+                    [gr_pretrained_G14, gr_pretrained_D15],
+                )
+                gr_version.change(
+                    _change_version19,
+                    [gr_sample_rate, if_f0_3, gr_version],
+                    [gr_pretrained_G14, gr_pretrained_D15, gr_sample_rate],
+                )
+
+                gpus16 = gr.Textbox(
+                    label=i18n(
+                        "以-分隔输入使用的卡号, 例如   0-1-2   使用卡0和卡1和卡2"
+                    ),
+                    value=gpus,
+                    interactive=True,
+                )
+                but3 = gr.Button(i18n("训练模型"), variant="primary")
+                but4 = gr.Button(i18n("训练特征索引"), variant="primary")
+                info3 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=10)
+                spk_id5 = gr.Slider(
+                    minimum=0,
+                    maximum=4,
+                    step=1,
+                    label=i18n("请指定说话人id"),
+                    value=0,
+                    interactive=True,
+                )
+
+                but3.click(
+                    _click_train,
+                    [
+                        project_dir,
+                        gr_sample_rate,
+                        if_f0_3,
+                        spk_id5,
+                        gr_save_epoch10,
+                        gr_total_epoch11,
+                        gr_batch_size12,
+                        gr_if_save_latest13,
+                        gr_pretrained_G14,
+                        gr_pretrained_D15,
+                        gpus16,
+                        gr_if_cache_gpu17,
+                        gr_if_save_every_weights18,
+                        gr_version,
+                    ],
+                    info3,
+                    api_name="train_start",
+                )
+                but4.click(_train_index, [project_dir, gr_version], info3)
 
         if config.iscolab:
             app.queue(max_size=1022).launch(share=True)
