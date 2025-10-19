@@ -4,9 +4,9 @@ requires-python = ">=3.12"
 resolution-markers = [
     "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux')",
     "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and sys_platform == 'darwin'",
     "(python_full_version < '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'linux')",
     "python_full_version < '3.13' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'",
-    "python_full_version >= '3.13' and sys_platform == 'darwin'",
     "python_full_version < '3.13' and sys_platform == 'darwin'",
 ]
 
@@ -445,8 +445,8 @@ wheels = [
 
 [[package]]
 name = "fairseq"
-version = "0.12.3"
-source = { git = "https://github.com/One-sixth/fairseq.git#44800430a728c2216fd1cf1e8daa672f50dfacba" }
+version = "0.12.2"
+source = { directory = "../repos/fairseq" }
 dependencies = [
     { name = "bitarray" },
     { name = "cffi" },
@@ -464,6 +464,29 @@ dependencies = [
     { name = "torchaudio", version = "2.9.0+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "python_full_version >= '3.15' or platform_machine != 'aarch64' or platform_python_implementation != 'CPython' or sys_platform != 'linux'" },
     { name = "tqdm" },
 ]
+
+[package.metadata]
+requires-dist = [
+    { name = "bitarray" },
+    { name = "black", marker = "extra == 'dev'", specifier = "==22.3.0" },
+    { name = "cffi" },
+    { name = "cython" },
+    { name = "flake8", marker = "extra == 'dev'" },
+    { name = "hydra-core", specifier = ">=1.0.7" },
+    { name = "numpy", specifier = ">=1.21.3" },
+    { name = "omegaconf" },
+    { name = "packaging" },
+    { name = "pytest", marker = "extra == 'dev'" },
+    { name = "regex" },
+    { name = "sacrebleu", specifier = ">=1.4.12" },
+    { name = "scikit-learn" },
+    { name = "sphinx", marker = "extra == 'docs'" },
+    { name = "sphinx-argparse", marker = "extra == 'docs'" },
+    { name = "torch", specifier = ">=1.13" },
+    { name = "torchaudio", specifier = ">=0.8.0" },
+    { name = "tqdm" },
+]
+provides-extras = ["dev", "docs"]
 
 [[package]]
 name = "faiss"
@@ -1898,7 +1921,7 @@ dev = [
 requires-dist = [
     { name = "av", specifier = ">=16.0.1" },
     { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "fairseq", git = "https://github.com/One-sixth/fairseq.git" },
+    { name = "fairseq", directory = "../repos/fairseq" },
     { name = "faiss", directory = "../repos/faiss/build/faiss/python" },
     { name = "faiss-cpu", specifier = ">=1.8.0" },
     { name = "ffmpeg-python", specifier = ">=0.2.0" },
@@ -2328,8 +2351,8 @@ version = "2.9.0+cu130"
 source = { registry = "https://download.pytorch.org/whl/cu130" }
 resolution-markers = [
     "(python_full_version >= '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "(python_full_version < '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'linux')",
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
+    "(python_full_version < '3.13' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.13' and platform_python_implementation != 'CPython' and sys_platform == 'linux') or (python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'linux')",
     "python_full_version < '3.13' and sys_platform == 'darwin'",
 ]
 dependencies = [
@@ -2452,15 +2475,15 @@ wheels = [
 
 [[package]]
 name = "uvicorn"
-version = "0.37.0"
+version = "0.38.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "h11" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/71/57/1616c8274c3442d802621abf5deb230771c7a0fec9414cb6763900eb3868/uvicorn-0.37.0.tar.gz", hash = "sha256:4115c8add6d3fd536c8ee77f0e14a7fd2ebba939fed9b02583a97f80648f9e13", size = 80367, upload-time = "2025-09-23T13:33:47.486Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cb/ce/f06b84e2697fef4688ca63bdb2fdf113ca0a3be33f94488f2cadb690b0cf/uvicorn-0.38.0.tar.gz", hash = "sha256:fd97093bdd120a2609fc0d3afe931d4d4ad688b6e75f0f929fde1bc36fe0e91d", size = 80605, upload-time = "2025-10-18T13:46:44.63Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/85/cd/584a2ceb5532af99dd09e50919e3615ba99aa127e9850eafe5f31ddfdb9a/uvicorn-0.37.0-py3-none-any.whl", hash = "sha256:913b2b88672343739927ce381ff9e2ad62541f9f8289664fa1d1d3803fa2ce6c", size = 67976, upload-time = "2025-09-23T13:33:45.842Z" },
+    { url = "https://files.pythonhosted.org/packages/ee/d9/d88e73ca598f4f6ff671fb5fde8a32925c2e08a637303a1d12883c7305fa/uvicorn-0.38.0-py3-none-any.whl", hash = "sha256:48c0afd214ceb59340075b4a052ea1ee91c16fbc2a9b1469cca0e54566977b02", size = 68109, upload-time = "2025-10-18T13:46:42.958Z" },
 ]
 
 [[package]]

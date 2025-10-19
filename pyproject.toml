@@ -27,8 +27,8 @@ dependencies = [
 url = "https://download.pytorch.org/whl/cu130"
 
 [tool.uv.sources]
-fairseq = { git = "https://github.com/One-sixth/fairseq.git" }
-faiss = { path = "../repos/faiss/build/faiss/python" }
+fairseq = { path = "/home/spencer/repos/fairseq" }
+faiss = { path = "/home/spencer/repos/faiss/build/faiss/python" }
 
 [tool.ruff]
 lint.extend-select = ["I", "PTH", "B", "C4", "G", "LOG", "PIE"]
