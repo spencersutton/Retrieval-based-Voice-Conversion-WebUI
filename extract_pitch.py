@@ -61,9 +61,8 @@ def get_gpu_info():
         for i in range(n_gpu):
             name = torch.cuda.get_device_name(i)
             details.append(f"{i}\t{name}")
-    info = "\n".join(details)
     gpus = "-".join(info[0] for info in details)
-    return info, gpus
+    return gpus
 
 
 _sr_dict = {
@@ -268,7 +267,7 @@ def _change_extraction_method(method):
 
 def main():
 
-    gpu_info, gpus = get_gpu_info()
+    gpus = get_gpu_info()
 
     with gr.Blocks(title="RVC WebUI") as app:
         gr.Markdown("## RVC WebUI")
