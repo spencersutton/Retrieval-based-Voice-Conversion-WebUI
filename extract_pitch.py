@@ -261,35 +261,35 @@ def _extract_pitch_features(
 _GPUVisible = not config.dml
 
 
-def _get_pretrained_models(path_str, f0_str, sr2):
+def _get_pretrained_models(path_str, f0_str, sample_rate):
     if_pretrained_generator_exist = os.access(
-        f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth", os.F_OK
+        f"assets/pretrained{path_str}/{f0_str}G{sample_rate}.pth", os.F_OK
     )
     if_pretrained_discriminator_exist = os.access(
-        f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth", os.F_OK
+        f"assets/pretrained{path_str}/{f0_str}D{sample_rate}.pth", os.F_OK
     )
     if not if_pretrained_generator_exist:
         logger.warning(
             "assets/pretrained%s/%sG%s.pth not exist, will not use pretrained model",
             path_str,
             f0_str,
-            sr2,
+            sample_rate,
         )
     if not if_pretrained_discriminator_exist:
         logger.warning(
             "assets/pretrained%s/%sD%s.pth not exist, will not use pretrained model",
             path_str,
             f0_str,
-            sr2,
+            sample_rate,
         )
     return (
         (
-            f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth"
+            f"assets/pretrained{path_str}/{f0_str}G{sample_rate}.pth"
             if if_pretrained_generator_exist
             else ""
         ),
         (
-            f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth"
+            f"assets/pretrained{path_str}/{f0_str}D{sample_rate}.pth"
             if if_pretrained_discriminator_exist
             else ""
         ),
@@ -302,35 +302,39 @@ def _change_sr2(sr2, if_f0_3, version19):
     return _get_pretrained_models(path_str, f0_str, sr2)
 
 
-def _change_f0(if_f0_3, sr2, version19):
+def _change_f0(if_f0_3, sample_rate, version19):
     path_str = "" if version19 == "v1" else "_v2"
     return (
         {"visible": if_f0_3, "__type__": "update"},
         {"visible": if_f0_3, "__type__": "update"},
-        *_get_pretrained_models(path_str, "f0" if if_f0_3 else "", sr2),
+        *_get_pretrained_models(path_str, "f0" if if_f0_3 else "", sample_rate),
     )
 
 
-def _change_version19(sr2, if_f0_3, version19):
-    path_str = "" if version19 == "v1" else "_v2"
-    if sr2 == "32k" and version19 == "v1":
-        sr2 = "40k"
-    to_return_sr2 = (
-        {"choices": ["40k", "48k"], "__type__": "update", "value": sr2}
-        if version19 == "v1"
-        else {"choices": ["40k", "48k", "32k"], "__type__": "update", "value": sr2}
+def _change_version19(sample_rate, if_f0, version):
+    path_str = "" if version == "v1" else "_v2"
+    if sample_rate == "32k" and version == "v1":
+        sample_rate = "40k"
+    sample_rate_update = (
+        {"choices": ["40k", "48k"], "__type__": "update", "value": sample_rate}
+        if version == "v1"
+        else {
+            "choices": ["40k", "48k", "32k"],
+            "__type__": "update",
+            "value": sample_rate,
+        }
     )
-    f0_str = "f0" if if_f0_3 else ""
+    f0_str = "f0" if if_f0 else ""
     return (
-        *_get_pretrained_models(path_str, f0_str, sr2),
-        to_return_sr2,
+        *_get_pretrained_models(path_str, f0_str, sample_rate),
+        sample_rate_update,
     )
 
 
 def _click_train(
     exp_dir1: str,
-    sr2,
-    if_f0_3,
+    sr2: str,
+    if_f0,
     spk_id5,
     save_epoch10,
     total_epoch11,
@@ -341,17 +345,19 @@ def _click_train(
     gpus16,
     if_cache_gpu17,
     if_save_every_weights18,
-    version19,
+    version,
 ):
-    exp_dir = Path.cwd() / "logs" / exp_dir1
-    exp_dir.mkdir(parents=True, exist_ok=True)
-    gt_wavs_dir = exp_dir / "0_gt_wavs"
+    project_dir = Path.cwd() / "logs" / exp_dir1
+    project_dir.mkdir(parents=True, exist_ok=True)
+    gt_wavs_dir = project_dir / "0_gt_wavs"
     feature_dir = (
-        exp_dir / "3_feature256" if version19 == "v1" else exp_dir / "3_feature768"
+        project_dir / "3_feature256"
+        if version == "v1"
+        else project_dir / "3_feature768"
     )
-    if if_f0_3:
-        f0_dir = exp_dir / "2a_f0"
-        f0nsf_dir = exp_dir / "2b-f0nsf"
+    if if_f0:
+        f0_dir = project_dir / "2a_f0"
+        f0nsf_dir = project_dir / "2b-f0nsf"
         names = (
             {name.stem for name in gt_wavs_dir.iterdir()}
             & {name.stem for name in feature_dir.iterdir()}
@@ -364,14 +370,14 @@ def _click_train(
         }
     opt = []
     for name in names:
-        if if_f0_3:
+        if if_f0:
             opt.append(
                 f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{f0_dir}/{name}.wav.npy|{f0nsf_dir}/{name}.wav.npy|{spk_id5}"
             )
         else:
             opt.append(f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{spk_id5}")
-    fea_dim = 256 if version19 == "v1" else 768
-    if if_f0_3:
+    fea_dim = 256 if version == "v1" else 768
+    if if_f0:
         for _ in range(2):
             opt.append(
                 f"{Path.cwd()}/logs/mute/0_gt_wavs/mute{sr2}.wav|{Path.cwd()}/logs/mute/3_feature{fea_dim}/mute.npy|{Path.cwd()}/logs/mute/2a_f0/mute.wav.npy|{Path.cwd()}/logs/mute/2b-f0nsf/mute.wav.npy|{spk_id5}"
@@ -382,7 +388,7 @@ def _click_train(
                 f"{Path.cwd()}/logs/mute/0_gt_wavs/mute{sr2}.wav|{Path.cwd()}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id5}"
             )
     shuffle(opt)
-    with Path(exp_dir).open("w") as f:
+    with (project_dir / "filelist.txt").open("w") as f:
         f.write("\n".join(opt))
     logger.debug("Write filelist done")
     logger.info("Use gpus: %s", str(gpus16))
@@ -390,11 +396,11 @@ def _click_train(
         logger.info("No pretrained Generator")
     if pretrained_D15 == "":
         logger.info("No pretrained Discriminator")
-    if version19 == "v1" or sr2 == "40k":
+    if version == "v1" or sr2 == "40k":
         config_path = "v1/%s.json" % sr2
     else:
         config_path = "v2/%s.json" % sr2
-    config_save_path = exp_dir / "config.json"
+    config_save_path = project_dir / "config.json"
     if not config_save_path.exists():
         with Path(config_save_path).open("w", encoding="utf-8") as f:
             json.dump(
@@ -406,13 +412,13 @@ def _click_train(
             )
             f.write("\n")
     if gpus16:
-        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0_3 else 0} -bs {batch_size12} -g {gpus16} -te {total_epoch11} -se {save_epoch10} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest13 == i18n("是") else 0} -c {1 if if_cache_gpu17 == i18n("是") else 0} -sw {1 if if_save_every_weights18 == i18n("是") else 0} -v {version19}'
+        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0 else 0} -bs {batch_size12} -g {gpus16} -te {total_epoch11} -se {save_epoch10} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest13 == i18n("是") else 0} -c {1 if if_cache_gpu17 == i18n("是") else 0} -sw {1 if if_save_every_weights18 == i18n("是") else 0} -v {version}'
     else:
-        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0_3 else 0} -bs {batch_size12} -te {total_epoch11} -se {save_epoch10} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest13 == i18n("是") else 0} -c {1 if if_cache_gpu17 == i18n("是") else 0} -sw {1 if if_save_every_weights18 == i18n("是") else 0} -v {version19}'
+        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0 else 0} -bs {batch_size12} -te {total_epoch11} -se {save_epoch10} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest13 == i18n("是") else 0} -c {1 if if_cache_gpu17 == i18n("是") else 0} -sw {1 if if_save_every_weights18 == i18n("是") else 0} -v {version}'
     logger.info("Execute: %s", cmd)
     p = Popen(cmd, shell=True, cwd=Path.cwd())
     p.wait()
-    return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
+    return "Training complete. You can view the training log in the console or in the train.log file in the experiment folder."
 
 
 def _train_index(exp_dir1, version19):  # noqa: PLR0915
