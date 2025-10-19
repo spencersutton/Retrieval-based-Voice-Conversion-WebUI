@@ -133,6 +133,7 @@ def _extract_pitch_features(
     extractor_version_id: str,
     gpu_ids_rmvpe: str,
 ):
+    """Extract pitch features and model features using parallel processing."""
     log_dir = cwd / "logs" / project_dir
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -140,20 +141,25 @@ def _extract_pitch_features(
     log_file.unlink(missing_ok=True)
     log_file.touch()
 
-    extract_path = "infer/modules/train/extract"
-    done = [False]
+    def _stream_logs_until_complete(processes):
+        """Stream log file contents while processes are running."""
+        processes = processes if isinstance(processes, list) else [processes]
+        while any(p.poll() is None for p in processes):
+            yield log_file.read_text()
+            sleep(1)
+        # Final log read after completion
+        log = log_file.read_text()
+        logger.info(log)
+        yield log
+
+    # Step 1: Extract pitch (f0) if pitch guidance is enabled
     if should_guide:
-        if extract_method != "rmvpe_gpu":
-            cmd = (
-                f'"{config.python_cmd}" {extract_path}/extract_f0_print.py '
-                f'"{log_dir}" {num_cpu_processes} {extract_method}'
-            )
-            logger.info("Execute: %s", cmd)
-            p = Popen(cmd, shell=True)
-            threading.Thread(target=_wait_for_process, args=(done, p)).start()
-        elif gpu_ids_rmvpe != "-":
+        extract_path = "infer/modules/train/extract"
+
+        if extract_method == "rmvpe_gpu" and gpu_ids_rmvpe != "-":
+            # Multi-GPU RMVPE extraction
             ids = gpu_ids_rmvpe.split("-")
-            ps = [
+            processes = [
                 Popen(
                     f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe.py {len(ids)} {idx} '
                     f'{gpu_id} "{log_dir}" {config.is_half}',
@@ -161,23 +167,25 @@ def _extract_pitch_features(
                 )
                 for idx, gpu_id in enumerate(ids)
             ]
-            threading.Thread(target=_wait_for_process, args=(done, ps)).start()
-        else:
+        elif extract_method == "rmvpe_gpu":
+            # DirectML RMVPE extraction
             cmd = f'"{config.python_cmd}" {extract_path}/extract_f0_rmvpe_dml.py "{log_dir}"'
             logger.info("Execute: %s", cmd)
-            Popen(cmd, shell=True).wait()
-            done = [True]
-        while True:
-            yield log_file.read_text()
-            sleep(1)
-            if done[0]:
-                break
-        log = log_file.read_text()
-        logger.info(log)
-        yield log
+            processes = [Popen(cmd, shell=True)]
+        else:
+            # CPU-based extraction (pm, harvest, dio, rmvpe)
+            cmd = (
+                f'"{config.python_cmd}" {extract_path}/extract_f0_print.py '
+                f'"{log_dir}" {num_cpu_processes} {extract_method}'
+            )
+            logger.info("Execute: %s", cmd)
+            processes = [Popen(cmd, shell=True)]
 
+        yield from _stream_logs_until_complete(processes)
+
+    # Step 2: Extract model features using GPUs
     gpu_list = gpus.split("-")
-    ps = [
+    processes = [
         Popen(
             f'"{config.python_cmd}" infer/modules/train/extract_feature_print.py '
             f'{config.device} {len(gpu_list)} {idx} {n_g} "{log_dir}" {extractor_version_id} {config.is_half}',
@@ -185,14 +193,7 @@ def _extract_pitch_features(
         )
         for idx, n_g in enumerate(gpu_list)
     ]
-    done = [False]
-    threading.Thread(target=_wait_for_process, args=(done, ps)).start()
-    while not done[0]:
-        yield log_file.read_text()
-        sleep(1)
-    log = log_file.read_text()
-    logger.info(log)
-    yield log
+    yield from _stream_logs_until_complete(processes)
 
 
 _GPUVisible = not config.dml
