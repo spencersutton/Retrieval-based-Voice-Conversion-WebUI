@@ -1,4 +1,5 @@
 import logging
+import multiprocessing
 import os
 import shutil
 import sys
@@ -44,7 +45,7 @@ for dir_path in ["logs", "assets/weights"]:
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
-
+multiprocessing.set_start_method("spawn", force=True)
 config = Config()
 
 
