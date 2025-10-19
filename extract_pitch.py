@@ -45,8 +45,7 @@ if config.dml:
 
     def forward_dml(ctx, x, scale):
         ctx.scale = scale
-        res = x.clone().detach()
-        return res
+        return x.clone().detach()
 
     GradMultiply.forward = forward_dml
 
@@ -251,10 +250,6 @@ def _extract_pitch_features(
 _GPUVisible = not config.dml
 
 
-def _change_extraction_method(method):
-    return {"visible": method == "rmvpe_gpu" and _GPUVisible, "__type__": "update"}
-
-
 def main():
 
     gpus = get_gpu_info()
@@ -362,7 +357,10 @@ def main():
             autoscroll=True,
         )
         pitch_extraction_method.change(
-            fn=_change_extraction_method,
+            fn=lambda method: {
+                "visible": method == "rmvpe_gpu" and _GPUVisible,
+                "__type__": "update",
+            },
             inputs=[pitch_extraction_method],
             outputs=[gpu_ids_rmvpe],
         )
