@@ -73,16 +73,14 @@ _sr_dict = {
 
 
 # Module-level worker functions for multiprocessing
-def _worker_process_f0_gpu(gpu_id: str, _process_idx: int, paths: list, log_file: Path):
+def _worker_process_f0_gpu(gpu_id: str, paths: list, log_file: Path):
     """Worker function for GPU-based F0 extraction."""
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
     extractor = FeatureExtractor()
     extractor.extract_f0_for_files(paths, "rmvpe_gpu", log_file, device="cuda")
 
 
-def _worker_process_f0_cpu(
-    _process_idx: int, paths: list, log_file: Path, extract_method: str
-):
+def _worker_process_f0_cpu(paths: list, log_file: Path, extract_method: str):
     """Worker function for CPU-based F0 extraction."""
     extractor = FeatureExtractor()
     extractor.extract_f0_for_files(paths, extract_method, log_file, device="cpu")
@@ -165,7 +163,7 @@ def _extract_pitch_features(
             processes = [
                 Process(
                     target=_worker_process_f0_gpu,
-                    args=(gpu_id, idx, file_paths[idx::n_processes], log_file),
+                    args=(gpu_id, file_paths[idx::n_processes], log_file),
                 )
                 for idx, gpu_id in enumerate(gpu_ids)
             ]
@@ -199,7 +197,6 @@ def _extract_pitch_features(
                 Process(
                     target=_worker_process_f0_cpu,
                     args=(
-                        i,
                         file_paths[i::num_cpu_processes],
                         log_file,
                         extract_method,
