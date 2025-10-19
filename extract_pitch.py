@@ -4,6 +4,7 @@ import shutil
 import sys
 import traceback
 import warnings
+from collections.abc import Generator
 from multiprocessing import Process
 from pathlib import Path
 from subprocess import Popen
@@ -101,7 +102,7 @@ class _FeatureExtractor:
         self.f0_mel_min = 1127 * np.log(1 + self.f0_min / 700)
         self.f0_mel_max = 1127 * np.log(1 + self.f0_max / 700)
 
-    def compute_f0(self, path: Path, f0_method: str, device="cpu", is_half=False):
+    def compute_f0(self, path: Path, f0_method: str, device="cpu"):
         """Compute f0 using various methods."""
         x = _load_audio(path, self.fs)
         p_len = x.shape[0] // self.hop
@@ -147,7 +148,7 @@ class _FeatureExtractor:
 
                 logger.info("Loading rmvpe model")
                 self.model_rmvpe = RMVPE(
-                    "assets/rmvpe/rmvpe.pt", is_half=is_half, device=device
+                    "assets/rmvpe/rmvpe.pt", is_half=config.is_half, device=device
                 )
             f0 = self.model_rmvpe.infer_from_audio(x, thred=0.03)
         else:
@@ -177,7 +178,6 @@ class _FeatureExtractor:
         f0_method: str,
         log_file: Path,
         device="cpu",
-        is_half=False,
     ):
         """Extract f0 features for a list of audio files."""
         if len(file_paths) == 0:
@@ -207,7 +207,7 @@ class _FeatureExtractor:
                 ):
                     continue
 
-                featur_pit = self.compute_f0(inp_path, f0_method, device, is_half)
+                featur_pit = self.compute_f0(inp_path, f0_method, device)
                 np.save(opt_path2, featur_pit, allow_pickle=False)  # nsf
                 coarse_pit = self.coarse_f0(featur_pit)
                 np.save(opt_path1, coarse_pit, allow_pickle=False)  # ori
@@ -366,7 +366,7 @@ def _extract_pitch_features(
     project_dir: str | Path,
     extractor_version_id: str,
     gpu_ids_rmvpe: str,
-):
+) -> Generator[str]:
     """Extract pitch features and model features using parallel processing."""
     log_dir = cwd / "logs" / project_dir
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -396,12 +396,12 @@ def _extract_pitch_features(
             gpu_ids = gpu_ids_rmvpe.split("-")
             n_processes = len(gpu_ids)
 
-            def process_f0_gpu(gpu_id: str, process_idx: int, paths: list):
+            def process_f0_gpu(gpu_id: str, _process_idx: int, paths: list):
 
                 os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
                 extractor = _FeatureExtractor()
                 extractor.extract_f0_for_files(
-                    paths, "rmvpe_gpu", log_file, device="cuda", is_half=config.is_half
+                    paths, "rmvpe_gpu", log_file, device="cuda"
                 )
 
             processes = [
@@ -433,16 +433,14 @@ def _extract_pitch_features(
 
             extractor = _FeatureExtractor()
             # Process in main thread for DML
-            extractor.extract_f0_for_files(
-                file_paths, "rmvpe", log_file, device=device, is_half=False
-            )
+            extractor.extract_f0_for_files(file_paths, "rmvpe", log_file, device=device)
             yield log_file.read_text()
         else:
             # CPU-based extraction (pm, harvest, dio, rmvpe on CPU)
-            def process_f0_cpu(process_idx: int, paths: list):
+            def process_f0_cpu(_process_idx: int, paths: list):
                 extractor = _FeatureExtractor()
                 extractor.extract_f0_for_files(
-                    paths, extract_method, log_file, device="cpu", is_half=False
+                    paths, extract_method, log_file, device="cpu"
                 )
 
             processes = [
