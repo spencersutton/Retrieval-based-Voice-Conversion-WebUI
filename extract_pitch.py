@@ -93,8 +93,8 @@ def _load_audio(file: Path, sr: int):
 class _FeatureExtractor:
     """Extract pitch (f0) and model features from audio files."""
 
-    def __init__(self, samplerate=16000, hop_size=160):
-        self.fs = samplerate
+    def __init__(self, sample_rate=16000, hop_size=160):
+        self.sr = sample_rate
         self.hop = hop_size
         self.f0_bin = 256
         self.f0_max = 1100.0
@@ -104,13 +104,13 @@ class _FeatureExtractor:
 
     def compute_f0(self, path: Path, f0_method: str, device="cpu"):
         """Compute f0 using various methods."""
-        x = _load_audio(path, self.fs)
+        x = _load_audio(path, self.sr)
         p_len = x.shape[0] // self.hop
 
         if f0_method == "pm":
             time_step = 160 / 16000 * 1000
             f0 = (
-                parselmouth.Sound(x, self.fs)
+                parselmouth.Sound(x, self.sr)
                 .to_pitch_ac(
                     time_step=time_step / 1000,
                     voicing_threshold=0.6,
@@ -127,21 +127,21 @@ class _FeatureExtractor:
         elif f0_method == "harvest":
             f0, t = pyworld.harvest(
                 x.astype(np.double),
-                fs=self.fs,
+                fs=self.sr,
                 f0_ceil=self.f0_max,
                 f0_floor=self.f0_min,
-                frame_period=1000 * self.hop / self.fs,
+                frame_period=1000 * self.hop / self.sr,
             )
-            f0 = pyworld.stonemask(x.astype(np.double), f0, t, self.fs)
+            f0 = pyworld.stonemask(x.astype(np.double), f0, t, self.sr)
         elif f0_method == "dio":
             f0, t = pyworld.dio(
                 x.astype(np.double),
-                fs=self.fs,
+                fs=self.sr,
                 f0_ceil=self.f0_max,
                 f0_floor=self.f0_min,
-                frame_period=1000 * self.hop / self.fs,
+                frame_period=1000 * self.hop / self.sr,
             )
-            f0 = pyworld.stonemask(x.astype(np.double), f0, t, self.fs)
+            f0 = pyworld.stonemask(x.astype(np.double), f0, t, self.sr)
         elif f0_method in ["rmvpe", "rmvpe_gpu"]:
             if not hasattr(self, "model_rmvpe"):
                 from infer.lib.rmvpe import RMVPE
@@ -222,8 +222,6 @@ class _FeatureExtractor:
         file_paths: list,
         log_file: Path,
         version: str,
-        device="cpu",
-        is_half=False,
     ):
         """Extract HuBERT model features for audio files."""
         if len(file_paths) == 0:
@@ -232,6 +230,8 @@ class _FeatureExtractor:
             with log_file.open("a") as f:
                 f.write(f"{msg}\n")
             return
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
         model_path = "assets/hubert/hubert_base.pt"
         if not Path(model_path).exists():
@@ -251,7 +251,7 @@ class _FeatureExtractor:
         assert saved_cfg is not None, "Failed to load model configuration."
 
         model = models[0].to(device)
-        if is_half and device not in ["mps", "cpu"]:
+        if config.is_half and device not in ["mps", "cpu"]:
             model = model.half()
         model.eval()
 
@@ -286,7 +286,7 @@ class _FeatureExtractor:
                 inputs = {
                     "source": (
                         feats.half().to(device)
-                        if is_half and device not in ["mps", "cpu"]
+                        if config.is_half and device not in ["mps", "cpu"]
                         else feats.to(device)
                     ),
                     "padding_mask": padding_mask.to(device),
@@ -364,7 +364,7 @@ def _extract_pitch_features(
     extract_method: str,
     should_guide: bool,
     project_dir: str | Path,
-    extractor_version_id: str,
+    version: str,
     gpu_ids_rmvpe: str,
 ) -> Generator[str]:
     """Extract pitch features and model features using parallel processing."""
@@ -467,9 +467,7 @@ def _extract_pitch_features(
 
     # Step 2: Extract model features using GPUs
     wav_path = log_dir / "1_16k_wavs"
-    out_path = log_dir / (
-        "3_feature256" if extractor_version_id == "v1" else "3_feature768"
-    )
+    out_path = log_dir / ("3_feature256" if version == "v1" else "3_feature768")
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Build list of wav files to process
@@ -481,18 +479,15 @@ def _extract_pitch_features(
 
     gpu_list = gpus.split("-")
 
-    def process_features_gpu(gpu_idx: int, gpu_id: str, paths: list):
+    def process_features_gpu(gpu_id: str, paths: list):
         os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
-        device = "cuda" if torch.cuda.is_available() else "cpu"
         extractor = _FeatureExtractor()
-        extractor.extract_model_features_for_files(
-            paths, log_file, extractor_version_id, device=device, is_half=config.is_half
-        )
+        extractor.extract_model_features_for_files(paths, log_file, version)
 
     processes = [
         Process(
             target=process_features_gpu,
-            args=(idx, gpu_id, wav_files[idx :: len(gpu_list)]),
+            args=(gpu_id, wav_files[idx :: len(gpu_list)]),
         )
         for idx, gpu_id in enumerate(gpu_list)
     ]
