@@ -15,6 +15,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
+sys.path.append(str(Path.cwd()))
 from infer.lib.infer_pack import commons
 from infer.lib.train import utils
 from infer.lib.train.data_utils import (
