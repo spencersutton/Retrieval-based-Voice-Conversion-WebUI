@@ -10,6 +10,7 @@ from time import time as ttime
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
+from torch.amp.autocast_mode import autocast
 from torch.nn import functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
@@ -45,8 +46,6 @@ hps = utils.get_hparams()
 
 try:
     if torch.xpu.is_available():
-        from torch.amp.autocast_mode import autocast
-
         from infer.modules.ipex import ipex_init
         from infer.modules.ipex.gradscaler import gradscaler_init
 
@@ -54,12 +53,10 @@ try:
         ipex_init()
         DEVICE_TYPE = "xpu"
     else:
-        from torch.amp.autocast_mode import autocast
         from torch.cuda.amp import GradScaler
 
         DEVICE_TYPE = "cuda"
 except Exception:
-    from torch.amp.autocast_mode import autocast
     from torch.cuda.amp import GradScaler
 
     DEVICE_TYPE = "cuda"
