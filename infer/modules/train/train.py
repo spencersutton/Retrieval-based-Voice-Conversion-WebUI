@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from random import randint, shuffle
+from random import shuffle
 from time import sleep
 from time import time as ttime
 
@@ -104,9 +104,6 @@ def main():
         # patch to unblock people without gpus. there is probably a better way.
         print("NO GPU DETECTED: falling back to CPU - this may take a while")
         n_gpus = 1
-
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = str(randint(20000, 55555))
 
     logger = utils.get_logger(hps.model_dir)  # type: ignore
     children = []
