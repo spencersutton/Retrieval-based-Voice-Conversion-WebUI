@@ -418,11 +418,13 @@ def _click_train(
     return "Training complete. You can view the training log in the console or in the train.log file in the experiment folder."
 
 
-def _train_index(exp_dir1, version19):  # noqa: PLR0915
-    exp_dir = Path(f"logs/{exp_dir1}")
-    exp_dir.mkdir(parents=True, exist_ok=True)
+def _train_index(exp_dir1, version: str) -> Generator[str, None, str]:
+    project_dir = Path(f"logs/{exp_dir1}")
+    project_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = (
-        exp_dir / "3_feature256" if version19 == "v1" else exp_dir / "3_feature768"
+        project_dir / "3_feature256"
+        if version == "v1"
+        else project_dir / "3_feature768"
     )
     if not feature_dir.exists():
         return "Please extract features first!"
@@ -459,11 +461,11 @@ def _train_index(exp_dir1, version19):  # noqa: PLR0915
             infos.append(info)
             yield "\n".join(infos)
 
-    np.save(f"{exp_dir}/total_fea.npy", big_npy)
+    np.save(f"{project_dir}/total_fea.npy", big_npy)
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
     infos.append(f"{big_npy.shape},{n_ivf}")
     yield "\n".join(infos)
-    index = faiss.index_factory(256 if version19 == "v1" else 768, f"IVF{n_ivf},Flat")
+    index = faiss.index_factory(256 if version == "v1" else 768, f"IVF{n_ivf},Flat")
 
     infos.append("training")
     yield "\n".join(infos)
@@ -472,7 +474,7 @@ def _train_index(exp_dir1, version19):  # noqa: PLR0915
     index.train(big_npy)
     faiss.write_index(
         index,
-        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index",
+        f"{project_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index",
     )
     infos.append("adding")
     yield "\n".join(infos)
@@ -481,16 +483,16 @@ def _train_index(exp_dir1, version19):  # noqa: PLR0915
         index.add(big_npy[i : i + batch_size_add])
     faiss.write_index(
         index,
-        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index",
+        f"{project_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index",
     )
     infos.append(
-        f"成功构建索引 added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index"
+        f"成功构建索引 added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index"
     )
     try:
         file_name = (
-            f"IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index"
+            f"IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index"
         )
-        source_path = Path(exp_dir) / f"added_{file_name}"
+        source_path = Path(project_dir) / f"added_{file_name}"
         target_path = outside_index_root / f"{exp_dir1}_{file_name}"
         if platform.system() == "Windows":
             source_path.hardlink_to(target_path)
@@ -501,6 +503,7 @@ def _train_index(exp_dir1, version19):  # noqa: PLR0915
         infos.append(f"链接索引到外部-{outside_index_root}失败")
 
     yield "\n".join(infos)
+    return "Index training complete."
 
 
 if __name__ == "__main__":
