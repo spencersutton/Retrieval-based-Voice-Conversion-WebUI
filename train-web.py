@@ -35,8 +35,6 @@ logging.getLogger("numba").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
-weight_root = Path(os.getenv("weight_root", ""))
-weight_uvr5_root = Path(os.getenv("weight_uvr5_root", ""))
 index_root = Path(os.getenv("index_root", ""))
 outside_index_root = Path(os.getenv("outside_index_root", ""))
 
