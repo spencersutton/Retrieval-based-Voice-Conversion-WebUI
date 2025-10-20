@@ -26,7 +26,7 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt=1):
     else:
         state_dict = model.state_dict()
     new_state_dict = {}
-    for k, v in state_dict.items():  # 模型需要的shape
+    for k, v in state_dict.items():  # shape required by the model
         try:
             new_state_dict[k] = saved_state_dict[k]
             if saved_state_dict[k].shape != v.shape:
@@ -38,9 +38,8 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt=1):
                 )
                 raise KeyError
         except:
-            # logger.info(traceback.format_exc())
-            logger.info("%s is not in the checkpoint", k)  # pretrain缺失的
-            new_state_dict[k] = v  # 模型自带的随机值
+            logger.info("%s is not in the checkpoint", k)  # missing in checkpoint
+            new_state_dict[k] = v  # use model's own random value
     if hasattr(model, "module"):
         model.module.load_state_dict(new_state_dict, strict=False)
     else:
@@ -49,13 +48,11 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt=1):
 
     iteration = checkpoint_dict["iteration"]
     learning_rate = checkpoint_dict["learning_rate"]
-    if (
-        optimizer is not None and load_opt == 1
-    ):  ###加载不了，如果是空的的话，重新初始化，可能还会影响lr时间表的更新，因此在train文件最外围catch
-        #   try:
+    # If loading fails and optimizer is empty, reinitialize.
+    # This may also affect the learning rate scheduler update,
+    # so catch this at the outermost level in the train file.
+    if optimizer is not None and load_opt == 1:
         optimizer.load_state_dict(checkpoint_dict["optimizer"])
-    #   except:
-    #     traceback.print_exc()
     logger.info("Loaded checkpoint '{}' (epoch {})".format(checkpoint_path, iteration))
     return model, optimizer, learning_rate, iteration
 
@@ -193,7 +190,7 @@ def get_hparams(init=True):
     )
     parser.add_argument(
         "-e", "--experiment_dir", type=str, required=True, help="experiment dir"
-    )  # -m
+    )
     parser.add_argument(
         "-sr", "--sample_rate", type=str, required=True, help="sample rate, 32k/40k/48k"
     )
