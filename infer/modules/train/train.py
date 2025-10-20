@@ -120,7 +120,7 @@ def main():
         children[i].join()
 
 
-def run(rank, n_gpus, hps, logger: logging.Logger):
+def run(rank, n_gpus, hps: utils.HParams, logger: logging.Logger):
     global global_step
     if rank == 0:
         logger.info(hps)
@@ -164,7 +164,7 @@ def run(rank, n_gpus, hps, logger: logging.Logger):
         net_g = RVC_Model_f0(
             hps.data.filter_length // 2 + 1,
             hps.train.segment_size // hps.data.hop_length,
-            **hps.model,
+            **hps.model.__dict__,
             is_half=hps.train.fp16_run,
             sr=hps.sample_rate,
         )
@@ -172,7 +172,7 @@ def run(rank, n_gpus, hps, logger: logging.Logger):
         net_g = RVC_Model_nof0(
             hps.data.filter_length // 2 + 1,
             hps.train.segment_size // hps.data.hop_length,
-            **hps.model,
+            **hps.model.__dict__,
             is_half=hps.train.fp16_run,
         )
     if torch.cuda.is_available():

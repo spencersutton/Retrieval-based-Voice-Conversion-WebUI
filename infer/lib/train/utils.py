@@ -278,7 +278,7 @@ class TrainConfig:
     seed: int = 1234
     epochs: int = 20000
     learning_rate: float = 1e-4
-    betas: List[float] = field(default_factory=lambda: [0.8, 0.99])
+    betas: tuple[float, float] = field(default_factory=lambda: (0.8, 0.99))
     eps: float = 1e-9
     batch_size: int = 4
     fp16_run: bool = True
