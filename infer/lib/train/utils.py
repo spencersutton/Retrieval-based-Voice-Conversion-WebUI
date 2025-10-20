@@ -4,7 +4,9 @@ import json
 import logging
 import os
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import torch
@@ -234,7 +236,7 @@ def get_hparams(init=True):
     with open(config_save_path, "r") as f:
         config = json.load(f)
 
-    hparams = HParams(**config)
+    hparams = HParams.from_dict(config)
     hparams.model_dir = hparams.experiment_dir = experiment_dir
     hparams.save_every_epoch = args.save_every_epoch
     hparams.name = name
@@ -268,33 +270,98 @@ def get_logger(model_dir, filename="train.log"):
     return logger
 
 
+@dataclass
+class TrainConfig:
+    """Training hyperparameters configuration."""
+
+    log_interval: int = 200
+    seed: int = 1234
+    epochs: int = 20000
+    learning_rate: float = 1e-4
+    betas: List[float] = field(default_factory=lambda: [0.8, 0.99])
+    eps: float = 1e-9
+    batch_size: int = 4
+    fp16_run: bool = True
+    lr_decay: float = 0.999875
+    segment_size: int = 17280
+    init_lr_ratio: float = 1
+    warmup_epochs: int = 0
+    c_mel: float = 45
+    c_kl: float = 1.0
+
+
+@dataclass
+class DataConfig:
+    """Data processing hyperparameters configuration."""
+
+    max_wav_value: float = 32768.0
+    sampling_rate: int = 48000
+    filter_length: int = 2048
+    hop_length: int = 480
+    win_length: int = 2048
+    n_mel_channels: int = 128
+    mel_fmin: float = 0.0
+    mel_fmax: Optional[float] = None
+    training_files: str = ""
+
+
+@dataclass
+class ModelConfig:
+    """Model architecture hyperparameters configuration."""
+
+    inter_channels: int = 192
+    hidden_channels: int = 192
+    filter_channels: int = 768
+    n_heads: int = 2
+    n_layers: int = 6
+    kernel_size: int = 3
+    p_dropout: float = 0
+    resblock: str = "1"
+    resblock_kernel_sizes: List[int] = field(default_factory=lambda: [3, 7, 11])
+    resblock_dilation_sizes: List[List[int]] = field(
+        default_factory=lambda: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
+    )
+    upsample_rates: List[int] = field(default_factory=lambda: [12, 10, 2, 2])
+    upsample_initial_channel: int = 512
+    upsample_kernel_sizes: List[int] = field(default_factory=lambda: [24, 20, 4, 4])
+    use_spectral_norm: bool = False
+    gin_channels: int = 256
+    spk_embed_dim: int = 109
+
+
+@dataclass
 class HParams:
-    def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            if isinstance(v, dict):
-                v = HParams(**v)
-            self[k] = v
+    """Complete hyperparameters configuration combining train, data, and model configs."""
 
-    def keys(self):
-        return self.__dict__.keys()
+    train: TrainConfig = field(default_factory=TrainConfig)
+    data: DataConfig = field(default_factory=DataConfig)
+    model: ModelConfig = field(default_factory=ModelConfig)
 
-    def items(self):
-        return self.__dict__.items()
+    # Additional runtime parameters
+    model_dir: str = ""
+    experiment_dir: str = ""
+    save_every_epoch: int = 0
+    name: str = ""
+    total_epoch: int = 0
+    pretrainG: str = ""
+    pretrainD: str = ""
+    version: str = ""
+    gpus: str = "0"
+    sample_rate: int = 48000
+    if_f0: int = 1
+    if_latest: int = 1
+    save_every_weights: str = "0"
+    if_cache_data_in_gpu: int = 0
 
-    def values(self):
-        return self.__dict__.values()
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "HParams":
+        """Create HParams from a dictionary, handling nested configs."""
+        train_config = data.get("train", {})
+        data_config = data.get("data", {})
+        model_config = data.get("model", {})
 
-    def __len__(self):
-        return len(self.__dict__)
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __setitem__(self, key, value):
-        return setattr(self, key, value)
-
-    def __contains__(self, key):
-        return key in self.__dict__
-
-    def __repr__(self):
-        return self.__dict__.__repr__()
+        return cls(
+            train=TrainConfig(**train_config),
+            data=DataConfig(**data_config),
+            model=ModelConfig(**model_config),
+        )
