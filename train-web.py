@@ -264,40 +264,18 @@ def _extract_pitch_features(
 _GPUVisible = not config.dml
 
 
-def _get_pretrained_models(
-    path_str: str, f0_str: str, sample_rate: str
-) -> tuple[str, str]:
-    if_pretrained_generator_exist = os.access(
-        f"assets/pretrained{path_str}/{f0_str}G{sample_rate}.pth", os.F_OK
-    )
-    if_pretrained_discriminator_exist = os.access(
-        f"assets/pretrained{path_str}/{f0_str}D{sample_rate}.pth", os.F_OK
-    )
-    if not if_pretrained_generator_exist:
-        logger.warning(
-            "assets/pretrained%s/%sG%s.pth not exist, will not use pretrained model",
-            path_str,
-            f0_str,
-            sample_rate,
-        )
-    if not if_pretrained_discriminator_exist:
-        logger.warning(
-            "assets/pretrained%s/%sD%s.pth not exist, will not use pretrained model",
-            path_str,
-            f0_str,
-            sample_rate,
-        )
+def _get_pretrained_models(path: str, f0: str, sr: str) -> tuple[str, str]:
+    gen_path = f"assets/pretrained{path}/{f0}G{sr}.pth"
+    gen_exists = os.access(gen_path, os.F_OK)
+    disc_path = f"assets/pretrained{path}/{f0}D{sr}.pth"
+    disc_exists = os.access(disc_path, os.F_OK)
+    if not gen_exists:
+        logger.warning("%s not exist, will not use pretrained model", gen_path)
+    if not disc_exists:
+        logger.warning("%s not exist, will not use pretrained model", disc_path)
     return (
-        (
-            f"assets/pretrained{path_str}/{f0_str}G{sample_rate}.pth"
-            if if_pretrained_generator_exist
-            else ""
-        ),
-        (
-            f"assets/pretrained{path_str}/{f0_str}D{sample_rate}.pth"
-            if if_pretrained_discriminator_exist
-            else ""
-        ),
+        gen_path if gen_exists else "",
+        disc_path if disc_exists else "",
     )
 
 
