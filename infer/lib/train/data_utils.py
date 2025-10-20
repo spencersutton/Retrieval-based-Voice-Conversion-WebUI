@@ -41,18 +41,18 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         # spec_length = wav_length // hop_length
         audiopaths_and_text_new = []
         lengths = []
-        for audiopath, text, pitch, pitchf, dv in self.audiopaths_and_text:
+        for audio_path, text, pitch, pitchf, dv in self.audiopaths_and_text:
             if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
-                audiopaths_and_text_new.append([audiopath, text, pitch, pitchf, dv])
-                lengths.append(os.path.getsize(audiopath) // (3 * self.hop_length))
+                audiopaths_and_text_new.append([audio_path, text, pitch, pitchf, dv])
+                lengths.append(os.path.getsize(audio_path) // (3 * self.hop_length))
         self.audiopaths_and_text = audiopaths_and_text_new
         self.lengths = lengths
 
-    def get_sid(self, sid):
+    def _get_sid(self, sid):
         sid = torch.LongTensor([int(sid)])
         return sid
 
-    def get_audio_text_pair(self, audiopath_and_text):
+    def _get_audio_text_pair(self, audiopath_and_text):
         # separate filename and text
         file = audiopath_and_text[0]
         phone = audiopath_and_text[1]
@@ -60,9 +60,9 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         pitchf = audiopath_and_text[3]
         dv = audiopath_and_text[4]
 
-        phone, pitch, pitchf = self.get_labels(phone, pitch, pitchf)
-        spec, wav = self.get_audio(file)
-        dv = self.get_sid(dv)
+        phone, pitch, pitchf = self._get_labels(phone, pitch, pitchf)
+        spec, wav = self._get_audio(file)
+        dv = self._get_sid(dv)
 
         len_phone = phone.size()[0]
         len_spec = spec.size()[-1]
@@ -81,7 +81,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
 
         return (spec, wav, phone, pitch, pitchf, dv)
 
-    def get_labels(self, phone, pitch, pitchf):
+    def _get_labels(self, phone, pitch, pitchf):
         phone = np.load(phone)
         phone = np.repeat(phone, 2, axis=0)
         pitch = np.load(pitch)
@@ -96,7 +96,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         pitchf = torch.FloatTensor(pitchf)
         return phone, pitch, pitchf
 
-    def get_audio(self, filename):
+    def _get_audio(self, filename):
         audio, sampling_rate = load_wav_to_torch(filename)
         if sampling_rate != self.sampling_rate:
             raise ValueError(
@@ -105,8 +105,6 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
                 )
             )
         audio_norm = audio
-        #        audio_norm = audio / self.max_wav_value
-        #        audio_norm = audio / np.abs(audio).max()
 
         audio_norm = audio_norm.unsqueeze(0)
         spec_filename = filename.replace(".wav", ".spec.pt")
@@ -139,7 +137,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         return spec, audio_norm
 
     def __getitem__(self, index):
-        return self.get_audio_text_pair(self.audiopaths_and_text[index])
+        return self._get_audio_text_pair(self.audiopaths_and_text[index])
 
     def __len__(self):
         return len(self.audiopaths_and_text)
