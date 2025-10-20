@@ -254,19 +254,19 @@ class TextAudioLoader(torch.utils.data.Dataset):
         self.audiopaths_and_text = audiopaths_and_text_new
         self.lengths = lengths
 
-    def get_sid(self, sid):
+    def _get_sid(self, sid):
         sid = torch.LongTensor([int(sid)])
         return sid
 
-    def get_audio_text_pair(self, audiopath_and_text):
+    def _get_audio_text_pair(self, audiopath_and_text):
         # separate filename and text
         file = audiopath_and_text[0]
         phone = audiopath_and_text[1]
         dv = audiopath_and_text[2]
 
-        phone = self.get_labels(phone)
-        spec, wav = self.get_audio(file)
-        dv = self.get_sid(dv)
+        phone = self._get_labels(phone)
+        spec, wav = self._get_audio(file)
+        dv = self._get_sid(dv)
 
         len_phone = phone.size()[0]
         len_spec = spec.size()[-1]
@@ -278,7 +278,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
             phone = phone[:len_min, :]
         return (spec, wav, phone, dv)
 
-    def get_labels(self, phone):
+    def _get_labels(self, phone):
         phone = np.load(phone)
         phone = np.repeat(phone, 2, axis=0)
         n_num = min(phone.shape[0], 900)  # DistributedBucketSampler
@@ -286,7 +286,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
         phone = torch.FloatTensor(phone)
         return phone
 
-    def get_audio(self, filename):
+    def _get_audio(self, filename):
         audio, sampling_rate = load_wav_to_torch(filename)
         if sampling_rate != self.sampling_rate:
             raise ValueError(
@@ -329,7 +329,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
         return spec, audio_norm
 
     def __getitem__(self, index):
-        return self.get_audio_text_pair(self.audiopaths_and_text[index])
+        return self._get_audio_text_pair(self.audiopaths_and_text[index])
 
     def __len__(self):
         return len(self.audiopaths_and_text)
