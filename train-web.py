@@ -296,22 +296,23 @@ def _get_pretrained_models(path_str, f0_str, sample_rate):
     )
 
 
-def _change_sr2(sr2, if_f0_3, version19):
-    path_str = "" if version19 == "v1" else "_v2"
-    f0_str = "f0" if if_f0_3 else ""
-    return _get_pretrained_models(path_str, f0_str, sr2)
+def _change_sr(sr, if_f0, version):
+    """Change sample rate and return corresponding pretrained model paths."""
+    path_str = "" if version == "v1" else "_v2"
+    f0_str = "f0" if if_f0 else ""
+    return _get_pretrained_models(path_str, f0_str, sr)
 
 
-def _change_f0(if_f0_3, sample_rate, version19):
+def _change_f0(if_f0, sample_rate, version19):
     path_str = "" if version19 == "v1" else "_v2"
     return (
-        {"visible": if_f0_3, "__type__": "update"},
-        {"visible": if_f0_3, "__type__": "update"},
-        *_get_pretrained_models(path_str, "f0" if if_f0_3 else "", sample_rate),
+        {"visible": if_f0, "__type__": "update"},
+        {"visible": if_f0, "__type__": "update"},
+        *_get_pretrained_models(path_str, "f0" if if_f0 else "", sample_rate),
     )
 
 
-def _change_version19(sample_rate, if_f0, version):
+def _change_version(sample_rate, if_f0, version):
     path_str = "" if version == "v1" else "_v2"
     if sample_rate == "32k" and version == "v1":
         sample_rate = "40k"
@@ -332,22 +333,22 @@ def _change_version19(sample_rate, if_f0, version):
 
 
 def _click_train(
-    exp_dir1: str,
-    sr2: str,
+    project_dir: str,
+    sr: str,
     if_f0,
-    spk_id5,
-    save_epoch10,
-    total_epoch11,
-    batch_size12,
-    if_save_latest13,
+    spk_id,
+    save_epoch,
+    total_epoch,
+    batch_size,
+    if_save_latest,
     pretrained_G14,
     pretrained_D15,
-    gpus16,
-    if_cache_gpu17,
-    if_save_every_weights18,
+    gpus,
+    if_cache_gpu,
+    if_save_every_weights,
     version,
 ):
-    p_dir = Path.cwd() / "logs" / exp_dir1
+    p_dir = Path.cwd() / "logs" / project_dir
     p_dir.mkdir(parents=True, exist_ok=True)
     """Project directory"""
     gt_wavs_dir = p_dir / "0_gt_wavs"
@@ -369,34 +370,34 @@ def _click_train(
     for name in names:
         if if_f0:
             opt.append(
-                f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{f0_dir}/{name}.wav.npy|{f0nsf_dir}/{name}.wav.npy|{spk_id5}"
+                f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{f0_dir}/{name}.wav.npy|{f0nsf_dir}/{name}.wav.npy|{spk_id}"
             )
         else:
-            opt.append(f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{spk_id5}")
+            opt.append(f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{spk_id}")
     fea_dim = 256 if version == "v1" else 768
     if if_f0:
         for _ in range(2):
             opt.append(
-                f"{Path.cwd()}/logs/mute/0_gt_wavs/mute{sr2}.wav|{Path.cwd()}/logs/mute/3_feature{fea_dim}/mute.npy|{Path.cwd()}/logs/mute/2a_f0/mute.wav.npy|{Path.cwd()}/logs/mute/2b-f0nsf/mute.wav.npy|{spk_id5}"
+                f"{Path.cwd()}/logs/mute/0_gt_wavs/mute{sr}.wav|{Path.cwd()}/logs/mute/3_feature{fea_dim}/mute.npy|{Path.cwd()}/logs/mute/2a_f0/mute.wav.npy|{Path.cwd()}/logs/mute/2b-f0nsf/mute.wav.npy|{spk_id}"
             )
     else:
         for _ in range(2):
             opt.append(
-                f"{Path.cwd()}/logs/mute/0_gt_wavs/mute{sr2}.wav|{Path.cwd()}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id5}"
+                f"{Path.cwd()}/logs/mute/0_gt_wavs/mute{sr}.wav|{Path.cwd()}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id}"
             )
     shuffle(opt)
     with (p_dir / "filelist.txt").open("w") as f:
         f.write("\n".join(opt))
     logger.debug("Write filelist done")
-    logger.info("Use gpus: %s", str(gpus16))
+    logger.info("Use gpus: %s", str(gpus))
     if pretrained_G14 == "":
         logger.info("No pretrained Generator")
     if pretrained_D15 == "":
         logger.info("No pretrained Discriminator")
-    if version == "v1" or sr2 == "40k":
-        config_path = "v1/%s.json" % sr2
+    if version == "v1" or sr == "40k":
+        config_path = "v1/%s.json" % sr
     else:
-        config_path = "v2/%s.json" % sr2
+        config_path = "v2/%s.json" % sr
     config_save_path = p_dir / "config.json"
     if not config_save_path.exists():
         with Path(config_save_path).open("w", encoding="utf-8") as f:
@@ -408,10 +409,10 @@ def _click_train(
                 sort_keys=True,
             )
             f.write("\n")
-    if gpus16:
-        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0 else 0} -bs {batch_size12} -g {gpus16} -te {total_epoch11} -se {save_epoch10} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest13 == i18n("是") else 0} -c {1 if if_cache_gpu17 == i18n("是") else 0} -sw {1 if if_save_every_weights18 == i18n("是") else 0} -v {version}'
+    if gpus:
+        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{project_dir}" -sr {sr} -f0 {1 if if_f0 else 0} -bs {batch_size} -g {gpus} -te {total_epoch} -se {save_epoch} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest == i18n("是") else 0} -c {1 if if_cache_gpu == i18n("是") else 0} -sw {1 if if_save_every_weights == i18n("是") else 0} -v {version}'
     else:
-        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" -sr {sr2} -f0 {1 if if_f0 else 0} -bs {batch_size12} -te {total_epoch11} -se {save_epoch10} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest13 == i18n("是") else 0} -c {1 if if_cache_gpu17 == i18n("是") else 0} -sw {1 if if_save_every_weights18 == i18n("是") else 0} -v {version}'
+        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{project_dir}" -sr {sr} -f0 {1 if if_f0 else 0} -bs {batch_size} -te {total_epoch} -se {save_epoch} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest == i18n("是") else 0} -c {1 if if_cache_gpu == i18n("是") else 0} -sw {1 if if_save_every_weights == i18n("是") else 0} -v {version}'
     logger.info("Execute: %s", cmd)
     p = Popen(cmd, shell=True, cwd=Path.cwd())
     p.wait()
@@ -734,12 +735,12 @@ if __name__ == "__main__":
         )
 
         sample_rate.change(
-            _change_sr2,
+            _change_sr,
             [sample_rate, use_pitch_guidance, version],
             [pretrained_G14, pretrained_D15],
         )
         version.change(
-            _change_version19,
+            _change_version,
             [sample_rate, use_pitch_guidance, version],
             [pretrained_G14, pretrained_D15, sample_rate],
         )
