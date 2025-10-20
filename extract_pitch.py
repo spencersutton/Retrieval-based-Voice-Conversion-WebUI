@@ -418,8 +418,8 @@ def _click_train(
     return "Training complete. You can view the training log in the console or in the train.log file in the experiment folder."
 
 
-def _train_index(exp_dir1, version: str) -> Generator[str, None, str]:
-    project_dir = Path(f"logs/{exp_dir1}")
+def _train_index(project_dir: Path, version: str) -> Generator[str, None, str]:
+    project_dir = "logs" / project_dir
     project_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = (
         project_dir / "3_feature256"
@@ -474,7 +474,7 @@ def _train_index(exp_dir1, version: str) -> Generator[str, None, str]:
     index.train(big_npy)
     faiss.write_index(
         index,
-        f"{project_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index",
+        f"{project_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{project_dir}_{version}.index",
     )
     infos.append("adding")
     yield "\n".join(infos)
@@ -483,17 +483,17 @@ def _train_index(exp_dir1, version: str) -> Generator[str, None, str]:
         index.add(big_npy[i : i + batch_size_add])
     faiss.write_index(
         index,
-        f"{project_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index",
+        f"{project_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{project_dir}_{version}.index",
     )
     infos.append(
-        f"成功构建索引 added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index"
+        f"成功构建索引 added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{project_dir}_{version}.index"
     )
     try:
         file_name = (
-            f"IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index"
+            f"IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{project_dir}_{version}.index"
         )
         source_path = Path(project_dir) / f"added_{file_name}"
-        target_path = outside_index_root / f"{exp_dir1}_{file_name}"
+        target_path = outside_index_root / f"{project_dir}_{file_name}"
         if platform.system() == "Windows":
             source_path.hardlink_to(target_path)
         else:
