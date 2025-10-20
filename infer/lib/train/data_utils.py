@@ -1,6 +1,7 @@
 import logging
 import os
 import traceback
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -8,7 +9,7 @@ import torch.utils.data
 from torch.utils.data.distributed import DistributedSampler
 
 from infer.lib.train.mel_processing import spectrogram_torch
-from infer.lib.train.utils import load_filepaths_and_text, load_wav_to_torch
+from infer.lib.train.utils import DataConfig, load_filepaths_and_text, load_wav_to_torch
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +221,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
     3) computes spectrograms from audio files.
     """
 
-    def __init__(self, audiopaths_and_text, hparams):
+    def __init__(self, audiopaths_and_text: Path, hparams: DataConfig):
         self.audiopaths_and_text = load_filepaths_and_text(audiopaths_and_text)
         self.max_wav_value = hparams.max_wav_value
         self.sampling_rate = hparams.sampling_rate
@@ -328,6 +329,8 @@ class TextAudioLoader(torch.utils.data.Dataset):
 class TextAudioCollate:
     """Zero-pads model inputs and targets"""
 
+    return_ids: bool
+
     def __init__(self, return_ids=False):
         self.return_ids = return_ids
 
@@ -397,14 +400,22 @@ class DistributedBucketSampler(DistributedSampler):
     Ex) boundaries = [b1, b2, b3] -> any x s.t. length(x) <= b1 or length(x) > b3 are discarded.
     """
 
+    lengths: list[int]
+    batch_size: int
+    boundaries: list[int]
+    buckets: list[list[int]]
+    num_samples_per_bucket: list[int]
+    total_size: int
+    num_samples: int
+
     def __init__(
         self,
-        dataset,
-        batch_size,
-        boundaries,
-        num_replicas=None,
-        rank=None,
-        shuffle=True,
+        dataset: TextAudioLoaderMultiNSFsid | TextAudioLoader,
+        batch_size: int,
+        boundaries: list[int],
+        num_replicas: int | None = None,
+        rank: int | None = None,
+        shuffle: bool = True,
     ):
         super().__init__(dataset, num_replicas=num_replicas, rank=rank, shuffle=shuffle)
         self.lengths = dataset.lengths

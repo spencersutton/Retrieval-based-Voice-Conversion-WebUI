@@ -419,7 +419,7 @@ def _click_train(
 
 
 def _train_index(project_dir: Path, version: str) -> Generator[str, None, str]:
-    project_dir = "logs" / project_dir
+    project_dir = Path("logs") / project_dir
     project_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = (
         project_dir / "3_feature256"
@@ -472,9 +472,12 @@ def _train_index(project_dir: Path, version: str) -> Generator[str, None, str]:
     index_ivf = faiss.extract_index_ivf(index)
     index_ivf.nprobe = 1
     index.train(big_npy)
+    file_name = (
+        f"IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{project_dir.stem}_{version}.index"
+    )
     faiss.write_index(
         index,
-        f"{project_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{project_dir}_{version}.index",
+        f"{project_dir}/trained_{file_name}.index",
     )
     infos.append("adding")
     yield "\n".join(infos)
@@ -483,24 +486,21 @@ def _train_index(project_dir: Path, version: str) -> Generator[str, None, str]:
         index.add(big_npy[i : i + batch_size_add])
     faiss.write_index(
         index,
-        f"{project_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{project_dir}_{version}.index",
+        f"{project_dir}/added_{file_name}.index",
     )
-    infos.append(
-        f"成功构建索引 added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{project_dir}_{version}.index"
-    )
+    infos.append(f"Successfully built index: added_{file_name}.index")
     try:
-        file_name = (
-            f"IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{project_dir}_{version}.index"
-        )
-        source_path = Path(project_dir) / f"added_{file_name}"
-        target_path = outside_index_root / f"{project_dir}_{file_name}"
+        source_path = project_dir / f"added_{file_name}"
+        target_path = outside_index_root / f"{project_dir.stem}_{file_name}"
         if platform.system() == "Windows":
-            source_path.hardlink_to(target_path)
+            target_path.hardlink_to(source_path)
         else:
-            source_path.symlink_to(target_path)
-        infos.append(f"链接索引到外部-{outside_index_root}")
+            target_path.symlink_to(source_path)
+        infos.append(f"Linked index to external directory - {outside_index_root}")
     except:
-        infos.append(f"链接索引到外部-{outside_index_root}失败")
+        infos.append(
+            f"Failed to link index to external directory - {outside_index_root}"
+        )
 
     yield "\n".join(infos)
     return "Index training complete."
@@ -764,7 +764,10 @@ if __name__ == "__main__":
             i18n("Train Feature Index"), variant="primary"
         )
         output_info_textbox = gr.Textbox(
-            label=i18n("Output Information"), value="", max_lines=10
+            label=i18n("Output Information"),
+            value="",
+            lines=4,
+            max_lines=10,
         )
 
         train_model.click(

@@ -140,15 +140,14 @@ def load_wav_to_torch(full_path):
     return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
 
-def load_filepaths_and_text(filename, split="|"):
+def load_filepaths_and_text(filename: Path, split="|"):
     try:
-        with Path(filename).open(encoding="utf-8") as f:
+        with filename.open(encoding="utf-8") as f:
             filepaths_and_text = [line.strip().split(split) for line in f]
     except UnicodeDecodeError:
-        with Path(filename).open() as f:
+        with filename.open() as f:
             filepaths_and_text = [line.strip().split(split) for line in f]
 
-    return filepaths_and_text
     return filepaths_and_text
 
 
@@ -251,7 +250,7 @@ def get_hparams(init=True):
     hparams.if_latest = args.if_latest
     hparams.save_every_weights = args.save_every_weights
     hparams.if_cache_data_in_gpu = args.if_cache_data_in_gpu
-    hparams.data.training_files = "%s/filelist.txt" % experiment_dir
+    hparams.data.training_files = Path(experiment_dir) / "filelist.txt"
     return hparams
 
 
@@ -302,7 +301,7 @@ class DataConfig:
     n_mel_channels: int = 128
     mel_fmin: float = 0.0
     mel_fmax: Optional[float] = None
-    training_files: str = ""
+    training_files: Path = Path()
 
 
 @dataclass
