@@ -308,13 +308,12 @@ def _change_sr(sr: str, if_f0: bool, version: str) -> tuple[str, str]:
     return _get_pretrained_models(path_str, f0_str, sr)
 
 
-def _change_f0(
-    if_f0: bool, sample_rate: str, version19: str
-) -> tuple[dict[str, Any], dict[str, Any], str, str]:
-    path_str = "" if version19 == "v1" else "_v2"
+def _change_f0(if_f0: bool, sample_rate: str, version: str):
+    path_str = "" if version == "v1" else "_v2"
+    update: dict[str, bool | str] = {"visible": if_f0, "__type__": "update"}
     return (
-        {"visible": if_f0, "__type__": "update"},
-        {"visible": if_f0, "__type__": "update"},
+        update,
+        update,
         *_get_pretrained_models(path_str, "f0" if if_f0 else "", sample_rate),
     )
 
