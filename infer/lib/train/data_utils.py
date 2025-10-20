@@ -5,6 +5,7 @@ import traceback
 import numpy as np
 import torch
 import torch.utils.data
+from torch.utils.data.distributed import DistributedSampler
 
 from infer.lib.train.mel_processing import spectrogram_torch
 from infer.lib.train.utils import load_filepaths_and_text, load_wav_to_torch
@@ -398,7 +399,7 @@ class TextAudioCollate:
         )
 
 
-class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
+class DistributedBucketSampler(DistributedSampler):
     """
     Maintain similar input lengths in a batch.
     Length groups are specified by boundaries.
