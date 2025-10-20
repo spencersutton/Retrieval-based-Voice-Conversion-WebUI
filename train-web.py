@@ -13,6 +13,7 @@ from pathlib import Path
 from random import shuffle
 from subprocess import Popen
 from time import sleep
+from typing import Any
 
 import faiss
 import gradio as gr
@@ -54,7 +55,7 @@ config = Config()
 
 if config.dml:
 
-    def forward_dml(ctx, x, scale):
+    def forward_dml(ctx: Any, x: torch.Tensor, scale: float) -> torch.Tensor:
         ctx.scale = scale
         return x.clone().detach()
 
@@ -64,7 +65,7 @@ i18n = I18nAuto()
 logger.info(i18n)
 
 
-def get_gpu_info():
+def get_gpu_info() -> str:
     n_gpu = torch.cuda.device_count()
     details = []
     if torch.cuda.is_available() and n_gpu > 0:
@@ -76,13 +77,15 @@ def get_gpu_info():
 
 
 # Module-level worker functions for multiprocessing
-def _worker_process_f0_gpu(paths: list, log_file: Path, gpu_id: str):
+def _worker_process_f0_gpu(paths: list[Any], log_file: Path, gpu_id: str) -> None:
     """Worker function for GPU-based F0 extraction."""
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
     FeatureExtractor().extract_f0_for_files(paths, "rmvpe_gpu", log_file, device="cuda")
 
 
-def _worker_process_f0_cpu(paths: list, log_file: Path, extract_method: str):
+def _worker_process_f0_cpu(
+    paths: list[Any], log_file: Path, extract_method: str
+) -> None:
     """Worker function for CPU-based F0 extraction."""
     FeatureExtractor().extract_f0_for_files(
         paths, extract_method, log_file, device="cpu"
@@ -90,8 +93,8 @@ def _worker_process_f0_cpu(paths: list, log_file: Path, extract_method: str):
 
 
 def _worker_process_features_gpu(
-    paths: list, log_file: Path, gpu_id: str, version: str
-):
+    paths: list[Any], log_file: Path, gpu_id: str, version: str
+) -> None:
     """Worker function for GPU-based feature extraction."""
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
     FeatureExtractor().extract_model_features_for_files(paths, log_file, version)
@@ -99,7 +102,7 @@ def _worker_process_features_gpu(
 
 def _preprocess_dataset(
     training_file: gr.FileData, exp_dir: str, sample_rate_str: str, n_p: int
-):
+) -> Generator[str, None, None]:
     """Preprocess dataset by resampling audio files."""
     training_dir = Path(str(training_file)).parent
     sr = int(sample_rate_str[:-1]) * 1000
@@ -132,7 +135,7 @@ def _extract_pitch_features(
     project_dir: str | Path,
     version: str,
     gpu_ids_rmvpe: str,
-) -> Generator[str]:
+) -> Generator[str, None, None]:
     """Extract pitch features and model features using parallel processing."""
     log_dir = cwd / "logs" / project_dir
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -261,7 +264,9 @@ def _extract_pitch_features(
 _GPUVisible = not config.dml
 
 
-def _get_pretrained_models(path_str, f0_str, sample_rate):
+def _get_pretrained_models(
+    path_str: str, f0_str: str, sample_rate: str
+) -> tuple[str, str]:
     if_pretrained_generator_exist = os.access(
         f"assets/pretrained{path_str}/{f0_str}G{sample_rate}.pth", os.F_OK
     )
@@ -296,14 +301,16 @@ def _get_pretrained_models(path_str, f0_str, sample_rate):
     )
 
 
-def _change_sr(sr, if_f0, version):
+def _change_sr(sr: str, if_f0: bool, version: str) -> tuple[str, str]:
     """Change sample rate and return corresponding pretrained model paths."""
     path_str = "" if version == "v1" else "_v2"
     f0_str = "f0" if if_f0 else ""
     return _get_pretrained_models(path_str, f0_str, sr)
 
 
-def _change_f0(if_f0, sample_rate, version19):
+def _change_f0(
+    if_f0: bool, sample_rate: str, version19: str
+) -> tuple[dict[str, Any], dict[str, Any], str, str]:
     path_str = "" if version19 == "v1" else "_v2"
     return (
         {"visible": if_f0, "__type__": "update"},
@@ -312,7 +319,9 @@ def _change_f0(if_f0, sample_rate, version19):
     )
 
 
-def _change_version(sample_rate, if_f0, version):
+def _change_version(
+    sample_rate: str, if_f0: bool, version: str
+) -> tuple[str, str, dict[str, Any]]:
     path_str = "" if version == "v1" else "_v2"
     if sample_rate == "32k" and version == "v1":
         sample_rate = "40k"
@@ -335,19 +344,19 @@ def _change_version(sample_rate, if_f0, version):
 def _click_train(
     project_dir: str,
     sr: str,
-    if_f0,
-    spk_id,
-    save_epoch,
-    total_epoch,
-    batch_size,
-    if_save_latest,
-    pretrained_G14,
-    pretrained_D15,
-    gpus,
-    if_cache_gpu,
-    if_save_every_weights,
-    version,
-):
+    if_f0: bool,
+    spk_id: int,
+    save_epoch: int,
+    total_epoch: int,
+    batch_size: int,
+    if_save_latest: str,
+    pretrained_G14: str,
+    pretrained_D15: str,
+    gpus: str,
+    if_cache_gpu: str,
+    if_save_every_weights: str,
+    version: str,
+) -> str:
     p_dir = Path.cwd() / "logs" / project_dir
     p_dir.mkdir(parents=True, exist_ok=True)
     """Project directory"""
