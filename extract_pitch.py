@@ -425,14 +425,14 @@ def _train_index(exp_dir1, version19):  # noqa: PLR0915
         exp_dir / "3_feature256" if version19 == "v1" else exp_dir / "3_feature768"
     )
     if not feature_dir.exists():
-        return "请先进行特征提取!"
+        return "Please extract features first!"
     listdir_res = list(feature_dir.iterdir())
     if len(listdir_res) == 0:
-        return "请先进行特征提取！"
+        return "Please extract features first!"
     infos = []
     npys = []
     for name in sorted(listdir_res):
-        phone = np.load(f"{feature_dir}/{name}")
+        phone = np.load(name)
         npys.append(phone)
     big_npy = np.concatenate(npys, 0)
     big_npy_idx = np.arange(big_npy.shape[0])
