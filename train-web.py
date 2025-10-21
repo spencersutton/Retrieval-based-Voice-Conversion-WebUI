@@ -332,7 +332,7 @@ def _click_train(
     if_save_every_weights: str,
     version: str,
 ) -> str:
-    p_dir = Path.cwd() / "logs" / project_dir
+    p_dir = cwd / "logs" / project_dir
     p_dir.mkdir(parents=True, exist_ok=True)
     """Project directory"""
     gt_wavs_dir = p_dir / "0_gt_wavs"
@@ -362,12 +362,12 @@ def _click_train(
     if if_f0:
         for _ in range(2):
             opt.append(
-                f"{Path.cwd()}/logs/mute/0_gt_wavs/mute{sr}.wav|{Path.cwd()}/logs/mute/3_feature{fea_dim}/mute.npy|{Path.cwd()}/logs/mute/2a_f0/mute.wav.npy|{Path.cwd()}/logs/mute/2b-f0nsf/mute.wav.npy|{spk_id}"
+                f"{cwd}/logs/mute/0_gt_wavs/mute{sr}.wav|{cwd}/logs/mute/3_feature{fea_dim}/mute.npy|{cwd}/logs/mute/2a_f0/mute.wav.npy|{cwd}/logs/mute/2b-f0nsf/mute.wav.npy|{spk_id}"
             )
     else:
         for _ in range(2):
             opt.append(
-                f"{Path.cwd()}/logs/mute/0_gt_wavs/mute{sr}.wav|{Path.cwd()}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id}"
+                f"{cwd}/logs/mute/0_gt_wavs/mute{sr}.wav|{cwd}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id}"
             )
     shuffle(opt)
     with (p_dir / "filelist.txt").open("w") as f:
@@ -398,7 +398,7 @@ def _click_train(
     else:
         cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{project_dir}" -sr {sr} -f0 {1 if if_f0 else 0} -bs {batch_size} -te {total_epoch} -se {save_epoch} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest == i18n("是") else 0} -c {1 if if_cache_gpu == i18n("是") else 0} -sw {1 if if_save_every_weights == i18n("是") else 0} -v {version}'
     logger.info("Execute: %s", cmd)
-    p = Popen(cmd, shell=True, cwd=Path.cwd())
+    p = Popen(cmd, shell=True, cwd=cwd)
     p.wait()
     return "Training complete. You can view the training log in the console or in the train.log file in the experiment folder."
 
