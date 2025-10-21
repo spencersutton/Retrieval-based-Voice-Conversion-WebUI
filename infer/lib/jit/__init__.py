@@ -5,18 +5,6 @@ from io import BytesIO
 from pathlib import Path
 
 import torch
-from tqdm import tqdm
-
-
-def _load_inputs(path, device, is_half=False):
-    parm = torch.load(path, map_location=torch.device("cpu"))
-    for key in parm.keys():
-        parm[key] = parm[key].to(device)
-        if is_half and parm[key].dtype == torch.float32:
-            parm[key] = parm[key].half()
-        elif not is_half and parm[key].dtype == torch.float16:
-            parm[key] = parm[key].float()
-    return parm
 
 
 def _export(
