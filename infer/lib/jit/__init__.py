@@ -21,8 +21,6 @@ def _load_inputs(path, device, is_half=False):
 
 def _export(
     model: torch.nn.Module,
-    mode: str = "trace",
-    inputs: dict | None = None,
     device=None,
     is_half: bool = False,
 ) -> dict:
@@ -30,11 +28,7 @@ def _export(
         device = torch.device("cpu")
     model = model.half() if is_half else model.float()
     model.eval()
-    if mode == "trace":
-        assert inputs is not None
-        model_jit = torch.jit.trace(model, example_kwarg_inputs=inputs)
-    elif mode == "script":
-        model_jit = torch.jit.script(model)
+    model_jit = torch.jit.script(model)
     model_jit.to(device)
     model_jit = model_jit.half() if is_half else model_jit.float()
     buffer = BytesIO()
@@ -59,8 +53,6 @@ def _save(ckpt: dict, save_path: str):
 
 def rmvpe_jit_export(
     model_path: str,
-    mode: str = "script",
-    inputs_path: str | None = None,
     save_path: str | None = None,
     device=None,
     is_half=False,
@@ -75,10 +67,7 @@ def rmvpe_jit_export(
     from .get_rmvpe import get_rmvpe
 
     model = get_rmvpe(model_path, device)
-    inputs = None
-    if mode == "trace":
-        inputs = _load_inputs(inputs_path, device, is_half)
-    ckpt = _export(model, mode, inputs, device, is_half)
+    ckpt = _export(model, device, is_half)
     ckpt["device"] = str(device)
     _save(ckpt, save_path)
     return ckpt

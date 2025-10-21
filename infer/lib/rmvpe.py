@@ -525,8 +525,6 @@ class RMVPE:
                 if reload:
                     ckpt = jit.rmvpe_jit_export(
                         model_path=model_path,
-                        mode="script",
-                        inputs_path=None,
                         save_path=jit_model_path,
                         device=device,
                         is_half=is_half,
