@@ -5,6 +5,7 @@ from pathlib import Path
 from time import time as ttime
 
 import numpy as np
+import onnxruntime as ort
 import torch
 import torch.nn.functional as F
 from librosa.filters import mel
@@ -28,6 +29,9 @@ logger = logging.getLogger(__name__)
 
 
 class _STFT(torch.nn.Module):
+    inverse_basis: torch.Tensor
+    forward_basis: torch.Tensor
+
     def __init__(
         self, filter_length=1024, hop_length=512, win_length=None, window="hann"
     ):
@@ -411,6 +415,8 @@ class E2E(nn.Module):
 
 
 class _MelSpectrogram(torch.nn.Module):
+    mel_basis: torch.Tensor
+
     def __init__(
         self,
         is_half,
@@ -476,6 +482,7 @@ class _MelSpectrogram(torch.nn.Module):
             magnitude = torch.sqrt(fft.real.pow(2) + fft.imag.pow(2))
         if keyshift != 0:
             size = self.n_fft // 2 + 1
+            assert isinstance(magnitude, torch.Tensor)
             resize = magnitude.size(1)
             if resize < size:
                 magnitude = F.pad(magnitude, (0, 0, 0, size - resize))
@@ -499,8 +506,6 @@ class RMVPE:
             is_half, 128, 16000, 1024, 160, None, 30, 8000
         ).to(device)
         if "privateuseone" in str(device):
-            import onnxruntime as ort
-
             ort_session = ort.InferenceSession(
                 "%s/rmvpe.onnx" % os.environ["rmvpe_root"],
                 providers=["DmlExecutionProvider"],
