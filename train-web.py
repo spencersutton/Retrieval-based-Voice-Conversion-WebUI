@@ -393,10 +393,36 @@ def _click_train(
                 sort_keys=True,
             )
             f.write("\n")
+    # Build training command with conditional parameters
+    base_cmd = (
+        f'"{config.python_cmd}" infer/modules/train/train.py '
+        f'-e "{project_dir}" '
+        f"-sr {sr} "
+        f"-f0 {1 if if_f0 else 0} "
+        f"-bs {batch_size} "
+        f"-te {total_epoch} "
+        f"-se {save_epoch} "
+    )
+
+    # Add optional pretrained model paths
+    pretrained_args = (
+        f'{f"-pg {pretrained_G14}" if pretrained_G14 else ""} '
+        f'{f"-pd {pretrained_D15}" if pretrained_D15 else ""}'
+    ).strip()
+
+    # Add boolean flags (handle i18n Yes/No strings)
+    flags = (
+        f'-l {1 if if_save_latest == i18n("是") else 0} '
+        f'-c {1 if if_cache_gpu == i18n("是") else 0} '
+        f'-sw {1 if if_save_every_weights == i18n("是") else 0} '
+        f"-v {version}"
+    )
+
+    # Add GPU specification if available
     if gpus:
-        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{project_dir}" -sr {sr} -f0 {1 if if_f0 else 0} -bs {batch_size} -g {gpus} -te {total_epoch} -se {save_epoch} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest == i18n("是") else 0} -c {1 if if_cache_gpu == i18n("是") else 0} -sw {1 if if_save_every_weights == i18n("是") else 0} -v {version}'
+        cmd = f"{base_cmd}-g {gpus} {pretrained_args} {flags}".strip()
     else:
-        cmd = f'"{config.python_cmd}" infer/modules/train/train.py -e "{project_dir}" -sr {sr} -f0 {1 if if_f0 else 0} -bs {batch_size} -te {total_epoch} -se {save_epoch} {f"-pg {pretrained_G14}" if pretrained_G14 != "" else ""} {f"-pd {pretrained_D15}" if pretrained_D15 != "" else ""} -l {1 if if_save_latest == i18n("是") else 0} -c {1 if if_cache_gpu == i18n("是") else 0} -sw {1 if if_save_every_weights == i18n("是") else 0} -v {version}'
+        cmd = f"{base_cmd}{pretrained_args} {flags}".strip()
     logger.info("Execute: %s", cmd)
     p = Popen(cmd, shell=True, cwd=cwd)
     p.wait()
