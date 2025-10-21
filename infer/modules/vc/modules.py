@@ -1,15 +1,11 @@
 import logging
+import os
 import traceback
 
-logger = logging.getLogger(__name__)
-
-from io import BytesIO
-
 import numpy as np
-import soundfile as sf
 import torch
 
-from infer.lib.audio import load_audio, wav2
+from infer.lib.audio import load_audio
 from infer.lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid,
     SynthesizerTrnMs256NSFsid_nono,
@@ -17,7 +13,9 @@ from infer.lib.infer_pack.models import (
     SynthesizerTrnMs768NSFsid_nono,
 )
 from infer.modules.vc.pipeline import Pipeline
-from infer.modules.vc.utils import *
+from infer.modules.vc.utils import get_index_path_from_model, load_hubert
+
+logger = logging.getLogger(__name__)
 
 
 class VC:
@@ -224,82 +222,3 @@ class VC:
             info = traceback.format_exc()
             logger.warning(info)
             return info, (None, None)
-
-    def vc_multi(
-        self,
-        sid,
-        dir_path,
-        opt_root,
-        paths,
-        f0_up_key,
-        f0_method,
-        file_index,
-        file_index2,
-        index_rate,
-        filter_radius,
-        resample_sr,
-        rms_mix_rate,
-        protect,
-        format1,
-    ):
-        try:
-            dir_path = (
-                dir_path.strip(" ").strip('"').strip("\n").strip('"').strip(" ")
-            )  # 防止小白拷路径头尾带了空格和"和回车
-            opt_root = opt_root.strip(" ").strip('"').strip("\n").strip('"').strip(" ")
-            os.makedirs(opt_root, exist_ok=True)
-            try:
-                if dir_path != "":
-                    paths = [
-                        os.path.join(dir_path, name) for name in os.listdir(dir_path)
-                    ]
-                else:
-                    paths = [path.name for path in paths]
-            except:
-                traceback.print_exc()
-                paths = [path.name for path in paths]
-            infos = []
-            for path in paths:
-                info, opt = self.vc_single(
-                    sid,
-                    path,
-                    f0_up_key,
-                    None,
-                    f0_method,
-                    file_index,
-                    file_index2,
-                    # file_big_npy,
-                    index_rate,
-                    filter_radius,
-                    resample_sr,
-                    rms_mix_rate,
-                    protect,
-                )
-                if "Success" in info:
-                    try:
-                        tgt_sr, audio_opt = opt
-                        if format1 in ["wav", "flac"]:
-                            sf.write(
-                                "%s/%s.%s"
-                                % (opt_root, os.path.basename(path), format1),
-                                audio_opt,
-                                tgt_sr,
-                            )
-                        else:
-                            path = "%s/%s.%s" % (
-                                opt_root,
-                                os.path.basename(path),
-                                format1,
-                            )
-                            with BytesIO() as wavf:
-                                sf.write(wavf, audio_opt, tgt_sr, format="wav")
-                                wavf.seek(0, 0)
-                                with open(path, "wb") as outf:
-                                    wav2(wavf, outf, format1)
-                    except:
-                        info += traceback.format_exc()
-                infos.append("%s->%s" % (os.path.basename(path), info))
-                yield "\n".join(infos)
-            yield "\n".join(infos)
-        except:
-            yield traceback.format_exc()
