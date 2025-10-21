@@ -243,7 +243,6 @@ def _run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
                 hps,
                 [net_g, net_d],
                 [optim_g, optim_d],
-                [scheduler_g, scheduler_d],
                 scaler,
                 [train_loader, None],
                 logger,
@@ -257,7 +256,6 @@ def _run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
                 hps,
                 [net_g, net_d],
                 [optim_g, optim_d],
-                [scheduler_g, scheduler_d],
                 scaler,
                 [train_loader, None],
                 None,
@@ -269,8 +267,17 @@ def _run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
 
 
 def _train_and_evaluate(
-    rank, epoch, hps, nets, optims, schedulers, scaler, loaders, logger, writers, cache
-):
+    rank: int,
+    epoch: int,
+    hps: utils.HParams,
+    nets: list,
+    optims: list,
+    scaler: GradScaler,
+    loaders: list,
+    logger: logging.Logger | None,
+    writers: list | None,
+    cache: list,
+) -> None:
     net_g, net_d = nets
     optim_g, optim_d = optims
     train_loader, eval_loader = loaders
