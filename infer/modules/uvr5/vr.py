@@ -51,7 +51,7 @@ class AudioPre:
             os.makedirs(ins_root, exist_ok=True)
         if vocal_root is not None:
             os.makedirs(vocal_root, exist_ok=True)
-        X_wave, y_wave, X_spec_s, y_spec_s = {}, {}, {}, {}
+        X_wave, _y_wave, X_spec_s, _y_spec_s = {}, {}, {}, {}
         bands_n = len(self.mp.param["band"])
         # print(bands_n)
         for d in range(bands_n, 0, -1):
@@ -122,7 +122,7 @@ class AudioPre:
             else:
                 wav_instrument = spec_utils.cmb_spectrogram_to_wave(y_spec_m, self.mp)
             logger.info("%s instruments done" % name)
-            if is_hp3 == True:
+            if is_hp3:
                 head = "vocal_"
             else:
                 head = "instrument_"
@@ -155,7 +155,7 @@ class AudioPre:
                         except:
                             pass
         if vocal_root is not None:
-            if is_hp3 == True:
+            if is_hp3:
                 head = "instrument_"
             else:
                 head = "vocal_"
@@ -236,7 +236,7 @@ class AudioPreDeEcho:
             os.makedirs(ins_root, exist_ok=True)
         if vocal_root is not None:
             os.makedirs(vocal_root, exist_ok=True)
-        X_wave, y_wave, X_spec_s, y_spec_s = {}, {}, {}, {}
+        X_wave, X_spec_s = {}, {}
         bands_n = len(self.mp.param["band"])
         # print(bands_n)
         for d in range(bands_n, 0, -1):

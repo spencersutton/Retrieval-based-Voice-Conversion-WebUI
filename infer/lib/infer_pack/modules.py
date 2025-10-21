@@ -192,7 +192,7 @@ class WN(torch.nn.Module):
             g = self.cond_layer(g)
 
         for i, (in_layer, res_skip_layer) in enumerate(
-            zip(self.in_layers, self.res_skip_layers)
+            zip(self.in_layers, self.res_skip_layers, strict=False)
         ):
             x_in = in_layer(x)
             if g is not None:
@@ -323,7 +323,7 @@ class ResBlock1(torch.nn.Module):
         self.lrelu_slope = LRELU_SLOPE
 
     def forward(self, x: torch.Tensor, x_mask: Optional[torch.Tensor] = None):
-        for c1, c2 in zip(self.convs1, self.convs2):
+        for c1, c2 in zip(self.convs1, self.convs2, strict=False):
             xt = F.leaky_relu(x, self.lrelu_slope)
             if x_mask is not None:
                 xt = xt * x_mask

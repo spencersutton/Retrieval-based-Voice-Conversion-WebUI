@@ -35,7 +35,7 @@ class Encoder(nn.Module):
         self.norm_layers_1 = nn.ModuleList()
         self.ffn_layers = nn.ModuleList()
         self.norm_layers_2 = nn.ModuleList()
-        for i in range(self.n_layers):
+        for _ in range(self.n_layers):
             self.attn_layers.append(
                 _MultiHeadAttention(
                     hidden_channels,
@@ -61,7 +61,11 @@ class Encoder(nn.Module):
         attn_mask = x_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
         x = x * x_mask
         zippep = zip(
-            self.attn_layers, self.norm_layers_1, self.ffn_layers, self.norm_layers_2
+            self.attn_layers,
+            self.norm_layers_1,
+            self.ffn_layers,
+            self.norm_layers_2,
+            strict=False,
         )
         for attn_layers, norm_layers_1, ffn_layers, norm_layers_2 in zippep:
             y = attn_layers(x, x, attn_mask)
@@ -105,7 +109,7 @@ class _Decoder(nn.Module):
         self.norm_layers_1 = nn.ModuleList()
         self.ffn_layers = nn.ModuleList()
         self.norm_layers_2 = nn.ModuleList()
-        for i in range(self.n_layers):
+        for _ in range(self.n_layers):
             self.self_attn_layers.append(
                 _MultiHeadAttention(
                     hidden_channels,
@@ -243,9 +247,9 @@ class _MultiHeadAttention(nn.Module):
 
         scores = torch.matmul(query / math.sqrt(self.k_channels), key.transpose(-2, -1))
         if self.window_size is not None:
-            assert (
-                t_s == t_t
-            ), "Relative attention is only available for self-attention."
+            assert t_s == t_t, (
+                "Relative attention is only available for self-attention."
+            )
             key_relative_embeddings = self._get_relative_embeddings(self.emb_rel_k, t_s)
             rel_logits = self._matmul_with_relative_keys(
                 query / math.sqrt(self.k_channels), key_relative_embeddings
@@ -260,9 +264,9 @@ class _MultiHeadAttention(nn.Module):
         if mask is not None:
             scores = scores.masked_fill(mask == 0, -1e4)
             if self.block_length is not None:
-                assert (
-                    t_s == t_t
-                ), "Local attention is only available for self-attention."
+                assert t_s == t_t, (
+                    "Local attention is only available for self-attention."
+                )
                 block_mask = (
                     torch.ones_like(scores)
                     .triu(-self.block_length)
@@ -304,7 +308,6 @@ class _MultiHeadAttention(nn.Module):
         return ret
 
     def _get_relative_embeddings(self, relative_embeddings, length: int):
-        max_relative_position = 2 * self.window_size + 1
         # Pad first before slice to avoid using cond ops.
         pad_length: int = max(length - (self.window_size + 1), 0)
         slice_start_position = max((self.window_size + 1) - length, 0)

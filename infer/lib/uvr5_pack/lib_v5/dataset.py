@@ -46,7 +46,7 @@ def make_pair(mix_dir, inst_dir):
         ]
     )
 
-    filelist = list(zip(X_list, y_list))
+    filelist = list(zip(X_list, y_list, strict=False))
 
     return filelist
 
@@ -157,7 +157,7 @@ def make_validation_set(filelist, cropsize, sr, hop_length, n_fft, offset):
     )
     os.makedirs(patch_dir, exist_ok=True)
 
-    for i, (X_path, y_path) in enumerate(tqdm(filelist)):
+    for _, (X_path, y_path) in enumerate(tqdm(filelist)):
         basename = os.path.splitext(os.path.basename(X_path))[0]
 
         X, y = spec_utils.cache_or_load(X_path, y_path, sr, hop_length, n_fft)

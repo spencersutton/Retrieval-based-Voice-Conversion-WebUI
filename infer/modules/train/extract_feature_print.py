@@ -82,7 +82,7 @@ def readwave(wav_path, normalize=False):
 # HuBERT model
 printt("load model(s) from {}".format(model_path))
 # if hubert model is exist
-if os.access(model_path, os.F_OK) == False:
+if not os.access(model_path, os.F_OK):
     printt(
         "Error: Extracting is shut down because %s does not exist, you may download it from https://huggingface.co/lj1995/VoiceConversionWebUI/tree/main"
         % model_path
@@ -100,7 +100,7 @@ if is_half:
         model = model.half()
 model.eval()
 
-todo = sorted(list(os.listdir(wavPath)))[i_part::n_part]
+todo = sorted(os.listdir(wavPath))[i_part::n_part]
 n = max(1, len(todo) // 10)  # 最多打印十条
 if len(todo) == 0:
     printt("no-feature-todo")

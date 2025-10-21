@@ -406,15 +406,15 @@ def _click_train(
 
     # Add optional pretrained model paths
     pretrained_args = (
-        f'{f"-pg {pretrained_G14}" if pretrained_G14 else ""} '
-        f'{f"-pd {pretrained_D15}" if pretrained_D15 else ""}'
+        f"{f'-pg {pretrained_G14}' if pretrained_G14 else ''} "
+        f"{f'-pd {pretrained_D15}' if pretrained_D15 else ''}"
     ).strip()
 
     # Add boolean flags (handle i18n Yes/No strings)
     flags = (
-        f'-l {1 if if_save_latest == i18n("是") else 0} '
-        f'-c {1 if if_cache_gpu == i18n("是") else 0} '
-        f'-sw {1 if if_save_every_weights == i18n("是") else 0} '
+        f"-l {1 if if_save_latest == i18n('是') else 0} "
+        f"-c {1 if if_cache_gpu == i18n('是') else 0} "
+        f"-sw {1 if if_save_every_weights == i18n('是') else 0} "
         f"-v {version}"
     )
 

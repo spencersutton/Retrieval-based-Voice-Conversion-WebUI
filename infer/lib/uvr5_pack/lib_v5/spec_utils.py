@@ -173,7 +173,7 @@ def mask_silence(mag, ref, thres=0.2, min_range=64, fade_size=32):
         starts = starts[uninformative]
         ends = ends[uninformative]
         old_e = None
-        for s, e in zip(starts, ends):
+        for s, e in zip(starts, ends, strict=False):
             if old_e is not None and s - old_e < fade_size:
                 s = old_e - fade_size * 2
 
@@ -351,7 +351,6 @@ def spectrogram_to_wave_mt(spec, hop_length, mid_side, reverse, mid_side_b2):
 
 
 def cmb_spectrogram_to_wave(spec_m, mp, extra_bins_h=None, extra_bins=None):
-    wave_band = {}
     bands_n = len(mp.param["band"])
     offset = 0
 
@@ -515,15 +514,6 @@ def stft(wave, nfft, hl):
     spec = np.asfortranarray([spec_left, spec_right])
 
     return spec
-
-
-def istft(spec, hl):
-    spec_left = np.asfortranarray(spec[0])
-    spec_right = np.asfortranarray(spec[1])
-
-    wave_left = librosa.istft(spec_left, hop_length=hl)
-    wave_right = librosa.istft(spec_right, hop_length=hl)
-    wave = np.asfortranarray([wave_left, wave_right])
 
 
 if __name__ == "__main__":
