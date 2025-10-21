@@ -5,12 +5,12 @@ from pathlib import Path
 import ffmpeg
 import numpy as np
 import parselmouth
+import pyworld
 import soundfile as sf
 import torch
 import torch.nn.functional as F
 from fairseq import checkpoint_utils
 
-import pyworld
 from configs.config import Config
 
 logger = logging.getLogger(__name__)

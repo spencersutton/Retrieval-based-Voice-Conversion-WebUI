@@ -270,7 +270,7 @@ def get_logger(model_dir, filename="train.log"):
 
 
 @dataclass
-class TrainConfig:
+class _TrainConfig:
     """Training hyperparameters configuration."""
 
     log_interval: int = 200
@@ -305,7 +305,7 @@ class DataConfig:
 
 
 @dataclass
-class ModelConfig:
+class _ModelConfig:
     """Model architecture hyperparameters configuration."""
 
     inter_channels: int = 192
@@ -332,9 +332,9 @@ class ModelConfig:
 class HParams:
     """Complete hyperparameters configuration combining train, data, and model configs."""
 
-    train: TrainConfig = field(default_factory=TrainConfig)
+    train: _TrainConfig = field(default_factory=_TrainConfig)
     data: DataConfig = field(default_factory=DataConfig)
-    model: ModelConfig = field(default_factory=ModelConfig)
+    model: _ModelConfig = field(default_factory=_ModelConfig)
 
     # Additional runtime parameters
     model_dir: str = ""
@@ -360,7 +360,7 @@ class HParams:
         model_config = data.get("model", {})
 
         return cls(
-            train=TrainConfig(**train_config),
+            train=_TrainConfig(**train_config),
             data=DataConfig(**data_config),
-            model=ModelConfig(**model_config),
+            model=_ModelConfig(**model_config),
         )
