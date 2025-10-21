@@ -2,6 +2,8 @@ import os
 import sys
 import traceback
 from io import BytesIO
+from multiprocessing import Manager as M
+from pathlib import Path
 from time import time as ttime
 
 import fairseq
@@ -12,20 +14,15 @@ import pyworld
 import torch
 import torch.nn.functional as F
 import torchcrepe
+from fairseq.modules import grad_multiply
 from scipy import signal
 from torch import nn
 from torchaudio.transforms import Resample
 
+sys.path.append(str(Path.cwd()))
+from configs.config import Config
 from infer.lib import jit
 from infer.lib.jit.get_synthesizer import get_synthesizer
-
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-from multiprocessing import Manager as M
-
-from configs.config import Config
-
-# config = Config()
 
 mm = M()
 
@@ -54,22 +51,21 @@ class RVC:
         last_rvc=None,
     ) -> None:
         """
-        初始化
+        Initialize the RVC class.
         """
         try:
-            if config.dml == True:
+            if config.dml:
 
                 def forward_dml(ctx, x, scale):
                     ctx.scale = scale
                     res = x.clone().detach()
                     return res
 
-                fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
+                grad_multiply.GradMultiply.forward = forward_dml
             # global config
             self.config = config
             self.inp_q = inp_q
             self.opt_q = opt_q
-            # device="cpu"########强制cpu测试
             self.device = config.device
             self.f0_up_key = key
             self.formant_shift = formant
