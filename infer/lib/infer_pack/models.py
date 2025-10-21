@@ -81,6 +81,8 @@ class TextEncoder(nn.Module):
 
 
 class ResidualCouplingBlock(nn.Module):
+    flows: nn.ModuleList
+
     def __init__(
         self,
         channels,
@@ -132,7 +134,9 @@ class ResidualCouplingBlock(nn.Module):
 
     def remove_weight_norm(self):
         for i in range(self.n_flows):
-            self.flows[i * 2].remove_weight_norm()
+            flow = self.flows[i * 2]
+            assert isinstance(flow, modules.ResidualCouplingLayer)
+            flow.remove_weight_norm()
 
     def __prepare_scriptable__(self):
         for i in range(self.n_flows):
@@ -310,6 +314,7 @@ class Generator(torch.nn.Module):
         for l in self.ups:
             remove_weight_norm(l)
         for l in self.resblocks:
+            assert isinstance(l, modules.ResBlock1)
             l.remove_weight_norm()
 
 
@@ -578,6 +583,7 @@ class GeneratorNSF(torch.nn.Module):
         for x in self.ups:
             remove_weight_norm(x)
         for x in self.resblocks:
+            assert isinstance(x, modules.ResBlock1)
             x.remove_weight_norm()
 
     def __prepare_scriptable__(self):
@@ -727,7 +733,7 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
                     torch.nn.utils.remove_weight_norm(self.enc_q)
         return self
 
-    @torch.jit.ignore
+    @torch.jit.unused
     def forward(
         self,
         phone: torch.Tensor,
@@ -737,8 +743,7 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
         y: torch.Tensor,
         y_lengths: torch.Tensor,
         ds: Optional[torch.Tensor] = None,
-    ):  # 这里ds是id，[bs,1]
-        # print(1,pitch.shape)#[bs,t]
+    ):  # Here, ds is the id, [bs, 1]
         g = self.emb_g(ds).unsqueeze(-1)  # [b, 256, 1]##1是t，广播的
         m_p, logs_p, x_mask = self.enc_p(phone, pitch, phone_lengths)
         z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
@@ -746,9 +751,7 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
         z_slice, ids_slice = commons.rand_slice_segments(
             z, y_lengths, self.segment_size
         )
-        # print(-1,pitchf.shape,ids_slice,self.segment_size,self.hop_length,self.segment_size//self.hop_length)
         pitchf = commons.slice_segments2(pitchf, ids_slice, self.segment_size)
-        # print(-2,pitchf.shape,z_slice.shape)
         o = self.dec(z_slice, pitchf, g=g)
         return o, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
@@ -958,9 +961,11 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
                     torch.nn.utils.remove_weight_norm(self.enc_q)
         return self
 
-    @torch.jit.ignore
-    def forward(self, phone, phone_lengths, y, y_lengths, ds):  # 这里ds是id，[bs,1]
-        g = self.emb_g(ds).unsqueeze(-1)  # [b, 256, 1]##1是t，广播的
+    @torch.jit.unused
+    def forward(
+        self, phone, phone_lengths, y, y_lengths, ds
+    ):  # Here, ds is the id, [bs, 1]
+        g = self.emb_g(ds).unsqueeze(-1)  # [b, 256, 1]  ## 1 is t, broadcasted
         m_p, logs_p, x_mask = self.enc_p(phone, None, phone_lengths)
         z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
         z_p = self.flow(z, y_mask, g=g)

@@ -68,9 +68,9 @@ class _STFT(torch.nn.Module):
 
         assert filter_length >= self.win_length
         # get window and zero center pad it to filter_length
-        fft_window = get_window(window, self.win_length, fftbins=True)
-        fft_window = pad_center(fft_window, size=filter_length)
-        fft_window = torch.from_numpy(fft_window).float()
+        fft_window_arr: np.ndarray = get_window(window, self.win_length, fftbins=True)
+        fft_window_arr = pad_center(fft_window_arr, size=filter_length)
+        fft_window = torch.from_numpy(fft_window_arr).float()
 
         # window the bases
         forward_basis *= fft_window
@@ -137,6 +137,7 @@ class _STFT(torch.nn.Module):
         inverse_transform = fold(inverse_transform)[
             :, 0, 0, self.pad_amount : -self.pad_amount
         ]
+        assert not isinstance(self.fft_window, torch.Tensor)
         window_square_sum = (
             self.fft_window.pow(2).repeat(cat.size(-1), 1).T.unsqueeze(0)
         )
@@ -495,6 +496,8 @@ class _MelSpectrogram(torch.nn.Module):
 
 
 class RMVPE:
+    model: ort.InferenceSession | E2E
+
     def __init__(self, model_path: str, is_half, device=None, use_jit=False):
         self.resample_kernel = {}
         self.resample_kernel = {}
