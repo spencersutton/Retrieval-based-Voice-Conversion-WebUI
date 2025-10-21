@@ -53,7 +53,7 @@ else:
 torch.backends.cudnn.deterministic = False
 torch.backends.cudnn.benchmark = False
 
-if hps.version == "v1":  # type: ignore
+if hps.version == "v1":
     from infer.lib.infer_pack.models import MultiPeriodDiscriminator
     from infer.lib.infer_pack.models import SynthesizerTrnMs256NSFsid as RVC_Model_f0
     from infer.lib.infer_pack.models import (
@@ -63,18 +63,16 @@ else:
     from infer.lib.infer_pack.models import (
         MultiPeriodDiscriminatorV2 as MultiPeriodDiscriminator,
     )
-    from infer.lib.infer_pack.models import (
-        SynthesizerTrnMs768NSFsid as RVC_Model_f0,
-    )
+    from infer.lib.infer_pack.models import SynthesizerTrnMs768NSFsid as RVC_Model_f0
     from infer.lib.infer_pack.models import (
         SynthesizerTrnMs768NSFsid_nono as RVC_Model_nof0,
     )
 
 
-global_step = 0
+_global_step = 0
 
 
-class EpochRecorder:
+class _EpochRecorder:
     def __init__(self):
         self.last_time = ttime()
 
@@ -101,7 +99,7 @@ def main():
     children: list[mp.Process] = []
 
     for i in range(n_gpus):
-        subproc = mp.Process(target=run, args=(i, n_gpus, hps, logger))
+        subproc = mp.Process(target=_run, args=(i, n_gpus, hps, logger))
         children.append(subproc)
         subproc.start()
 
@@ -109,8 +107,8 @@ def main():
         children[i].join()
 
 
-def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
-    global global_step
+def _run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
+    global _global_step
     if rank == 0:
         logger.info(hps)
         writer = SummaryWriter(log_dir=hps.model_dir)
@@ -205,11 +203,11 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
         _, _, _, epoch_str = utils.load_checkpoint(
             utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g
         )
-        global_step = (epoch_str - 1) * len(train_loader)
+        _global_step = (epoch_str - 1) * len(train_loader)
     except:
         # Load pretrained models for first-time training
         epoch_str = 1
-        global_step = 0
+        _global_step = 0
         if hps.pretrainG != "":
             if rank == 0:
                 logger.info("loaded pretrained %s", hps.pretrainG)
@@ -239,7 +237,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
     cache = []
     for epoch in range(epoch_str, hps.train.epochs + 1):
         if rank == 0:
-            train_and_evaluate(
+            _train_and_evaluate(
                 rank,
                 epoch,
                 hps,
@@ -253,7 +251,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
                 cache,
             )
         else:
-            train_and_evaluate(
+            _train_and_evaluate(
                 rank,
                 epoch,
                 hps,
@@ -270,7 +268,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
         scheduler_d.step()
 
 
-def train_and_evaluate(
+def _train_and_evaluate(
     rank, epoch, hps, nets, optims, schedulers, scaler, loaders, logger, writers, cache
 ):
     net_g, net_d = nets
@@ -280,7 +278,7 @@ def train_and_evaluate(
         writer, writer_eval = writers
 
     train_loader.batch_sampler.set_epoch(epoch)
-    global global_step
+    global _global_step
 
     net_g.train()
     net_d.train()
@@ -368,7 +366,7 @@ def train_and_evaluate(
         data_iterator = enumerate(train_loader)
 
     # Run steps
-    epoch_recorder = EpochRecorder()
+    epoch_recorder = _EpochRecorder()
     for batch_idx, info in data_iterator:
         # Data
         ## Unpack
@@ -474,7 +472,7 @@ def train_and_evaluate(
         scaler.update()
 
         if rank == 0:
-            if global_step % hps.train.log_interval == 0:
+            if _global_step % hps.train.log_interval == 0:
                 lr = optim_g.param_groups[0]["lr"]
                 logger.info(
                     "Train Epoch: %d [%.0f%%]",
@@ -485,7 +483,7 @@ def train_and_evaluate(
                 loss_mel = min(loss_mel, 75)
                 loss_kl = min(loss_kl, 9)
 
-                logger.info([global_step, lr])
+                logger.info([_global_step, lr])
                 logger.info(
                     "loss_disc=%.3f, loss_gen=%.3f, loss_fm=%.3f, loss_mel=%.3f, loss_kl=%.3f",
                     loss_disc,
@@ -531,16 +529,16 @@ def train_and_evaluate(
                 }
                 utils.summarize(
                     writer=writer,
-                    global_step=global_step,
+                    global_step=_global_step,
                     images=image_dict,
                     scalars=scalar_dict,
                 )
-        global_step += 1
+        _global_step += 1
     # /Run steps
 
     model_dir = Path(hps.model_dir)
     if epoch % hps.save_every_epoch == 0 and rank == 0:
-        checkpoint_suffix = 2333333 if hps.if_latest == 1 else global_step
+        checkpoint_suffix = 2333333 if hps.if_latest == 1 else _global_step
         utils.save_checkpoint(
             net_g,
             optim_g,
@@ -566,7 +564,7 @@ def train_and_evaluate(
                 ckpt,
                 hps.sample_rate,
                 hps.if_f0,
-                f"{hps.name}_e{epoch}_s{global_step}",
+                f"{hps.name}_e{epoch}_s{_global_step}",
                 epoch,
                 hps.version,
                 hps,
