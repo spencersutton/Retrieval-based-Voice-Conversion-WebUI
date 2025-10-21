@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 MAX_WAV_VALUE = 32768.0
 
 
-def dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
+def _dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
     """
     PARAMS
     ------
@@ -18,21 +18,8 @@ def dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
-def dynamic_range_decompression_torch(x, C=1):
-    """
-    PARAMS
-    ------
-    C: compression factor used to compress
-    """
-    return torch.exp(x) / C
-
-
-def spectral_normalize_torch(magnitudes):
-    return dynamic_range_compression_torch(magnitudes)
-
-
-def spectral_de_normalize_torch(magnitudes):
-    return dynamic_range_decompression_torch(magnitudes)
+def _spectral_normalize_torch(magnitudes):
+    return _dynamic_range_compression_torch(magnitudes)
 
 
 # Reusable banks
@@ -105,7 +92,7 @@ def spec_to_mel_torch(spec, n_fft, num_mels, sampling_rate, fmin, fmax):
 
     # Mel-frequency Log-amplitude spectrogram :: (B, Freq=num_mels, Frame)
     melspec = torch.matmul(mel_basis[fmax_dtype_device], spec)
-    melspec = spectral_normalize_torch(melspec)
+    melspec = _spectral_normalize_torch(melspec)
     return melspec
 
 

@@ -1,32 +1,8 @@
 import traceback
 from pathlib import Path
 
-import av
 import ffmpeg
 import numpy as np
-
-
-def wav2(i, o, format):
-    inp = av.open(i, "rb")
-    if format == "m4a":
-        format = "mp4"
-    out = av.open(o, "wb", format=format)
-    if format == "ogg":
-        format = "libvorbis"
-    if format == "mp4":
-        format = "aac"
-
-    ostream = out.add_stream(format)
-
-    for frame in inp.decode(audio=0):
-        for p in ostream.encode(frame):
-            out.mux(p)
-
-    for p in ostream.encode(None):
-        out.mux(p)
-
-    out.close()
-    inp.close()
 
 
 def load_audio(file: Path, sr: int):
