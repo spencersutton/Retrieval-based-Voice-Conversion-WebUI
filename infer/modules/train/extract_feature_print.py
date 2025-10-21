@@ -2,6 +2,12 @@ import os
 import sys
 import traceback
 
+import fairseq
+import numpy as np
+import soundfile as sf
+import torch
+import torch.nn.functional as F
+
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
 
@@ -18,11 +24,7 @@ else:
     os.environ["CUDA_VISIBLE_DEVICES"] = str(i_gpu)
     version = sys.argv[6]
     is_half = sys.argv[7].lower() == "true"
-import fairseq
-import numpy as np
-import soundfile as sf
-import torch
-import torch.nn.functional as F
+
 
 if "privateuseone" not in device:
     device = "cpu"
