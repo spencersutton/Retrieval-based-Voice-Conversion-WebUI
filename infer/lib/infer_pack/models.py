@@ -223,7 +223,9 @@ class Generator(torch.nn.Module):
         resblock = modules.ResBlock1 if resblock == "1" else modules.ResBlock2
 
         self.ups = nn.ModuleList()
-        for i, (u, k) in enumerate(zip(upsample_rates, upsample_kernel_sizes)):
+        for i, (u, k) in enumerate(
+            zip(upsample_rates, upsample_kernel_sizes, strict=False)
+        ):
             self.ups.append(
                 weight_norm(
                     ConvTranspose1d(
@@ -239,8 +241,8 @@ class Generator(torch.nn.Module):
         self.resblocks = nn.ModuleList()
         for i in range(len(self.ups)):
             ch = upsample_initial_channel // (2 ** (i + 1))
-            for j, (k, d) in enumerate(
-                zip(resblock_kernel_sizes, resblock_dilation_sizes)
+            for _j, (k, d) in enumerate(
+                zip(resblock_kernel_sizes, resblock_dilation_sizes, strict=False)
             ):
                 self.resblocks.append(resblock(ch, k, d))
 
@@ -478,7 +480,9 @@ class GeneratorNSF(torch.nn.Module):
         resblock = modules.ResBlock1 if resblock == "1" else modules.ResBlock2
 
         self.ups = nn.ModuleList()
-        for i, (u, k) in enumerate(zip(upsample_rates, upsample_kernel_sizes)):
+        for i, (u, k) in enumerate(
+            zip(upsample_rates, upsample_kernel_sizes, strict=False)
+        ):
             c_cur = upsample_initial_channel // (2 ** (i + 1))
             self.ups.append(
                 weight_norm(
@@ -508,8 +512,8 @@ class GeneratorNSF(torch.nn.Module):
         self.resblocks = nn.ModuleList()
         for i in range(len(self.ups)):
             ch = upsample_initial_channel // (2 ** (i + 1))
-            for j, (k, d) in enumerate(
-                zip(resblock_kernel_sizes, resblock_dilation_sizes)
+            for k, d in zip(
+                resblock_kernel_sizes, resblock_dilation_sizes, strict=False
             ):
                 self.resblocks.append(resblock(ch, k, d))
 
@@ -544,7 +548,9 @@ class GeneratorNSF(torch.nn.Module):
             x = x + self.cond(g)
         # torch.jit.script() does not support direct indexing of torch modules
         # That's why I wrote this
-        for i, (ups, noise_convs) in enumerate(zip(self.ups, self.noise_convs)):
+        for i, (ups, noise_convs) in enumerate(
+            zip(self.ups, self.noise_convs, strict=False)
+        ):
             if i < self.num_upsamples:
                 x = F.leaky_relu(x, self.lrelu_slope)
                 x = ups(x)
@@ -569,14 +575,14 @@ class GeneratorNSF(torch.nn.Module):
         return x
 
     def remove_weight_norm(self):
-        for l in self.ups:
-            remove_weight_norm(l)
-        for l in self.resblocks:
-            l.remove_weight_norm()
+        for x in self.ups:
+            remove_weight_norm(x)
+        for x in self.resblocks:
+            x.remove_weight_norm()
 
     def __prepare_scriptable__(self):
-        for l in self.ups:
-            for hook in l._forward_pre_hooks.values():
+        for x in self.ups:
+            for hook in x._forward_pre_hooks.values():
                 # The hook we want to remove is an instance of WeightNorm class, so
                 # normally we would do `if isinstance(...)` but this class is not accessible
                 # because of shadowing, so we check the module name directly.
@@ -585,14 +591,14 @@ class GeneratorNSF(torch.nn.Module):
                     hook.__module__ == "torch.nn.utils.weight_norm"
                     and hook.__class__.__name__ == "WeightNorm"
                 ):
-                    torch.nn.utils.remove_weight_norm(l)
-        for l in self.resblocks:
+                    torch.nn.utils.remove_weight_norm(x)
+        for x in self.resblocks:
             for hook in self.resblocks._forward_pre_hooks.values():
                 if (
                     hook.__module__ == "torch.nn.utils.weight_norm"
                     and hook.__class__.__name__ == "WeightNorm"
                 ):
-                    torch.nn.utils.remove_weight_norm(l)
+                    torch.nn.utils.remove_weight_norm(x)
         return self
 
 
@@ -1070,11 +1076,9 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         y_d_gs = []
         fmap_rs = []
         fmap_gs = []
-        for i, d in enumerate(self.discriminators):
+        for d in self.discriminators:
             y_d_r, fmap_r = d(y)
             y_d_g, fmap_g = d(y_hat)
-            # for j in range(len(fmap_r)):
-            #     print(i,j,y.shape,y_hat.shape,fmap_r[j].shape,fmap_g[j].shape)
             y_d_rs.append(y_d_r)
             y_d_gs.append(y_d_g)
             fmap_rs.append(fmap_r)
@@ -1100,7 +1104,7 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
         y_d_gs = []
         fmap_rs = []
         fmap_gs = []
-        for i, d in enumerate(self.discriminators):
+        for d in self.discriminators:
             y_d_r, fmap_r = d(y)
             y_d_g, fmap_g = d(y_hat)
             # for j in range(len(fmap_r)):
@@ -1116,7 +1120,7 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
 class DiscriminatorS(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
         super(DiscriminatorS, self).__init__()
-        norm_f = weight_norm if use_spectral_norm == False else spectral_norm
+        norm_f = weight_norm if not use_spectral_norm else spectral_norm
         self.convs = nn.ModuleList(
             [
                 norm_f(Conv1d(1, 16, 15, 1, padding=7)),
@@ -1148,7 +1152,7 @@ class DiscriminatorP(torch.nn.Module):
         super(DiscriminatorP, self).__init__()
         self.period = period
         self.use_spectral_norm = use_spectral_norm
-        norm_f = weight_norm if use_spectral_norm == False else spectral_norm
+        norm_f = weight_norm if not use_spectral_norm else spectral_norm
         self.convs = nn.ModuleList(
             [
                 norm_f(
