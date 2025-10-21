@@ -1,11 +1,13 @@
 import logging
 import os
 from io import BytesIO
+from pathlib import Path
 from time import time as ttime
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+from librosa.filters import mel
 from librosa.util import pad_center
 from scipy.signal import get_window
 from torch import nn
@@ -408,9 +410,6 @@ class E2E(nn.Module):
         return x
 
 
-from librosa.filters import mel
-
-
 class MelSpectrogram(torch.nn.Module):
     def __init__(
         self,
@@ -482,7 +481,7 @@ class MelSpectrogram(torch.nn.Module):
                 magnitude = F.pad(magnitude, (0, 0, 0, size - resize))
             magnitude = magnitude[:, :size, :] * self.win_length / win_length_new
         mel_output = torch.matmul(self.mel_basis, magnitude)
-        if self.is_half == True:
+        if self.is_half:
             mel_output = mel_output.half()
         log_mel_spec = torch.log(torch.clamp(mel_output, min=self.clamp))
         return log_mel_spec
@@ -515,7 +514,7 @@ class RMVPE:
                 jit_model_path = model_path.rstrip(".pth")
                 jit_model_path += ".half.jit" if is_half else ".jit"
                 reload = False
-                if os.path.exists(jit_model_path):
+                if Path(jit_model_path).exists():
                     ckpt = jit.load(jit_model_path)
                     model_device = ckpt["device"]
                     if model_device != str(self.device):
@@ -606,7 +605,7 @@ class RMVPE:
             hidden = hidden.squeeze(0).cpu().numpy()
         else:
             hidden = hidden[0]
-        if self.is_half == True:
+        if self.is_half:
             hidden = hidden.astype("float32")
 
         f0 = self.decode(hidden, thred=thred)
