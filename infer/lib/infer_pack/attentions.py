@@ -37,7 +37,7 @@ class Encoder(nn.Module):
         self.norm_layers_2 = nn.ModuleList()
         for i in range(self.n_layers):
             self.attn_layers.append(
-                MultiHeadAttention(
+                _MultiHeadAttention(
                     hidden_channels,
                     hidden_channels,
                     n_heads,
@@ -47,7 +47,7 @@ class Encoder(nn.Module):
             )
             self.norm_layers_1.append(LayerNorm(hidden_channels))
             self.ffn_layers.append(
-                FFN(
+                _FFN(
                     hidden_channels,
                     hidden_channels,
                     filter_channels,
@@ -75,7 +75,7 @@ class Encoder(nn.Module):
         return x
 
 
-class Decoder(nn.Module):
+class _Decoder(nn.Module):
     def __init__(
         self,
         hidden_channels,
@@ -88,7 +88,7 @@ class Decoder(nn.Module):
         proximal_init=True,
         **kwargs,
     ):
-        super(Decoder, self).__init__()
+        super(_Decoder, self).__init__()
         self.hidden_channels = hidden_channels
         self.filter_channels = filter_channels
         self.n_heads = n_heads
@@ -107,7 +107,7 @@ class Decoder(nn.Module):
         self.norm_layers_2 = nn.ModuleList()
         for i in range(self.n_layers):
             self.self_attn_layers.append(
-                MultiHeadAttention(
+                _MultiHeadAttention(
                     hidden_channels,
                     hidden_channels,
                     n_heads,
@@ -118,13 +118,13 @@ class Decoder(nn.Module):
             )
             self.norm_layers_0.append(LayerNorm(hidden_channels))
             self.encdec_attn_layers.append(
-                MultiHeadAttention(
+                _MultiHeadAttention(
                     hidden_channels, hidden_channels, n_heads, p_dropout=p_dropout
                 )
             )
             self.norm_layers_1.append(LayerNorm(hidden_channels))
             self.ffn_layers.append(
-                FFN(
+                _FFN(
                     hidden_channels,
                     hidden_channels,
                     filter_channels,
@@ -161,7 +161,7 @@ class Decoder(nn.Module):
         return x
 
 
-class MultiHeadAttention(nn.Module):
+class _MultiHeadAttention(nn.Module):
     def __init__(
         self,
         channels,
@@ -174,7 +174,7 @@ class MultiHeadAttention(nn.Module):
         proximal_bias=False,
         proximal_init=False,
     ):
-        super(MultiHeadAttention, self).__init__()
+        super(_MultiHeadAttention, self).__init__()
         assert channels % n_heads == 0
 
         self.channels = channels
@@ -243,9 +243,9 @@ class MultiHeadAttention(nn.Module):
 
         scores = torch.matmul(query / math.sqrt(self.k_channels), key.transpose(-2, -1))
         if self.window_size is not None:
-            assert t_s == t_t, (
-                "Relative attention is only available for self-attention."
-            )
+            assert (
+                t_s == t_t
+            ), "Relative attention is only available for self-attention."
             key_relative_embeddings = self._get_relative_embeddings(self.emb_rel_k, t_s)
             rel_logits = self._matmul_with_relative_keys(
                 query / math.sqrt(self.k_channels), key_relative_embeddings
@@ -260,9 +260,9 @@ class MultiHeadAttention(nn.Module):
         if mask is not None:
             scores = scores.masked_fill(mask == 0, -1e4)
             if self.block_length is not None:
-                assert t_s == t_t, (
-                    "Local attention is only available for self-attention."
-                )
+                assert (
+                    t_s == t_t
+                ), "Local attention is only available for self-attention."
                 block_mask = (
                     torch.ones_like(scores)
                     .triu(-self.block_length)
@@ -383,7 +383,7 @@ class MultiHeadAttention(nn.Module):
         return torch.unsqueeze(torch.unsqueeze(-torch.log1p(torch.abs(diff)), 0), 0)
 
 
-class FFN(nn.Module):
+class _FFN(nn.Module):
     def __init__(
         self,
         in_channels,
@@ -394,7 +394,7 @@ class FFN(nn.Module):
         activation: str = None,
         causal=False,
     ):
-        super(FFN, self).__init__()
+        super(_FFN, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.filter_channels = filter_channels
