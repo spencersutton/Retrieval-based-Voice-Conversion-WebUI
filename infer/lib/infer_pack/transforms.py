@@ -20,10 +20,10 @@ def piecewise_rational_quadratic_transform(
     min_derivative=DEFAULT_MIN_DERIVATIVE,
 ):
     if tails is None:
-        spline_fn = rational_quadratic_spline
+        spline_fn = _rational_quadratic_spline
         spline_kwargs = {}
     else:
-        spline_fn = unconstrained_rational_quadratic_spline
+        spline_fn = _unconstrained_rational_quadratic_spline
         spline_kwargs = {"tails": tails, "tail_bound": tail_bound}
 
     outputs, logabsdet = spline_fn(
@@ -40,12 +40,12 @@ def piecewise_rational_quadratic_transform(
     return outputs, logabsdet
 
 
-def searchsorted(bin_locations, inputs, eps=1e-6):
+def _searchsorted(bin_locations, inputs, eps=1e-6):
     bin_locations[..., -1] += eps
     return torch.sum(inputs[..., None] >= bin_locations, dim=-1) - 1
 
 
-def unconstrained_rational_quadratic_spline(
+def _unconstrained_rational_quadratic_spline(
     inputs,
     unnormalized_widths,
     unnormalized_heights,
@@ -77,7 +77,7 @@ def unconstrained_rational_quadratic_spline(
     (
         outputs[inside_interval_mask],
         logabsdet[inside_interval_mask],
-    ) = rational_quadratic_spline(
+    ) = _rational_quadratic_spline(
         inputs=inputs[inside_interval_mask],
         unnormalized_widths=unnormalized_widths[inside_interval_mask, :],
         unnormalized_heights=unnormalized_heights[inside_interval_mask, :],
@@ -95,7 +95,7 @@ def unconstrained_rational_quadratic_spline(
     return outputs, logabsdet
 
 
-def rational_quadratic_spline(
+def _rational_quadratic_spline(
     inputs,
     unnormalized_widths,
     unnormalized_heights,
@@ -140,9 +140,9 @@ def rational_quadratic_spline(
     heights = cumheights[..., 1:] - cumheights[..., :-1]
 
     if inverse:
-        bin_idx = searchsorted(cumheights, inputs)[..., None]
+        bin_idx = _searchsorted(cumheights, inputs)[..., None]
     else:
-        bin_idx = searchsorted(cumwidths, inputs)[..., None]
+        bin_idx = _searchsorted(cumwidths, inputs)[..., None]
 
     input_cumwidths = cumwidths.gather(-1, bin_idx)[..., 0]
     input_bin_widths = widths.gather(-1, bin_idx)[..., 0]

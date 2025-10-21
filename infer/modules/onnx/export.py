@@ -1,7 +1,6 @@
 import onnx
 import onnxsim
 import torch
-
 from infer.lib.infer_pack.models_onnx import SynthesizerTrnMsNSFsidM
 
 
