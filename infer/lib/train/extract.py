@@ -44,7 +44,7 @@ class FeatureExtractor:
         self.f0_mel_min = 1127 * np.log(1 + self.f0_min / 700)
         self.f0_mel_max = 1127 * np.log(1 + self.f0_max / 700)
 
-    def compute_f0(self, path: Path, f0_method: str, device="cpu"):
+    def _compute_f0(self, path: Path, f0_method: str, device="cpu"):
         """Compute f0 using various methods."""
         x = _load_audio(path, self.sr)
         p_len = x.shape[0] // self.hop
@@ -98,7 +98,7 @@ class FeatureExtractor:
 
         return f0
 
-    def coarse_f0(self, f0: np.ndarray):
+    def _coarse_f0(self, f0: np.ndarray):
         """Convert f0 to coarse representation."""
         f0_mel = 1127 * np.log(1 + f0 / 700)
         f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - self.f0_mel_min) * (
@@ -149,9 +149,9 @@ class FeatureExtractor:
                 ):
                     continue
 
-                featur_pit = self.compute_f0(inp_path, f0_method, device)
+                featur_pit = self._compute_f0(inp_path, f0_method, device)
                 np.save(opt_path2, featur_pit, allow_pickle=False)  # nsf
-                coarse_pit = self.coarse_f0(featur_pit)
+                coarse_pit = self._coarse_f0(featur_pit)
                 np.save(opt_path1, coarse_pit, allow_pickle=False)  # ori
             except Exception:
                 msg = f"f0fail-{idx}-{inp_path}-{traceback.format_exc()}"
