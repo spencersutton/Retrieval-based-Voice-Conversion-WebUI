@@ -336,7 +336,7 @@ def _click_train(
     fea_dim = 256 if version == "v1" else 768
     mute_path = cwd / "logs/mute"
 
-    opt = []
+    opt: list[str] = []
     for name in names:
         if if_f0:
             opt.append(
@@ -403,25 +403,24 @@ def _click_train(
 def _train_index(project_dir: Path, version: str) -> Generator[str, None, str]:
     project_dir = Path("logs") / project_dir
     project_dir.mkdir(parents=True, exist_ok=True)
-    feature_dir = (
-        project_dir / "3_feature256"
-        if version == "v1"
-        else project_dir / "3_feature768"
-    )
-    if not feature_dir.exists():
+
+    feature_dir = project_dir / ("3_feature256" if version == "v1" else "3_feature768")
+
+    if not feature_dir.exists() or not list(feature_dir.iterdir()):
         return "Please extract features first!"
-    listdir_res = list(feature_dir.iterdir())
-    if len(listdir_res) == 0:
-        return "Please extract features first!"
-    infos = []
-    npys = []
-    for name in sorted(listdir_res):
-        phone = np.load(name)
-        npys.append(phone)
+
+    # Load and concatenate features
+    npys = [np.load(name) for name in sorted(feature_dir.iterdir())]
     big_npy = np.concatenate(npys, 0)
+
+    # Shuffle features
     big_npy_idx = np.arange(big_npy.shape[0])
     np.random.shuffle(big_npy_idx)
     big_npy = big_npy[big_npy_idx]
+
+    infos = []
+
+    # Apply kmeans if necessary
     if big_npy.shape[0] > 2e5:
         infos.append(f"Trying doing kmeans {big_npy.shape[0]} shape to 10k centers.")
         yield "\n".join(infos)
@@ -438,39 +437,42 @@ def _train_index(project_dir: Path, version: str) -> Generator[str, None, str]:
                 .cluster_centers_
             )
         except:
-            info = traceback.format_exc()
-            logger.info(info)
-            infos.append(info)
+            infos.append(traceback.format_exc())
+            logger.info(infos[-1])
             yield "\n".join(infos)
 
+    # Save features and create index
     np.save(f"{project_dir}/total_fea.npy", big_npy)
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
+
     infos.append(f"{big_npy.shape},{n_ivf}")
     yield "\n".join(infos)
+
+    # Train and build index
     index = faiss.index_factory(256 if version == "v1" else 768, f"IVF{n_ivf},Flat")
+    index_ivf = faiss.extract_index_ivf(index)
+    index_ivf.nprobe = 1
 
     infos.append("training")
     yield "\n".join(infos)
-    index_ivf = faiss.extract_index_ivf(index)
-    index_ivf.nprobe = 1
     index.train(big_npy)
+
     file_name = (
         f"IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{project_dir.stem}_{version}.index"
     )
-    faiss.write_index(
-        index,
-        f"{project_dir}/trained_{file_name}.index",
-    )
+    faiss.write_index(index, f"{project_dir}/trained_{file_name}.index")
+
     infos.append("adding")
     yield "\n".join(infos)
+
     batch_size_add = 8192
     for i in range(0, big_npy.shape[0], batch_size_add):
         index.add(big_npy[i : i + batch_size_add])
-    faiss.write_index(
-        index,
-        f"{project_dir}/added_{file_name}.index",
-    )
+
+    faiss.write_index(index, f"{project_dir}/added_{file_name}.index")
     infos.append(f"Successfully built index: added_{file_name}.index")
+
+    # Link to external directory
     try:
         source_path = project_dir / f"added_{file_name}"
         target_path = outside_index_root / f"{project_dir.stem}_{file_name}"
