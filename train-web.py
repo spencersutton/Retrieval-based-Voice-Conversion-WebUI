@@ -93,9 +93,7 @@ def _preprocess_dataset(
     training_file: gr.FileData, exp_dir: str, sample_rate_str: str, n_p: int
 ) -> Generator[str, None, None]:
     """Preprocess dataset by resampling audio files."""
-    training_dir = Path(str(training_file)).parent
     sr = int(sample_rate_str[:-1]) * 1000
-
     log_dir = cwd / "logs" / exp_dir
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "preprocess.log"
@@ -103,7 +101,8 @@ def _preprocess_dataset(
 
     cmd = (
         f'"{config.python_cmd}" infer/modules/train/preprocess.py '
-        f'"{training_dir}" {sr} {n_p} "{log_dir}" {config.noparallel} {config.preprocess_per:.1f}'
+        f'"{Path(str(training_file)).parent}" {sr} {n_p} "{log_dir}" '
+        f"{config.noparallel} {config.preprocess_per:.1f}"
     )
     logger.info("Execute: %s", cmd)
     p = Popen(cmd, shell=True)
