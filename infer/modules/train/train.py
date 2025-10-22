@@ -95,7 +95,7 @@ def main():
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = str(randint(20000, 55555))
 
-    logger = utils.get_logger(hps.model_dir)  # type: ignore
+    logger = utils.get_logger(Path(hps.model_dir))
     children: list[mp.Process] = []
 
     for i in range(n_gpus):
