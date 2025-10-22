@@ -475,196 +475,224 @@ if __name__ == "__main__":
                 "See <b>LICENSE</b> in the root directory for details."
             )
         )
-        project_dir = gr.Textbox(label=i18n("Enter project name"), value="mi-test")
-        training_file = gr.File(
-            label=i18n("Upload training file"),
-            file_count="single",
-        )
-        sample_rate = gr.Radio(
-            label=i18n("Target sample rate"),
-            choices=["40k", "48k"],
-            value="40k",
-            interactive=True,
-        )
 
-        num_cpu_processes = gr.Slider(
-            minimum=0,
-            maximum=config.n_cpu,
-            step=1,
-            label=i18n(
-                "Number of CPU processes for pitch extraction and data processing"
-            ),
-            value=int(np.ceil(config.n_cpu / 1.5)),
-            interactive=True,
-        )
-
-        preprocess_output = gr.Textbox(
-            label=i18n("Output Information"),
-            value="",
-            max_lines=8,
-            lines=4,
-            autoscroll=True,
-        )
-        preprocess_button = gr.Button(i18n("Process data"), variant="primary")
-        preprocess_button.click(
-            _preprocess_dataset,
-            [training_file, project_dir, sample_rate, num_cpu_processes],
-            [preprocess_output],
-            api_name="train_preprocess",
-        )
-
-        include_pitch_guidance = gr.Radio(
-            label=i18n(
-                "Does the model use pitch guidance? (Required for singing, optional for speech)"
-            ),
-            choices=[True, False],
-            value=True,
-            interactive=True,
-        )
-        version = gr.Radio(
-            label=i18n("Version"),
-            choices=["v1", "v2"],
-            value="v2",
-            interactive=True,
-        )
-
-        gpu_ids_input = gr.Textbox(
-            label=i18n(
-                "Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"
-            ),
-            value=gpus,
-            interactive=True,
-        )
-
-        pitch_extraction_method = gr.Radio(
-            label=i18n(
-                "Select pitch extraction algorithm: For singing, use pm for speed; "
-                "for high-quality speech but slow CPU, use dio for speed; harvest is "
-                "better quality but slower; rmvpe has the best effect and uses some CPU/GPU"
-            ),
-            choices=["pm", "harvest", "dio", "rmvpe", "rmvpe_gpu"],
-            value="rmvpe_gpu",
-            interactive=True,
-        )
-        gpu_ids_rmvpe = gr.Textbox(
-            label=i18n(
-                "rmvpe GPU configuration: Enter different process GPU IDs separated by '-',"
-                " e.g. 0-0-1 runs 2 processes on GPU 0 and 1 process on GPU 1"
-            ),
-            value=f"{gpus}-{gpus}",
-            interactive=True,
-        )
-        btn_extract_features = gr.Button(i18n("Extract Features"), variant="primary")
-        feature_extraction_output = gr.Textbox(
-            label=i18n("Output Information"),
-            value="",
-            max_lines=8,
-            lines=4,
-            autoscroll=True,
-        )
-        pitch_extraction_method.change(
-            fn=lambda method: {
-                "visible": method == "rmvpe_gpu",
-                "__type__": "update",
-            },
-            inputs=[pitch_extraction_method],
-            outputs=[gpu_ids_rmvpe],
-        )
-        btn_extract_features.click(
-            _extract_pitch_features,
-            [
-                gpu_ids_input,
-                num_cpu_processes,
-                pitch_extraction_method,
-                include_pitch_guidance,
-                project_dir,
-                version,
-                gpu_ids_rmvpe,
-            ],
-            [feature_extraction_output],
-            api_name="train_extract_f0_feature",
-        )
-
-        default_batch_size = int(
-            torch.cuda.get_device_properties(0).total_memory / 1024 / 1024 / 1024 + 0.4
-        )
-        gr.Markdown(
-            value=i18n(
-                "step3: Fill in training settings and start training model and index"
+        # Data Preprocessing Group
+        with gr.Group():
+            gr.Markdown("### Step 1: Data Preprocessing")
+            with gr.Row():
+                project_dir = gr.Textbox(
+                    label=i18n("Enter project name"), value="mi-test", scale=2
+                )
+                sample_rate = gr.Radio(
+                    label=i18n("Target sample rate"),
+                    choices=["40k", "48k"],
+                    value="40k",
+                    interactive=True,
+                    scale=1,
+                )
+            with gr.Row():
+                training_file = gr.File(
+                    label=i18n("Upload training file"),
+                    file_count="single",
+                    scale=2,
+                )
+                num_cpu_processes = gr.Slider(
+                    minimum=0,
+                    maximum=config.n_cpu,
+                    step=1,
+                    label=i18n(
+                        "Number of CPU processes for pitch extraction and data processing"
+                    ),
+                    value=int(np.ceil(config.n_cpu / 1.5)),
+                    interactive=True,
+                    scale=1,
+                )
+            preprocess_output = gr.Textbox(
+                label=i18n("Output Information"),
+                value="",
+                max_lines=8,
+                lines=4,
+                autoscroll=True,
             )
-        )
-        save_interval = gr.Slider(
-            minimum=1,
-            maximum=50,
-            step=1,
-            label=i18n("Save frequency (save_every_epoch)"),
-            value=5,
-            interactive=True,
-        )
-        total_epochs = gr.Slider(
-            minimum=2,
-            maximum=1000,
-            step=1,
-            label=i18n("Total training epochs (total_epoch)"),
-            value=20,
-            interactive=True,
-        )
-        batch_size = gr.Slider(
-            minimum=1,
-            maximum=40,
-            step=1,
-            label=i18n("Batch size per GPU"),
-            value=default_batch_size,
-            interactive=True,
-        )
-        if_save_latest = gr.Radio(
-            label=i18n("Only save the latest ckpt file to save disk space"),
-            choices=[i18n("Yes"), i18n("No")],
-            value=i18n("No"),
-            interactive=True,
-        )
-        if_cache = gr.Radio(
-            label=i18n(
-                "Cache all training set to GPU memory. For small data under 10min, caching can speed up training. Large data may cause out-of-memory and doesn't speed up much."
-            ),
-            choices=[i18n("Yes"), i18n("No")],
-            value=i18n("No"),
-            interactive=True,
-        )
-        if_save_every_weights = gr.Radio(
-            label=i18n(
-                "Save the final small model to the weights folder at every save point"
-            ),
-            choices=[i18n("Yes"), i18n("No")],
-            value=i18n("No"),
-            interactive=True,
-        )
-        pretrained_G14 = gr.Textbox(
-            label=i18n("Load pretrained base model G path"),
-            value="assets/pretrained_v2/f0G40k.pth",
-            interactive=True,
-        )
-        pretrained_D15 = gr.Textbox(
-            label=i18n("Load pretrained base model D path"),
-            value="assets/pretrained_v2/f0D40k.pth",
-            interactive=True,
-        )
+            preprocess_button = gr.Button(i18n("Process data"), variant="primary")
+            preprocess_button.click(
+                _preprocess_dataset,
+                [training_file, project_dir, sample_rate, num_cpu_processes],
+                [preprocess_output],
+                api_name="train_preprocess",
+            )
 
-        speaker_id = gr.Slider(
-            minimum=0,
-            maximum=4,
-            step=1,
-            label=i18n("Please specify speaker id"),
-            value=0,
-            interactive=True,
-        )
+        # Feature Extraction Group
+        with gr.Group():
+            gr.Markdown("### Step 2: Feature Extraction")
+            with gr.Row():
+                include_pitch_guidance = gr.Radio(
+                    label=i18n(
+                        "Does the model use pitch guidance? (Required for singing, optional for speech)"
+                    ),
+                    choices=[True, False],
+                    value=True,
+                    interactive=True,
+                    scale=1,
+                )
+                version = gr.Radio(
+                    label=i18n("Version"),
+                    choices=["v1", "v2"],
+                    value="v2",
+                    interactive=True,
+                    scale=1,
+                )
+            with gr.Row():
+                gpu_ids_input = gr.Textbox(
+                    label=i18n(
+                        "Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"
+                    ),
+                    value=gpus,
+                    interactive=True,
+                    scale=1,
+                )
+                pitch_extraction_method = gr.Radio(
+                    label=i18n(
+                        "Select pitch extraction algorithm: For singing, use pm for speed; "
+                        "for high-quality speech but slow CPU, use dio for speed; harvest is "
+                        "better quality but slower; rmvpe has the best effect and uses some CPU/GPU"
+                    ),
+                    choices=["pm", "harvest", "dio", "rmvpe", "rmvpe_gpu"],
+                    value="rmvpe_gpu",
+                    interactive=True,
+                    scale=1,
+                )
+            gpu_ids_rmvpe = gr.Textbox(
+                label=i18n(
+                    "rmvpe GPU configuration: Enter different process GPU IDs separated by '-',"
+                    " e.g. 0-0-1 runs 2 processes on GPU 0 and 1 process on GPU 1"
+                ),
+                value=f"{gpus}-{gpus}",
+                interactive=True,
+            )
+            pitch_extraction_method.change(
+                fn=lambda method: {
+                    "visible": method == "rmvpe_gpu",
+                    "__type__": "update",
+                },
+                inputs=[pitch_extraction_method],
+                outputs=[gpu_ids_rmvpe],
+            )
+            feature_extraction_output = gr.Textbox(
+                label=i18n("Output Information"),
+                value="",
+                max_lines=8,
+                lines=4,
+                autoscroll=True,
+            )
+            btn_extract_features = gr.Button(
+                i18n("Extract Features"), variant="primary"
+            )
+            btn_extract_features.click(
+                _extract_pitch_features,
+                [
+                    gpu_ids_input,
+                    num_cpu_processes,
+                    pitch_extraction_method,
+                    include_pitch_guidance,
+                    project_dir,
+                    version,
+                    gpu_ids_rmvpe,
+                ],
+                [feature_extraction_output],
+                api_name="train_extract_f0_feature",
+            )
 
+        # Training Configuration Group
+        with gr.Group():
+            gr.Markdown("### Step 3: Training Configuration")
+            default_batch_size = int(
+                torch.cuda.get_device_properties(0).total_memory / 1024 / 1024 / 1024
+                + 0.4
+            )
+            with gr.Row():
+                save_interval = gr.Slider(
+                    minimum=1,
+                    maximum=50,
+                    step=1,
+                    label=i18n("Save frequency (save_every_epoch)"),
+                    value=5,
+                    interactive=True,
+                    scale=1,
+                )
+                total_epochs = gr.Slider(
+                    minimum=2,
+                    maximum=1000,
+                    step=1,
+                    label=i18n("Total training epochs (total_epoch)"),
+                    value=20,
+                    interactive=True,
+                    scale=1,
+                )
+                batch_size = gr.Slider(
+                    minimum=1,
+                    maximum=40,
+                    step=1,
+                    label=i18n("Batch size per GPU"),
+                    value=default_batch_size,
+                    interactive=True,
+                    scale=1,
+                )
+            with gr.Row():
+                if_save_latest = gr.Radio(
+                    label=i18n("Only save the latest ckpt file to save disk space"),
+                    choices=[i18n("Yes"), i18n("No")],
+                    value=i18n("No"),
+                    interactive=True,
+                    scale=1,
+                )
+                if_cache = gr.Radio(
+                    label=i18n(
+                        "Cache all training set to GPU memory. For small data under 10min, caching can speed up training. Large data may cause out-of-memory and doesn't speed up much."
+                    ),
+                    choices=[i18n("Yes"), i18n("No")],
+                    value=i18n("No"),
+                    interactive=True,
+                    scale=1,
+                )
+                if_save_every_weights = gr.Radio(
+                    label=i18n(
+                        "Save the final small model to the weights folder at every save point"
+                    ),
+                    choices=[i18n("Yes"), i18n("No")],
+                    value=i18n("No"),
+                    interactive=True,
+                    scale=1,
+                )
+            with gr.Row():
+                pretrained_G14 = gr.Textbox(
+                    label=i18n("Load pretrained base model G path"),
+                    value="assets/pretrained_v2/f0G40k.pth",
+                    interactive=True,
+                    scale=1,
+                )
+                pretrained_D15 = gr.Textbox(
+                    label=i18n("Load pretrained base model D path"),
+                    value="assets/pretrained_v2/f0D40k.pth",
+                    interactive=True,
+                    scale=1,
+                )
+                speaker_id = gr.Slider(
+                    minimum=0,
+                    maximum=4,
+                    step=1,
+                    label=i18n("Please specify speaker id"),
+                    value=0,
+                    interactive=True,
+                    scale=1,
+                )
+
+        # Event handlers for component updates
         include_pitch_guidance.change(
             _change_f0,
             [include_pitch_guidance, sample_rate, version],
             [pitch_extraction_method, gpu_ids_rmvpe, pretrained_G14, pretrained_D15],
         )
-
         sample_rate.change(
             _change_sr,
             [sample_rate, include_pitch_guidance, version],
@@ -676,16 +704,20 @@ if __name__ == "__main__":
             [pretrained_G14, pretrained_D15, sample_rate],
         )
 
-        train_model = gr.Button(i18n("Train Model"), variant="primary")
-        btn_train_feature_index = gr.Button(
-            i18n("Train Feature Index"), variant="primary"
-        )
-        output_info_textbox = gr.Textbox(
-            label=i18n("Output Information"),
-            value="",
-            lines=4,
-            max_lines=10,
-        )
+        # Training Output Group
+        with gr.Group():
+            gr.Markdown("### Step 4: Training and Indexing")
+            output_info_textbox = gr.Textbox(
+                label=i18n("Output Information"),
+                value="",
+                lines=4,
+                max_lines=10,
+            )
+            with gr.Row():
+                train_model = gr.Button(i18n("Train Model"), variant="primary", scale=1)
+                btn_train_feature_index = gr.Button(
+                    i18n("Train Feature Index"), variant="primary", scale=1
+                )
 
         train_model.click(
             _click_train,
