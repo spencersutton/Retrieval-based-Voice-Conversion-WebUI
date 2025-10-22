@@ -315,9 +315,10 @@ def _click_train(
 ) -> str:
     p_dir = cwd / "logs" / project_dir
     p_dir.mkdir(parents=True, exist_ok=True)
-    """Project directory"""
+
     gt_wavs_dir = p_dir / "0_gt_wavs"
-    feature_dir = p_dir / "3_feature256" if version == "v1" else p_dir / "3_feature768"
+    feature_dir = p_dir / ("3_feature256" if version == "v1" else "3_feature768")
+
     if if_f0:
         f0_dir = p_dir / "2a_f0"
         f0nsf_dir = p_dir / "2b-f0nsf"
@@ -331,7 +332,11 @@ def _click_train(
         names = {x.stem for x in gt_wavs_dir.iterdir()} & {
             x.stem for x in feature_dir.iterdir()
         }
-    opt: list[str] = []
+
+    fea_dim = 256 if version == "v1" else 768
+    mute_path = cwd / "logs/mute"
+
+    opt = []
     for name in names:
         if if_f0:
             opt.append(
@@ -339,74 +344,59 @@ def _click_train(
             )
         else:
             opt.append(f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{spk_id}")
-    fea_dim = 256 if version == "v1" else 768
-    if if_f0:
-        for _ in range(2):
-            opt.append(
-                f"{cwd}/logs/mute/0_gt_wavs/mute{sr}.wav|{cwd}/logs/mute/3_feature{fea_dim}/mute.npy|{cwd}/logs/mute/2a_f0/mute.wav.npy|{cwd}/logs/mute/2b-f0nsf/mute.wav.npy|{spk_id}"
-            )
-    else:
-        for _ in range(2):
-            opt.append(
-                f"{cwd}/logs/mute/0_gt_wavs/mute{sr}.wav|{cwd}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id}"
-            )
+
+    mute_line = (
+        f"{mute_path}/0_gt_wavs/mute{sr}.wav|{mute_path}/3_feature{fea_dim}/mute.npy"
+        f"|{mute_path}/2a_f0/mute.wav.npy|{mute_path}/2b-f0nsf/mute.wav.npy|{spk_id}"
+        if if_f0
+        else f"{mute_path}/0_gt_wavs/mute{sr}.wav|{mute_path}/3_feature{fea_dim}/mute.npy|{spk_id}"
+    )
+    opt.extend([mute_line] * 2)
+
     shuffle(opt)
-    with (p_dir / "filelist.txt").open("w") as f:
-        f.write("\n".join(opt))
+    (p_dir / "filelist.txt").write_text("\n".join(opt))
+
     logger.debug("Write filelist done")
-    logger.info("Use gpus: %s", str(gpus))
-    if pretrained_G14 == "":
+    logger.info("Use gpus: %s", gpus)
+    if not pretrained_G14:
         logger.info("No pretrained Generator")
-    if pretrained_D15 == "":
+    if not pretrained_D15:
         logger.info("No pretrained Discriminator")
-    if version == "v1" or sr == "40k":
-        config_path = "v1/%s.json" % sr
-    else:
-        config_path = "v2/%s.json" % sr
+
+    config_path = f"{'v1' if version == 'v1' or sr == '40k' else 'v2'}/{sr}.json"
     config_save_path = p_dir / "config.json"
     if not config_save_path.exists():
-        with Path(config_save_path).open("w", encoding="utf-8") as f:
-            json.dump(
+        config_save_path.write_text(
+            json.dumps(
                 config.json_config[config_path],
-                f,
                 ensure_ascii=False,
                 indent=4,
                 sort_keys=True,
             )
-            f.write("\n")
+            + "\n"
+        )
+
     # Build training command with conditional parameters
-    base_cmd = (
+    yes_str = i18n("是")
+    cmd = (
         f'"{config.python_cmd}" infer/modules/train/train.py '
         f'-e "{project_dir}" '
         f"-sr {sr} "
-        f"-f0 {1 if if_f0 else 0} "
+        f"-f0 {int(if_f0)} "
         f"-bs {batch_size} "
         f"-te {total_epoch} "
         f"-se {save_epoch} "
-    )
-
-    # Add optional pretrained model paths
-    pretrained_args = (
-        f"{f'-pg {pretrained_G14}' if pretrained_G14 else ''} "
-        f"{f'-pd {pretrained_D15}' if pretrained_D15 else ''}"
-    ).strip()
-
-    # Add boolean flags (handle i18n Yes/No strings)
-    flags = (
-        f"-l {1 if if_save_latest == i18n('是') else 0} "
-        f"-c {1 if if_cache_gpu == i18n('是') else 0} "
-        f"-sw {1 if if_save_every_weights == i18n('是') else 0} "
+        f"{f'-g {gpus} ' if gpus else ''}"
+        f"{f'-pg {pretrained_G14} ' if pretrained_G14 else ''}"
+        f"{f'-pd {pretrained_D15} ' if pretrained_D15 else ''}"
+        f"-l {int(if_save_latest == yes_str)} "
+        f"-c {int(if_cache_gpu == yes_str)} "
+        f"-sw {int(if_save_every_weights == yes_str)} "
         f"-v {version}"
     )
 
-    # Add GPU specification if available
-    if gpus:
-        cmd = f"{base_cmd}-g {gpus} {pretrained_args} {flags}".strip()
-    else:
-        cmd = f"{base_cmd}{pretrained_args} {flags}".strip()
     logger.info("Execute: %s", cmd)
-    p = Popen(cmd, shell=True, cwd=cwd)
-    p.wait()
+    Popen(cmd, shell=True, cwd=cwd).wait()
     return "Training complete. You can view the training log in the console or in the train.log file in the experiment folder."
 
 
