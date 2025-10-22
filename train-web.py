@@ -560,7 +560,6 @@ if __name__ == "__main__":
             choices=["v1", "v2"],
             value="v2",
             interactive=True,
-            visible=True,
         )
 
         gpu_ids_input = gr.Textbox(
@@ -684,54 +683,7 @@ if __name__ == "__main__":
             value="assets/pretrained_v2/f0D40k.pth",
             interactive=True,
         )
-        use_pitch_guidance = gr.Radio(
-            label=i18n(
-                "Does the model use pitch guidance? (Required for singing, optional for speech)"
-            ),
-            choices=[True, False],
-            value=True,
-            interactive=True,
-        )
-        pitch_extraction_algorithm = gr.Radio(
-            label=i18n(
-                "Select pitch extraction algorithm: For singing, use pm for speed; for high-quality speech but slow CPU, use dio for speed; harvest is better quality but slower; rmvpe has the best effect and uses some CPU/GPU"
-            ),
-            choices=["pm", "harvest", "dio", "rmvpe", "rmvpe_gpu"],
-            value="rmvpe_gpu",
-            interactive=True,
-        )
 
-        gpus_rmvpe = gr.Textbox(
-            label=i18n(
-                "rmvpe GPU configuration: Enter different process GPU IDs separated by '-', e.g. 0-0-1 runs 2 processes on GPU 0 and 1 process on GPU 1"
-            ),
-            value="%s-%s" % (gpus, gpus),
-            interactive=True,
-        )
-        use_pitch_guidance.change(
-            _change_f0,
-            [use_pitch_guidance, sample_rate, version],
-            [pitch_extraction_algorithm, gpus_rmvpe, pretrained_G14, pretrained_D15],
-        )
-
-        sample_rate.change(
-            _change_sr,
-            [sample_rate, use_pitch_guidance, version],
-            [pretrained_G14, pretrained_D15],
-        )
-        version.change(
-            _change_version,
-            [sample_rate, use_pitch_guidance, version],
-            [pretrained_G14, pretrained_D15, sample_rate],
-        )
-
-        gpu_ids_input = gr.Textbox(
-            label=i18n(
-                "Enter GPU IDs separated by '-', e.g. 0-1-2 to use GPU 0, 1, and 2"
-            ),
-            value=gpus,
-            interactive=True,
-        )
         speaker_id = gr.Slider(
             minimum=0,
             maximum=4,
@@ -740,6 +692,24 @@ if __name__ == "__main__":
             value=0,
             interactive=True,
         )
+
+        include_pitch_guidance.change(
+            _change_f0,
+            [include_pitch_guidance, sample_rate, version],
+            [pitch_extraction_method, gpu_ids_rmvpe, pretrained_G14, pretrained_D15],
+        )
+
+        sample_rate.change(
+            _change_sr,
+            [sample_rate, include_pitch_guidance, version],
+            [pretrained_G14, pretrained_D15],
+        )
+        version.change(
+            _change_version,
+            [sample_rate, include_pitch_guidance, version],
+            [pretrained_G14, pretrained_D15, sample_rate],
+        )
+
         train_model = gr.Button(i18n("Train Model"), variant="primary")
         btn_train_feature_index = gr.Button(
             i18n("Train Feature Index"), variant="primary"
@@ -756,7 +726,7 @@ if __name__ == "__main__":
             [
                 project_dir,
                 sample_rate,
-                use_pitch_guidance,
+                include_pitch_guidance,
                 speaker_id,
                 save_interval,
                 total_epochs,
