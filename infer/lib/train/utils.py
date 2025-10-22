@@ -1,8 +1,6 @@
 import argparse
-import glob
 import json
 import logging
-import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,8 +16,8 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging
 
 
-def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt=1):
-    assert os.path.isfile(checkpoint_path)
+def load_checkpoint(checkpoint_path: Path, model, optimizer=None, load_opt=1):
+    assert checkpoint_path.is_file()
     checkpoint_dict = torch.load(checkpoint_path, map_location="cpu")
 
     saved_state_dict = checkpoint_dict["model"]
@@ -55,15 +53,13 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt=1):
     # so catch this at the outermost level in the train file.
     if optimizer is not None and load_opt == 1:
         optimizer.load_state_dict(checkpoint_dict["optimizer"])
-    logger.info("Loaded checkpoint '{}' (epoch {})".format(checkpoint_path, iteration))
+    logger.info("Loaded checkpoint '%s' (epoch %s)", checkpoint_path, iteration)
     return model, optimizer, learning_rate, iteration
 
 
 def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path):
     logger.info(
-        "Saving model and optimizer state at epoch {} to {}".format(
-            iteration, checkpoint_path
-        )
+        "Saving model and optimizer state at epoch %s to %s", iteration, checkpoint_path
     )
     if hasattr(model, "module"):
         state_dict = model.module.state_dict()
@@ -107,12 +103,13 @@ def summarize(
         writer.add_audio(k, v, global_step, audio_sampling_rate)
 
 
-def latest_checkpoint_path(dir_path, regex="G_*.pth"):
-    f_list = glob.glob(os.path.join(dir_path, regex))
+def latest_checkpoint_path(dir_path: Path, regex="G_*.pth") -> Path:
+    f_list = list(dir_path.glob(regex))
+    f_list = [str(f) for f in f_list]
     f_list.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
     x = f_list[-1]
     logger.debug(x)
-    return x
+    return Path(x)
 
 
 def plot_spectrogram_to_numpy(spectrogram):
@@ -237,10 +234,10 @@ def get_hparams(init=True):
 
     args = parser.parse_args()
     name = args.experiment_dir
-    experiment_dir = os.path.join("./logs", args.experiment_dir)
+    experiment_dir = Path("./logs") / args.experiment_dir
 
-    config_save_path = os.path.join(experiment_dir, "config.json")
-    with open(config_save_path, "r") as f:
+    config_save_path = experiment_dir / "config.json"
+    with config_save_path.open("r") as f:
         config = json.load(f)
 
     hparams = HParams.from_dict(config)

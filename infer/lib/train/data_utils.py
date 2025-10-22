@@ -253,7 +253,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
 
     def _get_audio_text_pair(self, audiopath_and_text):
         # separate filename and text
-        file = audiopath_and_text[0]
+        file = Path(audiopath_and_text[0])
         phone = audiopath_and_text[1]
         dv = audiopath_and_text[2]
 
@@ -279,7 +279,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
         phone = torch.FloatTensor(phone)
         return phone
 
-    def _get_audio(self, filename):
+    def _get_audio(self, filename: Path):
         audio, sampling_rate = load_wav_to_torch(filename)
         if sampling_rate != self.sampling_rate:
             raise ValueError(
@@ -290,8 +290,8 @@ class TextAudioLoader(torch.utils.data.Dataset):
         audio_norm = audio
 
         audio_norm = audio_norm.unsqueeze(0)
-        spec_filename = filename.replace(".wav", ".spec.pt")
-        if os.path.exists(spec_filename):
+        spec_filename = filename.with_suffix(".spec.pt")
+        if spec_filename.exists():
             try:
                 spec = torch.load(spec_filename)
             except:

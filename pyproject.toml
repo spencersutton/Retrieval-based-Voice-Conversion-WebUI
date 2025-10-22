@@ -35,7 +35,7 @@ faiss = { path = "/home/spencer/repos/faiss/build/faiss/python" }
 
 [tool.ruff]
 lint.extend-select = ["I", "PTH", "B", "C4", "G", "LOG", "PIE"]
-lint.ignore = ["E722"]
+lint.ignore = ["E722", "E741"]
 
 [dependency-groups]
 dev = ["ruff>=0.14.1"]
