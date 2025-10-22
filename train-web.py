@@ -245,17 +245,17 @@ def _extract_pitch_features(
 
 def _get_pretrained_models(path: str, f0: str, sr: str) -> tuple[str, str]:
     gen_path = f"assets/pretrained{path}/{f0}G{sr}.pth"
-    gen_exists = os.access(gen_path, os.F_OK)
     disc_path = f"assets/pretrained{path}/{f0}D{sr}.pth"
-    disc_exists = os.access(disc_path, os.F_OK)
+
+    gen_exists = Path(gen_path).exists()
+    disc_exists = Path(disc_path).exists()
+
     if not gen_exists:
         logger.warning("%s not exist, will not use pretrained model", gen_path)
     if not disc_exists:
         logger.warning("%s not exist, will not use pretrained model", disc_path)
-    return (
-        gen_path if gen_exists else "",
-        disc_path if disc_exists else "",
-    )
+
+    return (gen_path if gen_exists else "", disc_path if disc_exists else "")
 
 
 def _change_sr(sr: str, if_f0: bool, version: str) -> tuple[str, str]:
