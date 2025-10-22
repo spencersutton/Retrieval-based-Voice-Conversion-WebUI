@@ -693,10 +693,7 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
         )
         self.emb_g = nn.Embedding(self.spk_embed_dim, gin_channels)
         logger.debug(
-            "gin_channels: "
-            + str(gin_channels)
-            + ", self.spk_embed_dim: "
-            + str(self.spk_embed_dim)
+            "gin_channels: %s, self.spk_embed_dim: %s", gin_channels, self.spk_embed_dim
         )
 
     def remove_weight_norm(self):
@@ -921,10 +918,7 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
         )
         self.emb_g = nn.Embedding(self.spk_embed_dim, gin_channels)
         logger.debug(
-            "gin_channels: "
-            + str(gin_channels)
-            + ", self.spk_embed_dim: "
-            + str(self.spk_embed_dim)
+            "gin_channels: %s, self.spk_embed_dim: %s", gin_channels, self.spk_embed_dim
         )
 
     def remove_weight_norm(self):

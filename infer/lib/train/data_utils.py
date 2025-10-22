@@ -1,5 +1,4 @@
 import logging
-import os
 import traceback
 from pathlib import Path
 
@@ -21,7 +20,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
     3) computes spectrograms from audio files.
     """
 
-    def __init__(self, audiopaths_and_text, hparams):
+    def __init__(self, audiopaths_and_text: Path, hparams: DataConfig):
         self.audiopaths_and_text = load_filepaths_and_text(audiopaths_and_text)
         self.max_wav_value = hparams.max_wav_value
         self.sampling_rate = hparams.sampling_rate
@@ -41,9 +40,10 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         audiopaths_and_text_new = []
         lengths = []
         for audio_path, text, pitch, pitchf, dv in self.audiopaths_and_text:
+            audio_path = Path(audio_path)
             if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
                 audiopaths_and_text_new.append([audio_path, text, pitch, pitchf, dv])
-                lengths.append(os.path.getsize(audio_path) // (3 * self.hop_length))
+                lengths.append(audio_path.stat().st_size // (3 * self.hop_length))
         self.audiopaths_and_text = audiopaths_and_text_new
         self.lengths = lengths
 
@@ -93,7 +93,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         pitchf = torch.FloatTensor(pitchf)
         return phone, pitch, pitchf
 
-    def _get_audio(self, filename):
+    def _get_audio(self, filename: Path):
         audio, sampling_rate = load_wav_to_torch(filename)
         if sampling_rate != self.sampling_rate:
             raise ValueError(
@@ -104,8 +104,8 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         audio_norm = audio
 
         audio_norm = audio_norm.unsqueeze(0)
-        spec_filename = filename.replace(".wav", ".spec.pt")
-        if os.path.exists(spec_filename):
+        spec_filename = filename.with_suffix(".spec.pt")
+        if spec_filename.exists():
             try:
                 spec = torch.load(spec_filename)
             except:
@@ -240,10 +240,11 @@ class TextAudioLoader(torch.utils.data.Dataset):
         # Store spectrogram lengths for Bucketing
         audiopaths_and_text_new = []
         lengths = []
-        for audiopath, text, dv in self.audiopaths_and_text:
+        for audio_path, text, dv in self.audiopaths_and_text:
+            audio_path = Path(audio_path)
             if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
-                audiopaths_and_text_new.append([audiopath, text, dv])
-                lengths.append(os.path.getsize(audiopath) // (3 * self.hop_length))
+                audiopaths_and_text_new.append([audio_path, text, dv])
+                lengths.append(audio_path.stat().st_size // (3 * self.hop_length))
         self.audiopaths_and_text = audiopaths_and_text_new
         self.lengths = lengths
 
