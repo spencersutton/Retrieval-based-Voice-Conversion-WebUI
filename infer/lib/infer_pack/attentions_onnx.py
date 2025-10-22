@@ -6,16 +6,14 @@
 #                  Do Not Use All Of Non-Torch Types!                #
 #                                                                    #
 ############################## Warning! ##############################
-import copy
 import math
 from typing import Optional
 
-import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
 
-from infer.lib.infer_pack import commons, modules
+from infer.lib.infer_pack import commons
 from infer.lib.infer_pack.modules import LayerNorm
 
 
@@ -29,7 +27,7 @@ class Encoder(nn.Module):
         kernel_size=1,
         p_dropout=0.0,
         window_size=10,
-        **kwargs
+        **kwargs,
     ):
         super(Encoder, self).__init__()
         self.hidden_channels = hidden_channels
@@ -96,7 +94,7 @@ class Decoder(nn.Module):
         p_dropout=0.0,
         proximal_bias=False,
         proximal_init=True,
-        **kwargs
+        **kwargs,
     ):
         super(Decoder, self).__init__()
         self.hidden_channels = hidden_channels
@@ -267,9 +265,9 @@ class MultiHeadAttention(nn.Module):
         if mask is not None:
             scores = scores.masked_fill(mask == 0, -1e4)
             if self.block_length is not None:
-                assert (
-                    t_s == t_t
-                ), "Local attention is only available for self-attention."
+                assert t_s == t_t, (
+                    "Local attention is only available for self-attention."
+                )
                 block_mask = (
                     torch.ones_like(scores)
                     .triu(-self.block_length)
@@ -364,7 +362,7 @@ class MultiHeadAttention(nn.Module):
             x,
             [0, length - 1, 0, 0, 0, 0, 0, 0],
         )
-        x_flat = x.view([batch, heads, length*length + length * (length - 1)])
+        x_flat = x.view([batch, heads, length * length + length * (length - 1)])
         # add 0's in the beginning that will skew the elements after reshape
         x_flat = F.pad(
             x_flat,

@@ -5,7 +5,6 @@ import logging
 import os
 import subprocess
 import sys
-import shutil
 
 import numpy as np
 import torch
@@ -284,7 +283,7 @@ def load_filepaths_and_text(filename, split="|"):
     except UnicodeDecodeError:
         with open(filename) as f:
             filepaths_and_text = [line.strip().split(split) for line in f]
-    
+
     return filepaths_and_text
 
 
