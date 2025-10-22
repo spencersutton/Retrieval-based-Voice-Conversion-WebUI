@@ -20,7 +20,6 @@ import gradio as gr
 import numpy as np
 import torch
 from dotenv import load_dotenv
-from fairseq.modules.grad_multiply import GradMultiply
 from sklearn.cluster import MiniBatchKMeans
 
 from configs.config import Config
@@ -50,14 +49,6 @@ torch.manual_seed(114514)
 multiprocessing.set_start_method("spawn", force=True)
 config = Config()
 
-
-if config.dml:
-
-    def forward_dml(ctx: Any, x: torch.Tensor, scale: float) -> torch.Tensor:
-        ctx.scale = scale
-        return x.clone().detach()
-
-    GradMultiply.forward = forward_dml
 
 i18n = I18nAuto()
 logger.info(i18n)
@@ -181,16 +172,9 @@ def _extract_pitch_features(
                 p.join()
 
         elif extract_method == "rmvpe_gpu":
-            # DirectML RMVPE extraction
-            try:
-                import torch_directml  # type: ignore
+            device = "cpu"
+            logger.warning("torch_directml not available, falling back to CPU")
 
-                device = torch_directml.device(torch_directml.default_device())
-            except ImportError:
-                device = "cpu"
-                logger.warning("torch_directml not available, falling back to CPU")
-
-            # Process in main thread for DML
             FeatureExtractor().extract_f0_for_files(
                 file_paths, "rmvpe", log_file, device=device
             )
@@ -257,9 +241,6 @@ def _extract_pitch_features(
     log = log_file.read_text()
     logger.info(log)
     yield log
-
-
-_GPUVisible = not config.dml
 
 
 def _get_pretrained_models(path: str, f0: str, sr: str) -> tuple[str, str]:
@@ -596,7 +577,6 @@ if __name__ == "__main__":
             ),
             value=gpus,
             interactive=True,
-            visible=_GPUVisible,
         )
 
         pitch_extraction_method = gr.Radio(
@@ -616,7 +596,6 @@ if __name__ == "__main__":
             ),
             value=f"{gpus}-{gpus}",
             interactive=True,
-            visible=_GPUVisible,
         )
         btn_extract_features = gr.Button(i18n("Extract Features"), variant="primary")
         feature_extraction_output = gr.Textbox(
@@ -628,7 +607,7 @@ if __name__ == "__main__":
         )
         pitch_extraction_method.change(
             fn=lambda method: {
-                "visible": method == "rmvpe_gpu" and _GPUVisible,
+                "visible": method == "rmvpe_gpu",
                 "__type__": "update",
             },
             inputs=[pitch_extraction_method],
@@ -736,7 +715,6 @@ if __name__ == "__main__":
             ),
             value="%s-%s" % (gpus, gpus),
             interactive=True,
-            visible=_GPUVisible,
         )
         use_pitch_guidance.change(
             _change_f0,

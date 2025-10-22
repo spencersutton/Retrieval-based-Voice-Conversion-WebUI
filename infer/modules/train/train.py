@@ -278,6 +278,8 @@ def _train_and_evaluate(
     writers: list | None,
     cache: list,
 ) -> None:
+    if logger is None:
+        logger = logging.getLogger(__name__)
     net_g, net_d = nets
     optim_g, optim_d = optims
     train_loader, eval_loader = loaders
@@ -457,6 +459,7 @@ def _train_and_evaluate(
                     y_d_hat_r, y_d_hat_g
                 )
         optim_d.zero_grad()
+        assert isinstance(loss_disc, torch.Tensor)
         scaler.scale(loss_disc).backward()
         scaler.unscale_(optim_d)
         grad_norm_d = commons.clip_grad_value_(net_d.parameters(), None)

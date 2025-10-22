@@ -55,7 +55,7 @@ class Config:
             self.iscolab,
             self.noparallel,
             self.noautoopen,
-            self.dml,
+            _,
         ) = self.arg_parse()
         self.instead = ""
         self.preprocess_per = 3.7
@@ -87,11 +87,7 @@ class Config:
             action="store_true",
             help="Do not open in browser automatically",
         )
-        parser.add_argument(
-            "--dml",
-            action="store_true",
-            help="torch_dml",
-        )
+
         cmd_opts = parser.parse_args()
 
         cmd_opts.port = cmd_opts.port if 0 <= cmd_opts.port <= 65535 else 7865
@@ -102,7 +98,7 @@ class Config:
             cmd_opts.colab,
             cmd_opts.noparallel,
             cmd_opts.noautoopen,
-            cmd_opts.dml,
+            False,
         )
 
     # has_mps is only available in nightly pytorch (for now) and MasOS 12.3+.
@@ -127,13 +123,12 @@ class Config:
     def use_fp32_config(self):
         for config_file in version_config_list:
             self.json_config[config_file]["train"]["fp16_run"] = False
-            with open(f"configs/inuse/{config_file}", "r") as f:
-                strr = f.read().replace("true", "false")
-            with open(f"configs/inuse/{config_file}", "w") as f:
-                f.write(strr)
-            logger.info("overwrite " + config_file)
+            p = Path(f"configs/inuse/{config_file}")
+            text = p.read_text().replace("true", "false")
+            p.write_text(text)
+            logger.info("overwrite %s", config_file)
         self.preprocess_per = 3.0
-        logger.info("overwrite preprocess_per to %d" % (self.preprocess_per))
+        logger.info("overwrite preprocess_per to %d", self.preprocess_per)
 
     def device_config(self) -> tuple:
         if torch.cuda.is_available():
@@ -196,52 +191,27 @@ class Config:
             x_query = 5
             x_center = 30
             x_max = 32
-        if self.dml:
-            logger.info("Use DirectML instead")
-            if not Path(
-                "runtime/Lib/site-packages/onnxruntime/capi/DirectML.dll"
-            ).exists():
-                try:
-                    os.rename(
-                        "runtime\Lib\site-packages\onnxruntime",
-                        "runtime\Lib\site-packages\onnxruntime-cuda",
-                    )
-                except:
-                    pass
-                try:
-                    os.rename(
-                        "runtime\Lib\site-packages\onnxruntime-dml",
-                        "runtime\Lib\site-packages\onnxruntime",
-                    )
-                except:
-                    pass
-            import torch_directml  # noqa: PLC0415
-
-            self.device = torch_directml.device(torch_directml.default_device())
-            self.is_half = False
-        else:
-            if self.instead:
-                logger.info(f"Use {self.instead} instead")
-            onnxruntime_cuda_dll_path = Path(
-                "runtime\Lib\site-packages\onnxruntime\capi\onnxruntime_providers_cuda.dll"
-            )
-            if not onnxruntime_cuda_dll_path.exists():
-                try:
-                    os.rename(  # noqa: PTH104
-                        "runtime\Lib\site-packages\onnxruntime",
-                        "runtime\Lib\site-packages\onnxruntime-dml",
-                    )
-                except:
-                    pass
-                try:
-                    os.rename(  # noqa: PTH104
-                        "runtime\Lib\site-packages\onnxruntime-cuda",
-                        "runtime\Lib\site-packages\onnxruntime",
-                    )
-                except:
-                    pass
+        if self.instead:
+            logger.info("Use %s instead", self.instead)
+        onnxruntime_cuda_dll_path = Path(
+            "runtime/Lib/site-packages/onnxruntime/capi/onnxruntime_providers_cuda.dll"
+        )
+        if not onnxruntime_cuda_dll_path.exists():
+            try:
+                os.rename(  # noqa: PTH104
+                    "runtime/Lib/site-packages/onnxruntime",
+                    "runtime/Lib/site-packages/onnxruntime-dml",
+                )
+            except:
+                pass
+            try:
+                os.rename(  # noqa: PTH104
+                    "runtime/Lib/site-packages/onnxruntime-cuda",
+                    "runtime/Lib/site-packages/onnxruntime",
+                )
+            except:
+                pass
         logger.info(
-            "Half-precision floating-point: %s, device: %s"
-            % (self.is_half, self.device)
+            "Half-precision floating-point: %s, device: %s", self.is_half, self.device
         )
         return x_pad, x_query, x_center, x_max
