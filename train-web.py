@@ -110,9 +110,7 @@ def _preprocess_dataset(
         yield log_file.read_text()
         sleep(1)
 
-    log = log_file.read_text()
-    logger.info(log)
-    yield log
+    yield log_file.read_text()
 
 
 def _extract_pitch_features(
@@ -221,15 +219,15 @@ def _get_pretrained_models(path: str, f0: str, sr: str) -> tuple[str, str]:
     gen_path = f"assets/pretrained{path}/{f0}G{sr}.pth"
     disc_path = f"assets/pretrained{path}/{f0}D{sr}.pth"
 
-    gen_exists = Path(gen_path).exists()
-    disc_exists = Path(disc_path).exists()
+    paths = [gen_path, disc_path]
+    for p in paths:
+        if not Path(p).exists():
+            logger.warning("%s not exist, will not use pretrained model", p)
 
-    if not gen_exists:
-        logger.warning("%s not exist, will not use pretrained model", gen_path)
-    if not disc_exists:
-        logger.warning("%s not exist, will not use pretrained model", disc_path)
-
-    return (gen_path if gen_exists else "", disc_path if disc_exists else "")
+    return (
+        gen_path if Path(gen_path).exists() else "",
+        disc_path if Path(disc_path).exists() else "",
+    )
 
 
 def _change_sr(sr: str, if_f0: bool, version: str) -> tuple[str, str]:
@@ -242,11 +240,10 @@ def _change_sr(sr: str, if_f0: bool, version: str) -> tuple[str, str]:
 def _change_f0(if_f0: bool, sample_rate: str, version: str):
     path_str = "" if version == "v1" else "_v2"
     update: dict[str, bool | str] = {"visible": if_f0, "__type__": "update"}
-    return (
-        update,
-        update,
-        *_get_pretrained_models(path_str, "f0" if if_f0 else "", sample_rate),
+    gen_path, disc_path = _get_pretrained_models(
+        path_str, "f0" if if_f0 else "", sample_rate
     )
+    return (update, update, gen_path, disc_path)
 
 
 def _change_version(
@@ -255,20 +252,15 @@ def _change_version(
     path_str = "" if version == "v1" else "_v2"
     if sample_rate == "32k" and version == "v1":
         sample_rate = "40k"
-    sample_rate_update = (
-        {"choices": ["40k", "48k"], "__type__": "update", "value": sample_rate}
-        if version == "v1"
-        else {
-            "choices": ["40k", "48k", "32k"],
-            "__type__": "update",
-            "value": sample_rate,
-        }
-    )
+    sample_rate_choices = ["40k", "48k"] if version == "v1" else ["40k", "48k", "32k"]
+    sample_rate_update = {
+        "choices": sample_rate_choices,
+        "__type__": "update",
+        "value": sample_rate,
+    }
     f0_str = "f0" if if_f0 else ""
-    return (
-        *_get_pretrained_models(path_str, f0_str, sample_rate),
-        sample_rate_update,
-    )
+    gen_path, disc_path = _get_pretrained_models(path_str, f0_str, sample_rate)
+    return (gen_path, disc_path, sample_rate_update)
 
 
 def _click_train(
@@ -410,7 +402,7 @@ def _train_index(project_dir: Path, version: str) -> Generator[str, None, str]:
                 .fit(big_npy)
                 .cluster_centers_
             )
-        except:
+        except Exception:
             infos.append(traceback.format_exc())
             logger.info(infos[-1])
             yield "\n".join(infos)
@@ -455,7 +447,7 @@ def _train_index(project_dir: Path, version: str) -> Generator[str, None, str]:
         else:
             target_path.symlink_to(source_path)
         infos.append(f"Linked index to external directory - {outside_index_root}")
-    except:
+    except Exception:
         infos.append(
             f"Failed to link index to external directory - {outside_index_root}"
         )
