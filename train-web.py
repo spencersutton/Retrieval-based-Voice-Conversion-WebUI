@@ -152,60 +152,37 @@ def _extract_pitch_features(
         if extract_method == "rmvpe_gpu" and gpu_ids_rmvpe != "-":
             # Multi-GPU RMVPE extraction
             gpu_ids = gpu_ids_rmvpe.split("-")
-            n_processes = len(gpu_ids)
-
             processes = [
                 Process(
                     target=_worker_process_f0_gpu,
-                    args=(file_paths[idx::n_processes], log_file, gpu_id),
+                    args=(file_paths[idx :: len(gpu_ids)], log_file, gpu_id),
                 )
                 for idx, gpu_id in enumerate(gpu_ids)
             ]
-            for p in processes:
-                p.start()
-
-            while any(p.is_alive() for p in processes):
-                yield log_file.read_text()
-                sleep(1)
-
-            for p in processes:
-                p.join()
-
-        elif extract_method == "rmvpe_gpu":
-            device = "cpu"
-            logger.warning("torch_directml not available, falling back to CPU")
-
-            FeatureExtractor().extract_f0_for_files(
-                file_paths, "rmvpe", log_file, device=device
-            )
-            yield log_file.read_text()
         else:
-            # CPU-based extraction (pm, harvest, dio, rmvpe on CPU)
+            if extract_method == "rmvpe_gpu":
+                logger.warning("torch_directml not available, falling back to CPU")
+                extract_method = "rmvpe"
+
             processes = [
                 Process(
                     target=_worker_process_f0_cpu,
-                    args=(
-                        file_paths[i::num_cpu_processes],
-                        log_file,
-                        extract_method,
-                    ),
+                    args=(file_paths[i::num_cpu_processes], log_file, extract_method),
                 )
                 for i in range(num_cpu_processes)
             ]
-            for p in processes:
-                p.start()
 
-            while any(p.is_alive() for p in processes):
-                yield log_file.read_text()
-                sleep(1)
+        for p in processes:
+            p.start()
 
-            for p in processes:
-                p.join()
+        while any(p.is_alive() for p in processes):
+            yield log_file.read_text()
+            sleep(1)
 
-        # Final yield after f0 extraction
-        log = log_file.read_text()
-        logger.info(log)
-        yield log
+        for p in processes:
+            p.join()
+
+        yield log_file.read_text()
 
     # Step 2: Extract model features using GPUs
     wav_path = log_dir / "1_16k_wavs"
@@ -220,7 +197,6 @@ def _extract_pitch_features(
     ]
 
     gpu_list = gpus.split("-")
-
     processes = [
         Process(
             target=_worker_process_features_gpu,
@@ -228,6 +204,7 @@ def _extract_pitch_features(
         )
         for idx, gpu_id in enumerate(gpu_list)
     ]
+
     for p in processes:
         p.start()
 
@@ -238,9 +215,7 @@ def _extract_pitch_features(
     for p in processes:
         p.join()
 
-    log = log_file.read_text()
-    logger.info(log)
-    yield log
+    yield log_file.read_text()
 
 
 def _get_pretrained_models(path: str, f0: str, sr: str) -> tuple[str, str]:
