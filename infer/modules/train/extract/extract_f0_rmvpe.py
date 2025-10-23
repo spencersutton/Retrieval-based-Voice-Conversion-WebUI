@@ -5,7 +5,6 @@ import traceback
 
 import numpy as np
 
-sys.path.append(os.getcwd())
 from infer.lib.audio import load_audio
 
 logging.getLogger("numba").setLevel(logging.WARNING)

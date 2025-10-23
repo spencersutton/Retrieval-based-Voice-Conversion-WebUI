@@ -4,7 +4,6 @@ import os
 import pathlib
 import platform
 import shutil
-import sys
 import threading
 import traceback
 import warnings
@@ -19,7 +18,6 @@ import torch
 from dotenv import load_dotenv
 from sklearn.cluster import MiniBatchKMeans
 
-sys.path.append(os.getcwd())
 from configs.config import Config
 from i18n.i18n import I18nAuto
 from infer.lib.train.process_ckpt import (

@@ -1,7 +1,6 @@
 import datetime
 import logging
 import os
-import sys
 from random import randint, shuffle
 from time import sleep
 from time import time as ttime
@@ -9,13 +8,11 @@ from time import time as ttime
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
+from torch.cuda.amp import GradScaler, autocast
 from torch.nn import functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
-sys.path.append(os.getcwd())
-from torch.cuda.amp import GradScaler, autocast
 
 from infer.lib.infer_pack import commons
 from infer.lib.infer_pack.models import (

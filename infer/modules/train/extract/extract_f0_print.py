@@ -8,7 +8,6 @@ import numpy as np
 import parselmouth
 import pyworld
 
-sys.path.append(os.getcwd())
 from infer.lib.audio import load_audio
 
 logging.getLogger("numba").setLevel(logging.WARNING)
