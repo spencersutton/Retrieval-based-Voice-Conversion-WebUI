@@ -1,8 +1,6 @@
 import logging
+import os
 import traceback
-
-logger = logging.getLogger(__name__)
-
 from io import BytesIO
 
 import numpy as np
@@ -18,6 +16,8 @@ from infer.lib.infer_pack.models import (
 )
 from infer.modules.vc.pipeline import Pipeline
 from infer.modules.vc.utils import *
+
+logger = logging.getLogger(__name__)
 
 
 class VC:

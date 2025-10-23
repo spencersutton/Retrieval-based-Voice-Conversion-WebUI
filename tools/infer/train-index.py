@@ -5,10 +5,10 @@
 import logging
 import os
 
-logger = logging.getLogger(__name__)
-
 import faiss
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 # ###########如果是原始特征要先写save
 inp_root = r"E:\codes\py39\dataset\mi\2-co256"

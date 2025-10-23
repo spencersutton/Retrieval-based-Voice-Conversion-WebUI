@@ -1,12 +1,14 @@
 import logging
 import os
 from io import BytesIO
+from time import time as ttime
 from typing import List
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from librosa.filters import mel
 from librosa.util import pad_center
 from scipy.signal import get_window
 
@@ -143,9 +145,6 @@ class STFT(torch.nn.Module):
         self.magnitude, self.phase = self.transform(input_data, return_phase=True)
         reconstruction = self.inverse(self.magnitude, self.phase)
         return reconstruction
-
-
-from time import time as ttime
 
 
 class BiGRU(nn.Module):
@@ -397,9 +396,6 @@ class E2E(nn.Module):
         x = self.cnn(self.unet(mel)).transpose(1, 2).flatten(-2)
         x = self.fc(x)
         return x
-
-
-from librosa.filters import mel
 
 
 class MelSpectrogram(torch.nn.Module):
