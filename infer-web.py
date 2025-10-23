@@ -450,7 +450,7 @@ def change_f0(if_f0_3, sr2):  # f0method8,pretrained_G14,pretrained_D15
     return (
         {"visible": if_f0_3, "__type__": "update"},
         {"visible": if_f0_3, "__type__": "update"},
-        *get_pretrained_models(path_str, "f0" if if_f0_3 == True else "", sr2),
+        *get_pretrained_models(path_str, "f0" if if_f0_3 else "", sr2),
     )
 
 

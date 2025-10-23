@@ -559,7 +559,7 @@ if __name__ == "__main__":
                         value=self.gui_config.sg_output_device
                     )
                 if event == "start_vc" and not flag_vc:
-                    if self.set_values(values) == True:
+                    if self.set_values(values):
                         printt("cuda_is_available: %s", torch.cuda.is_available())
                         self.start_vc()
                         settings = {

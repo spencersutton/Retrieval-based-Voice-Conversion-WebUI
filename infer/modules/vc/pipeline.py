@@ -299,13 +299,7 @@ class Pipeline(object):
         protect,
         f0_file=None,
     ):
-        if (
-            file_index != ""
-            # and file_big_npy != ""
-            # and os.path.exists(file_big_npy) == True
-            and os.path.exists(file_index)
-            and index_rate != 0
-        ):
+        if file_index != "" and os.path.exists(file_index) and index_rate != 0:
             try:
                 index = faiss.read_index(file_index)
                 # big_npy = np.load(file_big_npy)

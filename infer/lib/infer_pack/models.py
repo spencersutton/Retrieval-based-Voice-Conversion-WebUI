@@ -38,7 +38,7 @@ class TextEncoder(nn.Module):
         self.p_dropout = float(p_dropout)
         self.emb_phone = nn.Linear(in_channels, hidden_channels)
         self.lrelu = nn.LeakyReLU(0.1, inplace=True)
-        if f0 == True:
+        if f0:
             self.emb_pitch = nn.Embedding(256, hidden_channels)  # pitch 256
         self.encoder = attentions.Encoder(
             hidden_channels,
@@ -1113,7 +1113,7 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
 class DiscriminatorS(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
         super(DiscriminatorS, self).__init__()
-        norm_f = weight_norm if use_spectral_norm == False else spectral_norm
+        norm_f = weight_norm if not use_spectral_norm else spectral_norm
         self.convs = nn.ModuleList(
             [
                 norm_f(Conv1d(1, 16, 15, 1, padding=7)),
@@ -1145,7 +1145,7 @@ class DiscriminatorP(torch.nn.Module):
         super(DiscriminatorP, self).__init__()
         self.period = period
         self.use_spectral_norm = use_spectral_norm
-        norm_f = weight_norm if use_spectral_norm == False else spectral_norm
+        norm_f = weight_norm if not use_spectral_norm else spectral_norm
         self.convs = nn.ModuleList(
             [
                 norm_f(

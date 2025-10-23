@@ -171,11 +171,8 @@ class Config:
 
         if self.instead:
             logger.info(f"Use {self.instead} instead")
-        if (
-            os.path.exists(
-                "runtime\Lib\site-packages\onnxruntime\capi\onnxruntime_providers_cuda.dll"
-            )
-            == False
+        if not os.path.exists(
+            "runtime\Lib\site-packages\onnxruntime\capi\onnxruntime_providers_cuda.dll"
         ):
             try:
                 os.rename(

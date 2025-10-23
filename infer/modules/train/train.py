@@ -71,7 +71,7 @@ class EpochRecorder:
 def main():
     n_gpus = torch.cuda.device_count()
 
-    if torch.cuda.is_available() == False and torch.backends.mps.is_available() == True:
+    if not torch.cuda.is_available() and torch.backends.mps.is_available():
         n_gpus = 1
     if n_gpus < 1:
         # patch to unblock people without gpus. there is probably a better way.
@@ -286,7 +286,7 @@ def train_and_evaluate(
     net_d.train()
 
     # Prepare data iterator
-    if hps.if_cache_data_in_gpu == True:
+    if hps.if_cache_data_in_gpu:
         # Use Cache
         data_iterator = cache
         if cache == []:
@@ -387,7 +387,7 @@ def train_and_evaluate(
         else:
             phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
         ## Load on CUDA
-        if (hps.if_cache_data_in_gpu == False) and torch.cuda.is_available():
+        if not hps.if_cache_data_in_gpu and torch.cuda.is_available():
             phone = phone.cuda(rank, non_blocking=True)
             phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
             if hps.if_f0 == 1:
@@ -439,7 +439,7 @@ def train_and_evaluate(
                     hps.data.mel_fmin,
                     hps.data.mel_fmax,
                 )
-            if hps.train.fp16_run == True:
+            if hps.train.fp16_run:
                 y_hat_mel = y_hat_mel.half()
             wave = commons.slice_segments(
                 wave, ids_slice * hps.data.hop_length, hps.train.segment_size

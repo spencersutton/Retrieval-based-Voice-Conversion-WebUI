@@ -295,7 +295,7 @@ class RVC:
         return self.get_f0_post(f0)
 
     def get_f0_rmvpe(self, x, f0_up_key):
-        if hasattr(self, "model_rmvpe") == False:
+        if not hasattr(self, "model_rmvpe"):
             from infer.lib.rmvpe import RMVPE
 
             printt("Loading rmvpe model")
@@ -310,7 +310,7 @@ class RVC:
         return self.get_f0_post(f0)
 
     def get_f0_fcpe(self, x, f0_up_key):
-        if hasattr(self, "model_fcpe") == False:
+        if not hasattr(self, "model_fcpe"):
             from torchfcpe import spawn_bundled_infer_model
 
             printt("Loading fcpe model")

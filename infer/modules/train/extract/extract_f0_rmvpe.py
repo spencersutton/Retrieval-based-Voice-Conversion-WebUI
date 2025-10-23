@@ -42,7 +42,7 @@ class FeatureInput(object):
         x = load_audio(path, self.fs)
         # p_len = x.shape[0] // self.hop
         if f0_method == "rmvpe":
-            if hasattr(self, "model_rmvpe") == False:
+            if not hasattr(self, "model_rmvpe"):
                 from infer.lib.rmvpe import RMVPE
 
                 print("Loading rmvpe model")
@@ -78,9 +78,8 @@ class FeatureInput(object):
                 try:
                     if idx % n == 0:
                         printt("f0ing,now-%s,all-%s,-%s" % (idx, len(paths), inp_path))
-                    if (
-                        os.path.exists(opt_path1 + ".npy") == True
-                        and os.path.exists(opt_path2 + ".npy") == True
+                    if os.path.exists(opt_path1 + ".npy") and os.path.exists(
+                        opt_path2 + ".npy"
                     ):
                         continue
                     featur_pit = self.compute_f0(inp_path, f0_method)
