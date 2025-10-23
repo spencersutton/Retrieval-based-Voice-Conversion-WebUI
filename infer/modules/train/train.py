@@ -1,28 +1,54 @@
+import datetime
+import logging
 import os
 import sys
-import logging
+from random import randint, shuffle
+from time import sleep
+from time import time as ttime
+
+import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.nn import functional as F
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+
+sys.path.append(os.getcwd())
+from infer.lib.infer_pack import commons
+from infer.lib.train import utils
+from infer.lib.train.data_utils import (
+    DistributedBucketSampler,
+    TextAudioCollate,
+    TextAudioCollateMultiNSFsid,
+    TextAudioLoader,
+    TextAudioLoaderMultiNSFsid,
+)
+from infer.lib.train.losses import (
+    discriminator_loss,
+    feature_loss,
+    generator_loss,
+    kl_loss,
+)
+from infer.lib.train.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
+from infer.lib.train.process_ckpt import savee
 
 logger = logging.getLogger(__name__)
 
 now_dir = os.getcwd()
-sys.path.append(os.path.join(now_dir))
 
-import datetime
-
-from infer.lib.train import utils
 
 hps = utils.get_hparams()
 os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
 n_gpus = len(hps.gpus.split("-"))
-from random import randint, shuffle
 
-import torch
 
 try:
     if torch.xpu.is_available():
+        from torch.xpu.amp import autocast
+
         from infer.modules.ipex import ipex_init
         from infer.modules.ipex.gradscaler import gradscaler_init
-        from torch.xpu.amp import autocast
 
         GradScaler = gradscaler_init()
         ipex_init()
@@ -33,24 +59,7 @@ except Exception:
 
 torch.backends.cudnn.deterministic = False
 torch.backends.cudnn.benchmark = False
-from time import sleep
-from time import time as ttime
 
-import torch.distributed as dist
-import torch.multiprocessing as mp
-from torch.nn import functional as F
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
-
-from infer.lib.infer_pack import commons
-from infer.lib.train.data_utils import (
-    DistributedBucketSampler,
-    TextAudioCollate,
-    TextAudioCollateMultiNSFsid,
-    TextAudioLoader,
-    TextAudioLoaderMultiNSFsid,
-)
 
 if hps.version == "v1":
     from infer.lib.infer_pack.models import MultiPeriodDiscriminator
@@ -60,19 +69,14 @@ if hps.version == "v1":
     )
 else:
     from infer.lib.infer_pack.models import (
-        SynthesizerTrnMs768NSFsid as RVC_Model_f0,
-        SynthesizerTrnMs768NSFsid_nono as RVC_Model_nof0,
         MultiPeriodDiscriminatorV2 as MultiPeriodDiscriminator,
     )
-
-from infer.lib.train.losses import (
-    discriminator_loss,
-    feature_loss,
-    generator_loss,
-    kl_loss,
-)
-from infer.lib.train.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
-from infer.lib.train.process_ckpt import savee
+    from infer.lib.infer_pack.models import (
+        SynthesizerTrnMs768NSFsid as RVC_Model_f0,
+    )
+    from infer.lib.infer_pack.models import (
+        SynthesizerTrnMs768NSFsid_nono as RVC_Model_nof0,
+    )
 
 global_step = 0
 
