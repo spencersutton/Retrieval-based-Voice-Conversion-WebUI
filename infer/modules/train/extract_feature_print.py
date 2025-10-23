@@ -2,6 +2,11 @@ import os
 import sys
 import traceback
 
+import fairseq
+import numpy as np
+import soundfile as sf
+import torch
+import torch.nn.functional as F
 from fairseq.data.dictionary import Dictionary
 from torch.serialization import safe_globals
 
@@ -21,12 +26,6 @@ else:
     os.environ["CUDA_VISIBLE_DEVICES"] = str(i_gpu)
     version = sys.argv[6]
     is_half = sys.argv[7].lower() == "true"
-import fairseq
-import numpy as np
-import soundfile as sf
-import torch
-import torch.nn.functional as F
-
 device = "cpu"
 if torch.cuda.is_available():
     device = "cuda"

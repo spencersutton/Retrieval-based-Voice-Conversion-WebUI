@@ -2,18 +2,15 @@ import argparse
 import os
 import sys
 
-print("Command-line arguments:", sys.argv)
-
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-import sys
-
 import tqdm as tq
 from dotenv import load_dotenv
 from scipy.io import wavfile
 
+sys.path.append(os.getcwd())
 from configs.config import Config
 from infer.modules.vc.modules import VC
+
+print("Command-line arguments:", sys.argv)
 
 
 def arg_parse() -> tuple:

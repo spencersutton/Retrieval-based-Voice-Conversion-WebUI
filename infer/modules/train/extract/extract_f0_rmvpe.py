@@ -1,13 +1,11 @@
+import logging
 import os
 import sys
 import traceback
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-import logging
-
 import numpy as np
 
+sys.path.append(os.getcwd())
 from infer.lib.audio import load_audio
 
 logging.getLogger("numba").setLevel(logging.WARNING)

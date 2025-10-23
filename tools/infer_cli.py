@@ -2,12 +2,12 @@ import argparse
 import os
 import sys
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
 from dotenv import load_dotenv
 from scipy.io import wavfile
 
 from configs.config import Config
+
+sys.path.append(os.getcwd())
 from infer.modules.vc.modules import VC
 
 ####

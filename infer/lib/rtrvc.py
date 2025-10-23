@@ -2,6 +2,7 @@ import os
 import sys
 import traceback
 from io import BytesIO
+from multiprocessing import Manager as M
 from time import time as ttime
 
 import fairseq
@@ -16,16 +17,11 @@ import torch.nn.functional as F
 import torchcrepe
 from torchaudio.transforms import Resample
 
-from infer.lib import jit
-from infer.lib.jit.get_synthesizer import get_synthesizer
-
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-from multiprocessing import Manager as M
-
 from configs.config import Config
 
-# config = Config()
+sys.path.append(os.getcwd())
+from infer.lib import jit
+from infer.lib.jit.get_synthesizer import get_synthesizer
 
 mm = M()
 
@@ -37,8 +33,6 @@ def printt(strr, *args):
         print(strr % args)
 
 
-# config.device=torch.device("cpu")########强制cpu测试
-# config.is_half=False########强制cpu测试
 class RVC:
     def __init__(
         self,
