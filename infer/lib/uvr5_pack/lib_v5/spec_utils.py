@@ -351,7 +351,6 @@ def spectrogram_to_wave_mt(spec, hop_length, mid_side, reverse, mid_side_b2):
 
 
 def cmb_spectrogram_to_wave(spec_m, mp, extra_bins_h=None, extra_bins=None):
-    wave_band = {}
     bands_n = len(mp.param["band"])
     offset = 0
 
@@ -523,7 +522,7 @@ def istft(spec, hl):
 
     wave_left = librosa.istft(spec_left, hop_length=hl)
     wave_right = librosa.istft(spec_right, hop_length=hl)
-    wave = np.asfortranarray([wave_left, wave_right])
+    np.asfortranarray([wave_left, wave_right])
 
 
 if __name__ == "__main__":
