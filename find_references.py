@@ -144,13 +144,37 @@ def _get_module_name(file_path: str) -> str:
     path = Path(file_path)
     parts = path.with_suffix("").parts
 
-    # Filter out common workspace root indicators
-    if parts and parts[0] in ("home", "src", "lib", "app"):
-        # Take from the most significant parts
-        if len(parts) > 1:
-            # Return the relative module path
-            return ".".join(parts[-2:]) if len(parts) >= 2 else parts[-1]
+    # Find where the package/module structure starts
+    # Look for common package indicators like 'src', 'lib', 'infer', 'tools', etc.
+    # or the first part if absolute path contains directories
 
+    module_parts = []
+    found_package_root = False
+
+    for i, part in enumerate(parts):
+        # Skip absolute path root on Unix (/), or drive letters on Windows (C:)
+        if part == "" or (len(part) == 2 and part[1] == ":"):
+            continue
+        # Skip common workspace path components
+        if part in ("home", "Users", "users"):
+            continue
+        # Skip user directories and workspace names that are usually full project names
+        # Look for directories that typically contain packages
+        if i > 0 and not found_package_root:
+            # If we haven't found a package root yet, check if current part looks like one
+            if part in ("src", "lib", "infer", "tools", "app", "modules", "packages"):
+                found_package_root = True
+
+        if found_package_root or (
+            i > 0
+            and part in ("src", "lib", "infer", "tools", "app", "modules", "packages")
+        ):
+            module_parts.append(part)
+
+    if module_parts:
+        return ".".join(module_parts)
+
+    # Fallback: just use the last 2 parts or filename
     return ".".join(parts[-2:]) if len(parts) >= 2 else path.stem
 
 
