@@ -19,7 +19,6 @@ from random import randint, shuffle
 import torch
 
 try:
-
     if torch.xpu.is_available():
         from infer.modules.ipex import ipex_init
         from infer.modules.ipex.gradscaler import gradscaler_init

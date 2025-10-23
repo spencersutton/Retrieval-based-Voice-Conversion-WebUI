@@ -4,7 +4,6 @@ import torch.nn.functional as F
 from torch import nn
 
 
-
 class BaseASPPNet(nn.Module):
     def __init__(self, nin, ch, dilations=(4, 8, 16)):
         super(BaseASPPNet, self).__init__()

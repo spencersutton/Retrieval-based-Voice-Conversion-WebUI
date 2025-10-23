@@ -8,7 +8,6 @@ from multiprocessing import cpu_count
 import torch
 
 try:
-
     if torch.xpu.is_available():
         from infer.modules.ipex import ipex_init
 
