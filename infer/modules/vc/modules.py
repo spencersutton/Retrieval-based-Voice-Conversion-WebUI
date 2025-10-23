@@ -211,7 +211,7 @@ class VC:
                 % (index_info, *times),
                 (tgt_sr, audio_opt),
             )
-        except:
+        except Exception:
             info = traceback.format_exc()
             logger.warning(info)
             return info, (None, None)
@@ -246,7 +246,7 @@ class VC:
                     ]
                 else:
                     paths = [path.name for path in paths]
-            except:
+            except Exception:
                 traceback.print_exc()
                 paths = [path.name for path in paths]
             infos = []
@@ -286,10 +286,10 @@ class VC:
                                 wavf.seek(0, 0)
                                 with open(path, "wb") as outf:
                                     wav2(wavf, outf, format1)
-                    except:
+                    except Exception:
                         info += traceback.format_exc()
                 infos.append("%s->%s" % (os.path.basename(path), info))
                 yield "\n".join(infos)
             yield "\n".join(infos)
-        except:
+        except Exception:
             yield traceback.format_exc()

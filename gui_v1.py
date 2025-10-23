@@ -174,7 +174,7 @@ if __name__ == "__main__":
                         data["sg_output_device"] = self.output_devices[
                             self.output_devices_indices.index(sd.default.device[1])
                         ]
-            except:
+            except Exception:
                 with open("configs/inuse/config.json", "w") as j:
                     data = {
                         "pth_path": "",

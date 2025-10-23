@@ -179,7 +179,7 @@ class Config:
                     "runtime\Lib\site-packages\onnxruntime-cuda",
                     "runtime\Lib\site-packages\onnxruntime",
                 )
-            except:
+            except Exception:
                 pass
         logger.info(
             "Half-precision floating-point: %s, device: %s"

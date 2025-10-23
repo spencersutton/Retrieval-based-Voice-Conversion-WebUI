@@ -2,8 +2,6 @@ import logging
 import math
 from typing import Optional
 
-logger = logging.getLogger(__name__)
-
 import numpy as np
 import torch
 from torch import nn
@@ -13,6 +11,8 @@ from torch.nn.utils import remove_weight_norm, spectral_norm, weight_norm
 
 from infer.lib.infer_pack import attentions, commons, modules
 from infer.lib.infer_pack.commons import get_padding, init_weights
+
+logger = logging.getLogger(__name__)
 
 
 class TextEncoder(nn.Module):

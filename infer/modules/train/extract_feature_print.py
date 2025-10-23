@@ -124,6 +124,6 @@ else:
                     printt("%s-contains nan" % file)
                 if idx % n == 0:
                     printt("now-%s,all-%s,%s,%s" % (len(todo), idx, file, feats.shape))
-        except:
+        except Exception:
             printt(traceback.format_exc())
     printt("all-feature-done")

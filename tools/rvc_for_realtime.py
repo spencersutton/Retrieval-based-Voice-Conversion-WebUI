@@ -168,7 +168,7 @@ class RVC:
             if last_rvc is not None and hasattr(last_rvc, "model_fcpe"):
                 self.device_fcpe = last_rvc.device_fcpe
                 self.model_fcpe = last_rvc.model_fcpe
-        except:
+        except Exception:
             printt(traceback.format_exc())
 
     def change_key(self, new_key):
@@ -368,7 +368,7 @@ class RVC:
                     )
             else:
                 printt("Index search FAILED or disabled")
-        except:
+        except Exception:
             traceback.print_exc()
             printt("Index search FAILED")
         t3 = ttime()
