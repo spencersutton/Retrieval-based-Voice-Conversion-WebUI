@@ -1,8 +1,9 @@
 import platform
-import numpy as np
-import av
 import re
+
+import av
 import av.audio.frame
+import numpy as np
 
 
 def wav2(i, o, format):
