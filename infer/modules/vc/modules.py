@@ -15,7 +15,7 @@ from infer.lib.infer_pack.models import (
     SynthesizerTrnMs768NSFsid_nono,
 )
 from infer.modules.vc.pipeline import Pipeline
-from infer.modules.vc.utils import *
+from infer.modules.vc.utils import get_index_path_from_model, load_hubert
 
 logger = logging.getLogger(__name__)
 
