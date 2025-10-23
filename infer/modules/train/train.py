@@ -15,6 +15,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 sys.path.append(os.getcwd())
+from torch.cuda.amp import GradScaler, autocast
+
 from infer.lib.infer_pack import commons
 from infer.lib.train import utils
 from infer.lib.train.data_utils import (
@@ -37,25 +39,9 @@ logger = logging.getLogger(__name__)
 
 now_dir = os.getcwd()
 
-
 hps = utils.get_hparams()
 os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
 n_gpus = len(hps.gpus.split("-"))
-
-
-try:
-    if torch.xpu.is_available():
-        from torch.xpu.amp import autocast
-
-        from infer.modules.ipex import ipex_init
-        from infer.modules.ipex.gradscaler import gradscaler_init
-
-        GradScaler = gradscaler_init()
-        ipex_init()
-    else:
-        from torch.cuda.amp import GradScaler, autocast
-except Exception:
-    from torch.cuda.amp import GradScaler, autocast
 
 torch.backends.cudnn.deterministic = False
 torch.backends.cudnn.benchmark = False
@@ -198,9 +184,7 @@ def run(rank, n_gpus, hps, logger: logging.Logger):
     )
     # net_g = DDP(net_g, device_ids=[rank], find_unused_parameters=True)
     # net_d = DDP(net_d, device_ids=[rank], find_unused_parameters=True)
-    if hasattr(torch, "xpu") and torch.xpu.is_available():
-        pass
-    elif torch.cuda.is_available():
+    if torch.cuda.is_available():
         net_g = DDP(net_g, device_ids=[rank])
         net_d = DDP(net_d, device_ids=[rank])
     else:

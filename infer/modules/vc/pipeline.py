@@ -1,7 +1,7 @@
+import logging
 import os
 import sys
 import traceback
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -362,7 +362,7 @@ class Pipeline(object):
             )
             pitch = pitch[:p_len]
             pitchf = pitchf[:p_len]
-            if "mps" not in str(self.device) or "xpu" not in str(self.device):
+            if "mps" not in str(self.device):
                 pitchf = pitchf.astype(np.float32)
             pitch = torch.tensor(pitch, device=self.device).unsqueeze(0).long()
             pitchf = torch.tensor(pitchf, device=self.device).unsqueeze(0).float()

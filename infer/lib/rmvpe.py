@@ -1,26 +1,16 @@
-from io import BytesIO
+import logging
 import os
+from io import BytesIO
 from typing import List
+
 import numpy as np
 import torch
-
-from infer.lib import jit
-
-try:
-    # Fix "Torch not compiled with CUDA enabled"
-
-    if torch.xpu.is_available():
-        from infer.modules.ipex import ipex_init
-
-        ipex_init()
-except Exception:  # pylint: disable=broad-exception-caught
-    pass
 import torch.nn as nn
 import torch.nn.functional as F
 from librosa.util import pad_center
 from scipy.signal import get_window
 
-import logging
+from infer.lib import jit
 
 logger = logging.getLogger(__name__)
 
