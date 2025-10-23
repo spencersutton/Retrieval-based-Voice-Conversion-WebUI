@@ -349,25 +349,27 @@ class SineGen(torch.nn.Module):
         if uv.device.type == "privateuseone":  # for DirectML
             uv = uv.float()
         return uv
-    
+
     def _f02sine(self, f0, upp):
-        """ f0: (batchsize, length, dim)
-            where dim indicates fundamental tone and overtones
+        """f0: (batchsize, length, dim)
+        where dim indicates fundamental tone and overtones
         """
         a = torch.arange(1, upp + 1, dtype=f0.dtype, device=f0.device)
         rad = f0 / self.sampling_rate * a
         rad2 = torch.fmod(rad[:, :-1, -1:].float() + 0.5, 1.0) - 0.5
         rad_acc = rad2.cumsum(dim=1).fmod(1.0).to(f0)
-        rad += F.pad(rad_acc, (0, 0, 1, 0), mode='constant')
+        rad += F.pad(rad_acc, (0, 0, 1, 0), mode="constant")
         rad = rad.reshape(f0.shape[0], -1, 1)
-        b = torch.arange(1, self.dim + 1, dtype=f0.dtype, device=f0.device).reshape(1, 1, -1)
+        b = torch.arange(1, self.dim + 1, dtype=f0.dtype, device=f0.device).reshape(
+            1, 1, -1
+        )
         rad *= b
         rand_ini = torch.rand(1, 1, self.dim, device=f0.device)
         rand_ini[..., 0] = 0
         rad += rand_ini
         sines = torch.sin(2 * np.pi * rad)
         return sines
-        
+
     def forward(self, f0: torch.Tensor, upp: int):
         """sine_tensor, uv = forward(f0)
         input F0: tensor(batchsize=1, length, dim=1)
@@ -620,7 +622,7 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
         spk_embed_dim,
         gin_channels,
         sr,
-        **kwargs
+        **kwargs,
     ):
         super(SynthesizerTrnMs256NSFsid, self).__init__()
         if isinstance(sr, str):
@@ -797,7 +799,7 @@ class SynthesizerTrnMs768NSFsid(SynthesizerTrnMs256NSFsid):
         spk_embed_dim,
         gin_channels,
         sr,
-        **kwargs
+        **kwargs,
     ):
         super(SynthesizerTrnMs768NSFsid, self).__init__(
             spec_channels,
@@ -818,7 +820,7 @@ class SynthesizerTrnMs768NSFsid(SynthesizerTrnMs256NSFsid):
             spk_embed_dim,
             gin_channels,
             sr,
-            **kwargs
+            **kwargs,
         )
         del self.enc_p
         self.enc_p = TextEncoder(
@@ -854,7 +856,7 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
         spk_embed_dim,
         gin_channels,
         sr=None,
-        **kwargs
+        **kwargs,
     ):
         super(SynthesizerTrnMs256NSFsid_nono, self).__init__()
         self.spec_channels = spec_channels
@@ -1012,7 +1014,7 @@ class SynthesizerTrnMs768NSFsid_nono(SynthesizerTrnMs256NSFsid_nono):
         spk_embed_dim,
         gin_channels,
         sr=None,
-        **kwargs
+        **kwargs,
     ):
         super(SynthesizerTrnMs768NSFsid_nono, self).__init__(
             spec_channels,
@@ -1033,7 +1035,7 @@ class SynthesizerTrnMs768NSFsid_nono(SynthesizerTrnMs256NSFsid_nono):
             spk_embed_dim,
             gin_channels,
             sr,
-            **kwargs
+            **kwargs,
         )
         del self.enc_p
         self.enc_p = TextEncoder(
