@@ -329,19 +329,11 @@ class MultiHeadAttention(nn.Module):
         """
         batch, heads, length, _ = x.size()
         # Concat columns of pad to shift from relative to absolute indexing.
-        x = F.pad(
-            x,
-            #   commons.convert_pad_shape([[0, 0], [0, 0], [0, 0], [0, 1]])
-            [0, 1, 0, 0, 0, 0, 0, 0],
-        )
+        x = F.pad(x, [0, 1, 0, 0, 0, 0, 0, 0])
 
         # Concat extra elements so to add up to shape (len+1, 2*len-1).
         x_flat = x.view([batch, heads, length * 2 * length])
-        x_flat = F.pad(
-            x_flat,
-            # commons.convert_pad_shape([[0, 0], [0, 0], [0, int(length) - 1]])
-            [0, int(length) - 1, 0, 0, 0, 0],
-        )
+        x_flat = F.pad(x_flat, [0, int(length) - 1, 0, 0, 0, 0])
 
         # Reshape and slice out the padded elements.
         x_final = x_flat.view([batch, heads, length + 1, 2 * length - 1])[
@@ -355,19 +347,11 @@ class MultiHeadAttention(nn.Module):
         ret: [b, h, l, 2*l-1]
         """
         batch, heads, length, _ = x.size()
-        # padd along column
-        x = F.pad(
-            x,
-            # commons.convert_pad_shape([[0, 0], [0, 0], [0, 0], [0, int(length) - 1]])
-            [0, int(length) - 1, 0, 0, 0, 0, 0, 0],
-        )
+        # pad along column
+        x = F.pad(x, [0, int(length) - 1, 0, 0, 0, 0, 0, 0])
         x_flat = x.view([batch, heads, int(length**2) + int(length * (length - 1))])
         # add 0's in the beginning that will skew the elements after reshape
-        x_flat = F.pad(
-            x_flat,
-            #    commons.convert_pad_shape([[0, 0], [0, 0], [int(length), 0]])
-            [length, 0, 0, 0, 0, 0],
-        )
+        x_flat = F.pad(x_flat, [length, 0, 0, 0, 0, 0])
         x_final = x_flat.view([batch, heads, length, 2 * length])[:, :, :, 1:]
         return x_final
 
@@ -403,11 +387,6 @@ class FFN(nn.Module):
         self.activation = activation
         self.causal = causal
         self.is_activation = True if activation == "gelu" else False
-        # if causal:
-        #     self.padding = self._causal_padding
-        # else:
-        #     self.padding = self._same_padding
-
         self.conv_1 = nn.Conv1d(in_channels, filter_channels, kernel_size)
         self.conv_2 = nn.Conv1d(filter_channels, out_channels, kernel_size)
         self.drop = nn.Dropout(p_dropout)
@@ -435,12 +414,7 @@ class FFN(nn.Module):
             return x
         pad_l: int = self.kernel_size - 1
         pad_r: int = 0
-        # padding = [[0, 0], [0, 0], [pad_l, pad_r]]
-        x = F.pad(
-            x,
-            #   commons.convert_pad_shape(padding)
-            [pad_l, pad_r, 0, 0, 0, 0],
-        )
+        x = F.pad(x, [pad_l, pad_r, 0, 0, 0, 0])
         return x
 
     def _same_padding(self, x):
@@ -448,10 +422,6 @@ class FFN(nn.Module):
             return x
         pad_l: int = (self.kernel_size - 1) // 2
         pad_r: int = self.kernel_size // 2
-        # padding = [[0, 0], [0, 0], [pad_l, pad_r]]
-        x = F.pad(
-            x,
-            #   commons.convert_pad_shape(padding)
-            [pad_l, pad_r, 0, 0, 0, 0],
-        )
+
+        x = F.pad(x, [pad_l, pad_r, 0, 0, 0, 0])
         return x

@@ -10,8 +10,6 @@
 import logging
 import math
 
-logger = logging.getLogger(__name__)
-
 import numpy as np
 import torch
 from torch import nn
@@ -22,6 +20,8 @@ from torch.nn.utils import remove_weight_norm, spectral_norm, weight_norm
 import infer.lib.infer_pack.attentions_onnx as attentions
 from infer.lib.infer_pack import commons, modules
 from infer.lib.infer_pack.commons import get_padding, init_weights
+
+logger = logging.getLogger(__name__)
 
 
 class TextEncoder256(nn.Module):
@@ -658,8 +658,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         for i, d in enumerate(self.discriminators):
             y_d_r, fmap_r = d(y)
             y_d_g, fmap_g = d(y_hat)
-            # for j in range(len(fmap_r)):
-            #     print(i,j,y.shape,y_hat.shape,fmap_r[j].shape,fmap_g[j].shape)
+
             y_d_rs.append(y_d_r)
             y_d_gs.append(y_d_g)
             fmap_rs.append(fmap_r)
@@ -671,7 +670,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 class MultiPeriodDiscriminatorV2(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
         super(MultiPeriodDiscriminatorV2, self).__init__()
-        # periods = [2, 3, 5, 7, 11, 17]
+
         periods = [2, 3, 5, 7, 11, 17, 23, 37]
 
         discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
@@ -688,8 +687,7 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
         for i, d in enumerate(self.discriminators):
             y_d_r, fmap_r = d(y)
             y_d_g, fmap_g = d(y_hat)
-            # for j in range(len(fmap_r)):
-            #     print(i,j,y.shape,y_hat.shape,fmap_r[j].shape,fmap_g[j].shape)
+
             y_d_rs.append(y_d_r)
             y_d_gs.append(y_d_g)
             fmap_rs.append(fmap_r)

@@ -259,7 +259,6 @@ class VC:
                     f0_method,
                     file_index,
                     file_index2,
-                    # file_big_npy,
                     index_rate,
                     filter_radius,
                     resample_sr,

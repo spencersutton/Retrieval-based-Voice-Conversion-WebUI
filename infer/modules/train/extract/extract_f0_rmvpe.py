@@ -38,7 +38,7 @@ class FeatureInput(object):
 
     def compute_f0(self, path, f0_method):
         x = load_audio(path, self.fs)
-        # p_len = x.shape[0] // self.hop
+
         if f0_method == "rmvpe":
             if not hasattr(self, "model_rmvpe"):
                 from infer.lib.rmvpe import RMVPE
@@ -97,9 +97,6 @@ class FeatureInput(object):
 
 
 if __name__ == "__main__":
-    # exp_dir=r"E:\codes\py39\dataset\mi-test"
-    # n_p=16
-    # f = open("%s/log_extract_f0.log"%exp_dir, "w")
     printt(" ".join(sys.argv))
     featureInput = FeatureInput()
     paths = []
@@ -120,16 +117,3 @@ if __name__ == "__main__":
         featureInput.go(paths[i_part::n_part], "rmvpe")
     except:
         printt("f0_all_fail-%s" % (traceback.format_exc()))
-    # ps = []
-    # for i in range(n_p):
-    #     p = Process(
-    #         target=featureInput.go,
-    #         args=(
-    #             paths[i::n_p],
-    #             f0method,
-    #         ),
-    #     )
-    #     ps.append(p)
-    #     p.start()
-    # for i in range(n_p):
-    #     ps[i].join()

@@ -18,8 +18,6 @@ def crop_center(h1, h2):
     elif h1_shape[3] < h2_shape[3]:
         raise ValueError("h1_shape[3] must be greater than h2_shape[3]")
 
-    # s_freq = (h2_shape[2] - h1_shape[2]) // 2
-    # e_freq = s_freq + h1_shape[2]
     s_time = (h1_shape[3] - h2_shape[3]) // 2
     e_time = s_time + h2_shape[3]
     h1 = h1[:, :, :, s_time:e_time]
@@ -103,9 +101,7 @@ def combine_spectrograms(specs, mp):
         raise ValueError("Too much bins")
 
     # lowpass fiter
-    if (
-        mp.param["pre_filter_start"] > 0
-    ):  # and mp.param['band'][bands_n]['res_type'] in ['scipy', 'polyphase']:
+    if mp.param["pre_filter_start"] > 0:
         if bands_n == 1:
             spec_c = fft_lp_filter(
                 spec_c, mp.param["pre_filter_start"], mp.param["pre_filter_stop"]
@@ -670,5 +666,3 @@ if __name__ == "__main__":
 
         for i, e in tqdm(enumerate(trackalignment), desc="Performing Alignment..."):
             os.system(f"python lib/align_tracks.py {e['file1']} {e['file2']}")
-
-    # print('Total time: {0:.{1}f}s'.format(time.time() - start_time, 1))

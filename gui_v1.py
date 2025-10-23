@@ -92,12 +92,6 @@ if __name__ == "__main__":
 
     i18n = I18nAuto()
 
-    # device = rvc_for_realtime.config.device
-    # device = torch.device(
-    #     "cuda"
-    #     if torch.cuda.is_available()
-    #     else ("mps" if torch.backends.mps.is_available() else "cpu")
-    # )
     current_dir = os.getcwd()
     inp_q = Queue()
     opt_q = Queue()
@@ -218,7 +212,7 @@ if __name__ == "__main__":
 
         def launcher(self):
             data = self.load()
-            self.config.use_jit = False  # data.get("use_jit", self.config.use_jit)
+            self.config.use_jit = False
             sg.theme("LightBlue3")
             layout = [
                 [
@@ -426,17 +420,6 @@ if __name__ == "__main__":
                                     enable_events=True,
                                 ),
                             ],
-                            # [
-                            #     sg.Text("设备延迟"),
-                            #     sg.Slider(
-                            #         range=(0, 1),
-                            #         key="device_latency",
-                            #         resolution=0.001,
-                            #         orientation="h",
-                            #         default_value=data.get("device_latency", 0.1),
-                            #         enable_events=True,
-                            #     ),
-                            # ],
                             [
                                 sg.Text(i18n("harvest进程数")),
                                 sg.Slider(
@@ -489,14 +472,7 @@ if __name__ == "__main__":
                                     default=data.get("use_pv", False),
                                     enable_events=True,
                                 ),
-                                # sg.Checkbox(
-                                #     "JIT加速",
-                                #     default=self.config.use_jit,
-                                #     key="use_jit",
-                                #     enable_events=False,
-                                # ),
                             ],
-                            # [sg.Text("注：首次使用JIT加速时，会出现卡顿，\n      并伴随一些噪音，但这是正常现象！")],
                         ],
                         title=i18n("性能设置"),
                     ),
@@ -577,12 +553,10 @@ if __name__ == "__main__":
                             "pitch": values["pitch"],
                             "rms_mix_rate": values["rms_mix_rate"],
                             "index_rate": values["index_rate"],
-                            # "device_latency": values["device_latency"],
                             "block_time": values["block_time"],
                             "crossfade_length": values["crossfade_length"],
                             "extra_time": values["extra_time"],
                             "n_cpu": values["n_cpu"],
-                            # "use_jit": values["use_jit"],
                             "use_jit": False,
                             "use_pv": values["use_pv"],
                             "f0method": ["pm", "harvest", "crepe", "rmvpe", "fcpe"][
@@ -663,8 +637,7 @@ if __name__ == "__main__":
                 sg.popup(i18n("index文件路径不可包含中文"))
                 return False
             self.set_devices(values["sg_input_device"], values["sg_output_device"])
-            self.config.use_jit = False  # values["use_jit"]
-            # self.device_latency = values["device_latency"]
+            self.config.use_jit = False
             self.gui_config.sg_hostapi = values["sg_hostapi"]
             self.gui_config.sg_wasapi_exclusive = values["sg_wasapi_exclusive"]
             self.gui_config.sg_input_device = values["sg_input_device"]

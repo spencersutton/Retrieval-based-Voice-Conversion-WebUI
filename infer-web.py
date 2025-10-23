@@ -225,7 +225,7 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
         config.preprocess_per,
     )
     logger.info("Execute: " + cmd)
-    # , stdin=PIPE, stdout=PIPE,stderr=PIPE,cwd=now_dir
+
     p = Popen(cmd, shell=True)
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
@@ -248,7 +248,6 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
     yield log
 
 
-# but2.click(extract_f0,[gpus6,np7,f0method8,if_f0_3,trainset_dir4],[info2])
 def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
     gpus = gpus.split("-")
     os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
@@ -267,9 +266,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
                 )
             )
             logger.info("Execute: " + cmd)
-            p = Popen(
-                cmd, shell=True, cwd=now_dir
-            )  # , stdin=PIPE, stdout=PIPE,stderr=PIPE
+            p = Popen(cmd, shell=True, cwd=now_dir)
             # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
             done = [False]
             threading.Thread(
@@ -298,9 +295,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
                         )
                     )
                     logger.info("Execute: " + cmd)
-                    p = Popen(
-                        cmd, shell=True, cwd=now_dir
-                    )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
+                    p = Popen(cmd, shell=True, cwd=now_dir)
                     ps.append(p)
                 # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
                 done = [False]
@@ -321,9 +316,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
                     )
                 )
                 logger.info("Execute: " + cmd)
-                p = Popen(
-                    cmd, shell=True, cwd=now_dir
-                )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
+                p = Popen(cmd, shell=True, cwd=now_dir)
                 p.wait()
                 done = [True]
         while 1:
@@ -339,13 +332,6 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
         logger.info(log)
         yield log
     # 对不同part分别开多进程
-    """
-    n_part=int(sys.argv[1])
-    i_part=int(sys.argv[2])
-    i_gpu=sys.argv[3]
-    exp_dir=sys.argv[4]
-    os.environ["CUDA_VISIBLE_DEVICES"]=str(i_gpu)
-    """
     leng = len(gpus)
     ps = []
     for idx, n_g in enumerate(gpus):
@@ -363,9 +349,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
             )
         )
         logger.info("Execute: " + cmd)
-        p = Popen(
-            cmd, shell=True, cwd=now_dir
-        )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
+        p = Popen(cmd, shell=True, cwd=now_dir)
         ps.append(p)
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
@@ -445,7 +429,7 @@ def change_version19(sr2, if_f0_3):
     )
 
 
-def change_f0(if_f0_3, sr2):  # f0method8,pretrained_G14,pretrained_D15
+def change_f0(if_f0_3, sr2):
     path_str = "" if False else "_v2"
     return (
         {"visible": if_f0_3, "__type__": "update"},
@@ -454,7 +438,6 @@ def change_f0(if_f0_3, sr2):  # f0method8,pretrained_G14,pretrained_D15
     )
 
 
-# but3.click(click_train,[exp_dir1,sr2,if_f0_3,save_epoch10,total_epoch11,batch_size12,if_save_latest13,pretrained_G14,pretrained_D15,gpus16])
 def click_train(
     exp_dir1,
     sr2,
@@ -536,7 +519,7 @@ def click_train(
         f.write("\n".join(opt))
     logger.debug("Write filelist done")
     # 生成config#无需生成config
-    # cmd = python_cmd + " train_nsf_sim_cache_sid_load_pretrain.py -e mi-test -sr 40k -f0 1 -bs 4 -g 0 -te 10 -se 5 -pg pretrained/f0G40k.pth -pd pretrained/f0D40k.pth -l 1 -c 0"
+
     logger.info("Use gpus: %s", str(gpus16))
     if pretrained_G14 == "":
         logger.info("No pretrained Generator")
@@ -597,10 +580,9 @@ def click_train(
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
 
 
-# but4.click(train_index, [exp_dir1], info3)
 def train_index(exp_dir1):
     logger.info("Start training index for %s", exp_dir1)
-    # exp_dir = "%s/logs/%s" % (now_dir, exp_dir1)
+
     exp_dir = "logs/%s" % (exp_dir1)
     os.makedirs(exp_dir, exist_ok=True)
     feature_dir = (
@@ -691,7 +673,6 @@ def train_index(exp_dir1):
     yield "\n".join(infos)
 
 
-# but5.click(train1key, [exp_dir1, sr2, if_f0_3, trainset_dir4, spk_id5, gpus6, np7, f0method8, save_epoch10, total_epoch11, batch_size12, if_save_latest13, pretrained_G14, pretrained_D15, gpus16, if_cache_gpu17], info3)
 def train1key(
     exp_dir1,
     sr2,
@@ -756,7 +737,6 @@ def train1key(
     yield get_info_str(i18n("全流程结束！"))
 
 
-#                    ckpt_path2.change(change_info_,[ckpt_path2],[sr__,if_f0__])
 def change_info_(ckpt_path):
     if not os.path.exists(ckpt_path.replace(os.path.basename(ckpt_path), "train.log")):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
@@ -898,11 +878,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 outputs=[sid0, file_index2],
                                 api_name="infer_refresh",
                             )
-                            # file_big_npy1 = gr.Textbox(
-                            #     label=i18n("特征文件路径"),
-                            #     value="E:\\codes\py39\\vits_vc_gpu_train\\logs\\mi-test-1key\\total_fea.npy",
-                            #     interactive=True,
-                            # )
                 with gr.Group():
                     with gr.Column():
                         but0 = gr.Button(i18n("转换"), variant="primary")
@@ -922,7 +897,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 f0method0,
                                 file_index1,
                                 file_index2,
-                                # file_big_npy1,
                                 index_rate1,
                                 filter_radius0,
                                 resample_sr0,
@@ -978,11 +952,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                             outputs=file_index4,
                             api_name="infer_refresh_batch",
                         )
-                        # file_big_npy2 = gr.Textbox(
-                        #     label=i18n("特征文件路径"),
-                        #     value="E:\\codes\\py39\\vits_vc_gpu_train\\logs\\mi-test-1key\\total_fea.npy",
-                        #     interactive=True,
-                        # )
 
                     with gr.Column():
                         resample_sr1 = gr.Slider(
@@ -1056,7 +1025,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                             f0method1,
                             file_index3,
                             file_index4,
-                            # file_big_npy2,
                             index_rate2,
                             filter_radius1,
                             resample_sr1,
@@ -1365,7 +1333,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                     ],
                     info4,
                     api_name="ckpt_merge",
-                )  # def merge(path1,path2,alpha1,sr,f0,info):
+                )
             with gr.Group():
                 gr.Markdown(
                     value=i18n("修改模型信息(仅支持weights文件夹下提取的小模型文件)")

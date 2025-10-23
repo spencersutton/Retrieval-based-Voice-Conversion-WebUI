@@ -52,7 +52,6 @@ class RVC:
         初始化
         """
         try:
-            # global config
             self.config = config
             self.inp_q = inp_q
             self.opt_q = opt_q

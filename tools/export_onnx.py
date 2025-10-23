@@ -29,7 +29,7 @@ if __name__ == "__main__":
     output_names = [
         "audio",
     ]
-    # net_g.construct_spkmixmap(n_speaker) 多角色混合轨道导出
+
     torch.onnx.export(
         net_g,
         (

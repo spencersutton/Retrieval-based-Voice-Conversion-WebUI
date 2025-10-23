@@ -51,11 +51,9 @@ class RVC:
         初始化
         """
         try:
-            # global config
             self.config = config
             self.inp_q = inp_q
             self.opt_q = opt_q
-            # device="cpu"########强制cpu测试
             self.device = config.device
             self.f0_up_key = key
             self.formant_shift = formant
@@ -276,7 +274,6 @@ class RVC:
             self.device
         ):  ###不支持dml，cpu又太慢用不成，拿fcpe顶替
             return self.get_f0(x, f0_up_key, 1, "fcpe")
-        # printt("using crepe,device:%s"%self.device)
         f0, pd = torchcrepe.predict(
             x.unsqueeze(0).float(),
             16000,
@@ -285,7 +282,6 @@ class RVC:
             self.f0_max,
             "full",
             batch_size=512,
-            # device=self.device if self.device.type!="privateuseone" else "cpu",###crepe不用半精度全部是全精度所以不愁###cpu延迟高到没法用
             device=self.device,
             return_periodicity=True,
         )

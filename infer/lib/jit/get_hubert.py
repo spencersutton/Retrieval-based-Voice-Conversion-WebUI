@@ -6,12 +6,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from fairseq.checkpoint_utils import load_model_ensemble_and_task
-
-# from fairseq.data.data_utils import compute_mask_indices
 from fairseq.utils import index_put
 
 
-# @torch.jit.script
 def pad_to_multiple(x, multiple, dim=-1, value=0):
     # Inspired from https://github.com/lucidrains/local-attention/blob/master/local_attention/local_attention.py#L41
     if x is None:
@@ -336,7 +333,5 @@ def get_hubert_model(
         return feats
 
     hubert_model.infer = infer
-    # hubert_model.forward=infer
-    # hubert_model.forward
 
     return hubert_model

@@ -36,7 +36,6 @@ def cache_harvest_f0(input_audio_path, fs, f0max, f0min, frame_period):
 
 
 def change_rms(data1, sr1, data2, sr2, rate):  # 1是输入音频，2是输出音频,rate是2的占比
-    # print(data1.max(),data2.max())
     rms1 = librosa.feature.rms(
         y=data1, frame_length=sr1 // 2 * 2, hop_length=sr1 // 2
     )  # 每半秒一个点
@@ -154,7 +153,7 @@ class Pipeline(object):
                 logger.info("Cleaning ortruntime memory")
 
         f0 *= pow(2, f0_up_key / 12)
-        # with open("test.txt","w")as f:f.write("\n".join([str(i)for i in f0.tolist()]))
+
         tf0 = self.sr // self.window  # 每秒f0点数
         if inp_f0 is not None:
             delta_t = np.round(
@@ -167,7 +166,7 @@ class Pipeline(object):
             f0[self.x_pad * tf0 : self.x_pad * tf0 + len(replace_f0)] = replace_f0[
                 :shape
             ]
-        # with open("test_opt.txt","w")as f:f.write("\n".join([str(i)for i in f0.tolist()]))
+
         f0bak = f0.copy()
         f0_mel = 1127 * np.log(1 + f0 / 700)
         f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - f0_mel_min) * 254 / (
@@ -192,7 +191,7 @@ class Pipeline(object):
         index_rate,
         version,
         protect,
-    ):  # ,file_index,file_big_npy
+    ):
         feats = torch.from_numpy(audio0)
         if self.is_half:
             feats = feats.half()
@@ -223,9 +222,6 @@ class Pipeline(object):
             npy = feats[0].cpu().numpy()
             if self.is_half:
                 npy = npy.astype("float32")
-
-            # _, I = index.search(npy, 1)
-            # npy = big_npy[I.squeeze()]
 
             score, ix = index.search(npy, k=8)
             weight = np.square(1 / score)
@@ -297,7 +293,7 @@ class Pipeline(object):
         if file_index != "" and os.path.exists(file_index) and index_rate != 0:
             try:
                 index = faiss.read_index(file_index)
-                # big_npy = np.load(file_big_npy)
+
                 big_npy = index.reconstruct_n(0, index.ntotal)
             except:
                 traceback.print_exc()
