@@ -1,10 +1,8 @@
 import platform
-import os
-import ffmpeg
 import numpy as np
 import av
-import traceback
 import re
+import av.audio.frame
 
 
 def wav2(i, o, format):
@@ -30,26 +28,34 @@ def wav2(i, o, format):
     inp.close()
 
 
-def load_audio(file, sr):
+def load_audio(file: str, sr: int) -> np.ndarray:
     try:
-        # https://github.com/openai/whisper/blob/main/whisper/audio.py#L26
-        # This launches a subprocess to decode audio while down-mixing and resampling as necessary.
-        # Requires the ffmpeg CLI and `ffmpeg-python` package to be installed.
-        file = clean_path(file)  # 防止小白拷路径头尾带了空格和"和回车
-        if os.path.exists(file) == False:
-            raise RuntimeError(
-                "You input a wrong audio path that does not exists, please fix it!"
-            )
-        out, _ = (
-            ffmpeg.input(file, threads=0)
-            .output("-", format="f32le", acodec="pcm_f32le", ac=1, ar=sr)
-            .run(cmd=["ffmpeg", "-nostdin"], capture_stdout=True, capture_stderr=True)
-        )
-    except Exception as e:
-        traceback.print_exc()
-        raise RuntimeError(f"Failed to load audio: {e}")
+        with av.open(file, "r") as container:
+            stream = next(s for s in container.streams if s.type == "audio")
 
-    return np.frombuffer(out, np.float32).flatten()
+            resampler = av.AudioResampler(format="flt", layout="mono", rate=sr)
+
+            audio_data = []
+            for frame in container.decode(stream):
+                if not isinstance(frame, av.audio.frame.AudioFrame):
+                    continue
+                # Resample returns either a frame or a list of frames
+                resampled = resampler.resample(frame)
+                if not resampled:
+                    continue
+                if isinstance(resampled, list):
+                    frames = resampled
+                else:
+                    frames = [resampled]
+
+                for f in frames:
+                    arr = f.to_ndarray()
+                    audio_data.append(arr)
+
+            return np.concatenate(audio_data, axis=1).flatten()
+    except Exception as e:
+        raise RuntimeError(f"Failed to load audio with PyAV: {e}") from e
+    return np.array([])
 
 
 def clean_path(path_str):
