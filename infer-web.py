@@ -35,6 +35,7 @@ import logging
 
 logging.getLogger("numba").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
@@ -614,6 +615,7 @@ def click_train(
 
 # but4.click(train_index, [exp_dir1], info3)
 def train_index(exp_dir1, version19):
+    logger.info("Start training index for %s", exp_dir1)
     # exp_dir = "%s/logs/%s" % (now_dir, exp_dir1)
     exp_dir = "logs/%s" % (exp_dir1)
     os.makedirs(exp_dir, exist_ok=True)
