@@ -2,6 +2,9 @@ import os
 import sys
 import traceback
 
+from torch.serialization import safe_globals
+from fairseq.data.dictionary import Dictionary
+
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
 
@@ -86,10 +89,11 @@ if os.access(model_path, os.F_OK) == False:
         % model_path
     )
     exit(0)
-models, saved_cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(
-    [model_path],
-    suffix="",
-)
+with safe_globals([Dictionary]):
+    models, saved_cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(
+        [model_path],
+        suffix="",
+    )
 model = models[0]
 model = model.to(device)
 printt("move model to %s" % device)
