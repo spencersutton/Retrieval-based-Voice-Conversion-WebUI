@@ -1,12 +1,13 @@
-import traceback
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
+
+from io import BytesIO
 
 import numpy as np
 import soundfile as sf
 import torch
-from io import BytesIO
 
 from infer.lib.audio import load_audio, wav2
 from infer.lib.infer_pack.models import (
@@ -64,21 +65,12 @@ class VC:
                     torch.cuda.empty_cache()
                 ###楼下不这么折腾清理不干净
                 self.if_f0 = self.cpt.get("f0", 1)
-                self.version = self.cpt.get("version", "v1")
-                if self.version == "v1":
-                    if self.if_f0 == 1:
-                        self.net_g = SynthesizerTrnMs256NSFsid(
-                            *self.cpt["config"], is_half=self.config.is_half
-                        )
-                    else:
-                        self.net_g = SynthesizerTrnMs256NSFsid_nono(*self.cpt["config"])
-                elif self.version == "v2":
-                    if self.if_f0 == 1:
-                        self.net_g = SynthesizerTrnMs768NSFsid(
-                            *self.cpt["config"], is_half=self.config.is_half
-                        )
-                    else:
-                        self.net_g = SynthesizerTrnMs768NSFsid_nono(*self.cpt["config"])
+                if self.if_f0 == 1:
+                    self.net_g = SynthesizerTrnMs768NSFsid(
+                        *self.cpt["config"], is_half=self.config.is_half
+                    )
+                else:
+                    self.net_g = SynthesizerTrnMs768NSFsid_nono(*self.cpt["config"])
                 del self.net_g, self.cpt
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()

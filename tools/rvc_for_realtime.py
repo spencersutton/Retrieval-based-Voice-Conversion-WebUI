@@ -1,10 +1,9 @@
-from io import BytesIO
 import os
 import sys
 import traceback
-from infer.lib import jit
-from infer.lib.jit.get_synthesizer import get_synthesizer
+from io import BytesIO
 from time import time as ttime
+
 import fairseq
 import faiss
 import numpy as np
@@ -16,6 +15,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchcrepe
 
+from infer.lib import jit
+from infer.lib.jit.get_synthesizer import get_synthesizer
 
 now_dir = os.getcwd()
 sys.path.append(now_dir)
@@ -114,7 +115,6 @@ class RVC:
                 self.tgt_sr = cpt["config"][-1]
                 cpt["config"][-3] = cpt["weight"]["emb_g.weight"].shape[0]
                 self.if_f0 = cpt.get("f0", 1)
-                self.version = cpt.get("version", "v1")
                 if self.is_half:
                     self.net_g = self.net_g.half()
                 else:
@@ -145,7 +145,6 @@ class RVC:
 
                 self.tgt_sr = cpt["config"][-1]
                 self.if_f0 = cpt.get("f0", 1)
-                self.version = cpt.get("version", "v1")
                 self.net_g = torch.jit.load(
                     BytesIO(cpt["model"]), map_location=self.device
                 )
@@ -355,12 +354,10 @@ class RVC:
             inputs = {
                 "source": feats,
                 "padding_mask": padding_mask,
-                "output_layer": 9 if self.version == "v1" else 12,
+                "output_layer": 12,
             }
             logits = self.model.extract_features(**inputs)
-            feats = (
-                self.model.final_proj(logits[0]) if self.version == "v1" else logits[0]
-            )
+            feats = logits[0]
             feats = torch.cat((feats, feats[:, -1:, :]), 1)
         t2 = ttime()
         try:

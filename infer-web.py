@@ -1,37 +1,39 @@
 import os
 import sys
+
 from dotenv import load_dotenv
 
 now_dir = os.getcwd()
 sys.path.append(now_dir)
 load_dotenv()
-from infer.modules.vc.modules import VC
+import json
+import logging
+import pathlib
+import platform
+import shutil
+import threading
+import traceback
+import warnings
+from random import shuffle
+from subprocess import Popen
+from time import sleep
+
+import fairseq
+import faiss
+import gradio as gr
+import numpy as np
+import torch
+from sklearn.cluster import MiniBatchKMeans
+
+from configs.config import Config
+from i18n.i18n import I18nAuto
 from infer.lib.train.process_ckpt import (
     change_info,
     extract_small_model,
     merge,
     show_info,
 )
-from i18n.i18n import I18nAuto
-from configs.config import Config
-from sklearn.cluster import MiniBatchKMeans
-import torch
-import platform
-import numpy as np
-import gradio as gr
-import faiss
-import fairseq
-import pathlib
-import json
-from time import sleep
-from subprocess import Popen
-from random import shuffle
-import warnings
-import traceback
-import threading
-import shutil
-import logging
-
+from infer.modules.vc.modules import VC
 
 logging.getLogger("numba").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -256,7 +258,7 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
 
 
 # but2.click(extract_f0,[gpus6,np7,f0method8,if_f0_3,trainset_dir4],[info2])
-def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvpe):
+def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
     gpus = gpus.split("-")
     os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "w")
@@ -366,7 +368,6 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, version19, gpus_rmvp
                 n_g,
                 now_dir,
                 exp_dir,
-                version19,
                 config.is_half,
             )
         )
@@ -431,19 +432,19 @@ def get_pretrained_models(path_str, f0_str, sr2):
     )
 
 
-def change_sr2(sr2, if_f0_3, version19):
-    path_str = "" if version19 == "v1" else "_v2"
+def change_sr2(sr2, if_f0_3):
+    path_str = "" if False else "_v2"
     f0_str = "f0" if if_f0_3 else ""
     return get_pretrained_models(path_str, f0_str, sr2)
 
 
-def change_version19(sr2, if_f0_3, version19):
-    path_str = "" if version19 == "v1" else "_v2"
-    if sr2 == "32k" and version19 == "v1":
+def change_version19(sr2, if_f0_3):
+    path_str = "" if False else "_v2"
+    if sr2 == "32k" and False:
         sr2 = "40k"
     to_return_sr2 = (
         {"choices": ["40k", "48k"], "__type__": "update", "value": sr2}
-        if version19 == "v1"
+        if False
         else {"choices": ["40k", "48k", "32k"], "__type__": "update", "value": sr2}
     )
     f0_str = "f0" if if_f0_3 else ""
@@ -453,8 +454,8 @@ def change_version19(sr2, if_f0_3, version19):
     )
 
 
-def change_f0(if_f0_3, sr2, version19):  # f0method8,pretrained_G14,pretrained_D15
-    path_str = "" if version19 == "v1" else "_v2"
+def change_f0(if_f0_3, sr2):  # f0method8,pretrained_G14,pretrained_D15
+    path_str = "" if False else "_v2"
     return (
         {"visible": if_f0_3, "__type__": "update"},
         {"visible": if_f0_3, "__type__": "update"},
@@ -477,16 +478,13 @@ def click_train(
     gpus16,
     if_cache_gpu17,
     if_save_every_weights18,
-    version19,
 ):
     # 生成filelist
     exp_dir = "%s/logs/%s" % (now_dir, exp_dir1)
     os.makedirs(exp_dir, exist_ok=True)
     gt_wavs_dir = "%s/0_gt_wavs" % (exp_dir)
     feature_dir = (
-        "%s/3_feature256" % (exp_dir)
-        if version19 == "v1"
-        else "%s/3_feature768" % (exp_dir)
+        "%s/3_feature256" % (exp_dir) if False else "%s/3_feature768" % (exp_dir)
     )
     if if_f0_3:
         f0_dir = "%s/2a_f0" % (exp_dir)
@@ -529,7 +527,7 @@ def click_train(
                     spk_id5,
                 )
             )
-    fea_dim = 256 if version19 == "v1" else 768
+    fea_dim = 256 if False else 768
     if if_f0_3:
         for _ in range(2):
             opt.append(
@@ -553,10 +551,7 @@ def click_train(
         logger.info("No pretrained Generator")
     if pretrained_D15 == "":
         logger.info("No pretrained Discriminator")
-    if version19 == "v1" or sr2 == "40k":
-        config_path = "v1/%s.json" % sr2
-    else:
-        config_path = "v2/%s.json" % sr2
+    config_path = "v2/%s.json" % sr2
     config_save_path = os.path.join(exp_dir, "config.json")
     if not pathlib.Path(config_save_path).exists():
         with open(config_save_path, "w", encoding="utf-8") as f:
@@ -570,7 +565,7 @@ def click_train(
             f.write("\n")
     if gpus16:
         cmd = (
-            '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -g %s -te %s -se %s %s %s -l %s -c %s -sw %s -v %s'
+            '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -g %s -te %s -se %s %s %s -l %s -c %s -sw %s'
             % (
                 config.python_cmd,
                 exp_dir1,
@@ -585,12 +580,11 @@ def click_train(
                 1 if if_save_latest13 == i18n("是") else 0,
                 1 if if_cache_gpu17 == i18n("是") else 0,
                 1 if if_save_every_weights18 == i18n("是") else 0,
-                version19,
             )
         )
     else:
         cmd = (
-            '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -te %s -se %s %s %s -l %s -c %s -sw %s -v %s'
+            '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -te %s -se %s %s %s -l %s -c %s -sw %s'
             % (
                 config.python_cmd,
                 exp_dir1,
@@ -604,7 +598,6 @@ def click_train(
                 1 if if_save_latest13 == i18n("是") else 0,
                 1 if if_cache_gpu17 == i18n("是") else 0,
                 1 if if_save_every_weights18 == i18n("是") else 0,
-                version19,
             )
         )
     logger.info("Execute: " + cmd)
@@ -614,15 +607,13 @@ def click_train(
 
 
 # but4.click(train_index, [exp_dir1], info3)
-def train_index(exp_dir1, version19):
+def train_index(exp_dir1):
     logger.info("Start training index for %s", exp_dir1)
     # exp_dir = "%s/logs/%s" % (now_dir, exp_dir1)
     exp_dir = "logs/%s" % (exp_dir1)
     os.makedirs(exp_dir, exist_ok=True)
     feature_dir = (
-        "%s/3_feature256" % (exp_dir)
-        if version19 == "v1"
-        else "%s/3_feature768" % (exp_dir)
+        "%s/3_feature256" % (exp_dir) if False else "%s/3_feature768" % (exp_dir)
     )
     if not os.path.exists(feature_dir):
         return "请先进行特征提取!"
@@ -663,8 +654,7 @@ def train_index(exp_dir1, version19):
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
     infos.append("%s,%s" % (big_npy.shape, n_ivf))
     yield "\n".join(infos)
-    index = faiss.index_factory(256 if version19 == "v1" else 768, "IVF%s,Flat" % n_ivf)
-    # index = faiss.index_factory(256if version19=="v1"else 768, "IVF%s,PQ128x4fs,RFlat"%n_ivf)
+    index = faiss.index_factory(256 if False else 768, "IVF%s,Flat" % n_ivf)
     infos.append("training")
     yield "\n".join(infos)
     index_ivf = faiss.extract_index_ivf(index)  #
@@ -672,8 +662,8 @@ def train_index(exp_dir1, version19):
     index.train(big_npy)
     faiss.write_index(
         index,
-        "%s/trained_IVF%s_Flat_nprobe_%s_%s_%s.index"
-        % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1, version19),
+        "%s/trained_IVF%s_Flat_nprobe_%s_%s.index"
+        % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1),
     )
     infos.append("adding")
     yield "\n".join(infos)
@@ -682,34 +672,31 @@ def train_index(exp_dir1, version19):
         index.add(big_npy[i : i + batch_size_add])
     faiss.write_index(
         index,
-        "%s/added_IVF%s_Flat_nprobe_%s_%s_%s.index"
-        % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1, version19),
+        "%s/added_IVF%s_Flat_nprobe_%s_%s.index"
+        % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1),
     )
     infos.append(
-        "成功构建索引 added_IVF%s_Flat_nprobe_%s_%s_%s.index"
-        % (n_ivf, index_ivf.nprobe, exp_dir1, version19)
+        "成功构建索引 added_IVF%s_Flat_nprobe_%s_%s.index"
+        % (n_ivf, index_ivf.nprobe, exp_dir1)
     )
     try:
         link = os.link if platform.system() == "Windows" else os.symlink
         link(
-            "%s/added_IVF%s_Flat_nprobe_%s_%s_%s.index"
-            % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1, version19),
-            "%s/%s_IVF%s_Flat_nprobe_%s_%s_%s.index"
+            "%s/added_IVF%s_Flat_nprobe_%s_%s.index"
+            % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1),
+            "%s/%s_IVF%s_Flat_nprobe_%s_%s.index"
             % (
                 outside_index_root,
                 exp_dir1,
                 n_ivf,
                 index_ivf.nprobe,
                 exp_dir1,
-                version19,
             ),
         )
         infos.append("链接索引到外部-%s" % (outside_index_root))
     except:
         infos.append("链接索引到外部-%s失败" % (outside_index_root))
 
-    # faiss.write_index(index, '%s/added_IVF%s_Flat_FastScan_%s.index'%(exp_dir,n_ivf,version19))
-    # infos.append("成功构建索引，added_IVF%s_Flat_FastScan_%s.index"%(n_ivf,version19))
     yield "\n".join(infos)
 
 
@@ -731,7 +718,6 @@ def train1key(
     gpus16,
     if_cache_gpu17,
     if_save_every_weights18,
-    version19,
     gpus_rmvpe,
 ):
     infos = []
@@ -749,7 +735,7 @@ def train1key(
     [
         get_info_str(_)
         for _ in extract_f0_feature(
-            gpus16, np7, f0method8, if_f0_3, exp_dir1, version19, gpus_rmvpe
+            gpus16, np7, f0method8, if_f0_3, exp_dir1, gpus_rmvpe
         )
     ]
 
@@ -769,14 +755,13 @@ def train1key(
         gpus16,
         if_cache_gpu17,
         if_save_every_weights18,
-        version19,
     )
     yield get_info_str(
         i18n("训练结束, 您可查看控制台训练日志或实验文件夹下的train.log")
     )
 
     # step3b:训练索引
-    [get_info_str(_) for _ in train_index(exp_dir1, version19)]
+    [get_info_str(_) for _ in train_index(exp_dir1)]
     yield get_info_str(i18n("全流程结束！"))
 
 
@@ -790,8 +775,7 @@ def change_info_(ckpt_path):
         ) as f:
             info = eval(f.read().strip("\n").split("\n")[0].split("\t")[-1])
             sr, f0 = info["sample_rate"], info["if_f0"]
-            version = "v2" if ("version" in info and info["version"] == "v2") else "v1"
-            return sr, str(f0), version
+            return sr, str(f0)
     except:
         traceback.print_exc()
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
@@ -1132,13 +1116,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                     value=True,
                     interactive=True,
                 )
-                version19 = gr.Radio(
-                    label=i18n("版本"),
-                    choices=["v1", "v2"],
-                    value="v2",
-                    interactive=True,
-                    visible=True,
-                )
                 np7 = gr.Slider(
                     minimum=0,
                     maximum=config.n_cpu,
@@ -1225,7 +1202,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                             f0method8,
                             if_f0_3,
                             exp_dir1,
-                            version19,
                             gpus_rmvpe,
                         ],
                         [info2],
@@ -1293,17 +1269,12 @@ with gr.Blocks(title="RVC WebUI") as app:
                     )
                     sr2.change(
                         change_sr2,
-                        [sr2, if_f0_3, version19],
+                        [sr2, if_f0_3],
                         [pretrained_G14, pretrained_D15],
-                    )
-                    version19.change(
-                        change_version19,
-                        [sr2, if_f0_3, version19],
-                        [pretrained_G14, pretrained_D15, sr2],
                     )
                     if_f0_3.change(
                         change_f0,
-                        [if_f0_3, sr2, version19],
+                        [if_f0_3, sr2],
                         [f0method8, gpus_rmvpe, pretrained_G14, pretrained_D15],
                     )
                     gpus16 = gr.Textbox(
@@ -1333,12 +1304,11 @@ with gr.Blocks(title="RVC WebUI") as app:
                             gpus16,
                             if_cache_gpu17,
                             if_save_every_weights18,
-                            version19,
                         ],
                         info3,
                         api_name="train_start",
                     )
-                    but4.click(train_index, [exp_dir1, version19], info3)
+                    but4.click(train_index, [exp_dir1], info3)
                     but5.click(
                         train1key,
                         [
@@ -1358,7 +1328,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                             gpus16,
                             if_cache_gpu17,
                             if_save_every_weights18,
-                            version19,
                             gpus_rmvpe,
                         ],
                         info3,
@@ -1407,12 +1376,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                         max_lines=1,
                         interactive=True,
                     )
-                    version_2 = gr.Radio(
-                        label=i18n("模型版本型号"),
-                        choices=["v1", "v2"],
-                        value="v1",
-                        interactive=True,
-                    )
                 with gr.Row():
                     but6 = gr.Button(i18n("融合"), variant="primary")
                     info4 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
@@ -1426,7 +1389,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                         if_f0_,
                         info__,
                         name_to_save0,
-                        version_2,
                     ],
                     info4,
                     api_name="ckpt_merge",
@@ -1498,12 +1460,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                         value="1",
                         interactive=True,
                     )
-                    version_1 = gr.Radio(
-                        label=i18n("模型版本型号"),
-                        choices=["v1", "v2"],
-                        value="v2",
-                        interactive=True,
-                    )
                     info___ = gr.Textbox(
                         label=i18n("要置入的模型信息"),
                         value="",
@@ -1512,12 +1468,10 @@ with gr.Blocks(title="RVC WebUI") as app:
                     )
                     but9 = gr.Button(i18n("提取"), variant="primary")
                     info7 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
-                    ckpt_path2.change(
-                        change_info_, [ckpt_path2], [sr__, if_f0__, version_1]
-                    )
+                    ckpt_path2.change(change_info_, [ckpt_path2], [sr__, if_f0__])
                 but9.click(
                     extract_small_model,
-                    [ckpt_path2, save_name, sr__, if_f0__, info___, version_1],
+                    [ckpt_path2, save_name, sr__, if_f0__, info___],
                     info7,
                     api_name="ckpt_extract",
                 )

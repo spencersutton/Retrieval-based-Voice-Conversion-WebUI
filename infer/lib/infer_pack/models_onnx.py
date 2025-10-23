@@ -7,8 +7,8 @@
 #                                                                    #
 ############################## Warning! ##############################
 
-import math
 import logging
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +19,8 @@ from torch.nn import Conv1d, Conv2d, ConvTranspose1d
 from torch.nn import functional as F
 from torch.nn.utils import remove_weight_norm, spectral_norm, weight_norm
 
-from infer.lib.infer_pack import commons, modules
 import infer.lib.infer_pack.attentions_onnx as attentions
+from infer.lib.infer_pack import commons, modules
 from infer.lib.infer_pack.commons import get_padding, init_weights
 
 
@@ -573,26 +573,15 @@ class SynthesizerTrnMsNSFsidM(nn.Module):
         self.gin_channels = gin_channels
         # self.hop_length = hop_length#
         self.spk_embed_dim = spk_embed_dim
-        if version == "v1":
-            self.enc_p = TextEncoder256(
-                inter_channels,
-                hidden_channels,
-                filter_channels,
-                n_heads,
-                n_layers,
-                kernel_size,
-                p_dropout,
-            )
-        else:
-            self.enc_p = TextEncoder768(
-                inter_channels,
-                hidden_channels,
-                filter_channels,
-                n_heads,
-                n_layers,
-                kernel_size,
-                p_dropout,
-            )
+        self.enc_p = TextEncoder768(
+            inter_channels,
+            hidden_channels,
+            filter_channels,
+            n_heads,
+            n_layers,
+            kernel_size,
+            p_dropout,
+        )
         self.dec = GeneratorNSF(
             inter_channels,
             resblock,

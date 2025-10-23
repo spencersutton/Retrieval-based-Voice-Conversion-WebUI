@@ -2,8 +2,8 @@ import os
 import sys
 import traceback
 
-from torch.serialization import safe_globals
 from fairseq.data.dictionary import Dictionary
+from torch.serialization import safe_globals
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
@@ -59,9 +59,7 @@ model_path = "assets/hubert/hubert_base.pt"
 
 printt("exp_dir: " + exp_dir)
 wavPath = "%s/1_16k_wavs" % exp_dir
-outPath = (
-    "%s/3_feature256" % exp_dir if version == "v1" else "%s/3_feature768" % exp_dir
-)
+outPath = "%s/3_feature768" % exp_dir
 os.makedirs(outPath, exist_ok=True)
 
 
@@ -126,13 +124,11 @@ else:
                         else feats.to(device)
                     ),
                     "padding_mask": padding_mask.to(device),
-                    "output_layer": 9 if version == "v1" else 12,  # layer 9
+                    "output_layer": 12,  # layer 9
                 }
                 with torch.no_grad():
                     logits = model.extract_features(**inputs)
-                    feats = (
-                        model.final_proj(logits[0]) if version == "v1" else logits[0]
-                    )
+                    feats = logits[0]
 
                 feats = feats.squeeze(0).float().cpu().numpy()
                 if np.isnan(feats).sum() == 0:

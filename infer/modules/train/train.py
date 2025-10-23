@@ -18,6 +18,11 @@ sys.path.append(os.getcwd())
 from torch.cuda.amp import GradScaler, autocast
 
 from infer.lib.infer_pack import commons
+from infer.lib.infer_pack.models import (
+    MultiPeriodDiscriminatorV2 as MultiPeriodDiscriminator,
+)
+from infer.lib.infer_pack.models import SynthesizerTrnMs768NSFsid as RVC_Model_f0
+from infer.lib.infer_pack.models import SynthesizerTrnMs768NSFsid_nono as RVC_Model_nof0
 from infer.lib.train import utils
 from infer.lib.train.data_utils import (
     DistributedBucketSampler,
@@ -46,23 +51,6 @@ n_gpus = len(hps.gpus.split("-"))
 torch.backends.cudnn.deterministic = False
 torch.backends.cudnn.benchmark = False
 
-
-if hps.version == "v1":
-    from infer.lib.infer_pack.models import MultiPeriodDiscriminator
-    from infer.lib.infer_pack.models import SynthesizerTrnMs256NSFsid as RVC_Model_f0
-    from infer.lib.infer_pack.models import (
-        SynthesizerTrnMs256NSFsid_nono as RVC_Model_nof0,
-    )
-else:
-    from infer.lib.infer_pack.models import (
-        MultiPeriodDiscriminatorV2 as MultiPeriodDiscriminator,
-    )
-    from infer.lib.infer_pack.models import (
-        SynthesizerTrnMs768NSFsid as RVC_Model_f0,
-    )
-    from infer.lib.infer_pack.models import (
-        SynthesizerTrnMs768NSFsid_nono as RVC_Model_nof0,
-    )
 
 global_step = 0
 
