@@ -55,14 +55,6 @@ class RVC:
         初始化
         """
         try:
-            if config.dml == True:
-
-                def forward_dml(ctx, x, scale):
-                    ctx.scale = scale
-                    res = x.clone().detach()
-                    return res
-
-                fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
             # global config
             self.config = config
             self.inp_q = inp_q
@@ -152,7 +144,7 @@ class RVC:
                 self.net_g.eval().to(self.device)
 
             def set_synthesizer():
-                if self.use_jit and not config.dml:
+                if self.use_jit:
                     if self.is_half and "cpu" in str(self.device):
                         printt(
                             "Use default Synthesizer model. \

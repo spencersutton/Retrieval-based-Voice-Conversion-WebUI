@@ -44,7 +44,6 @@ class Config:
             self.iscolab,
             self.noparallel,
             self.noautoopen,
-            self.dml,
         ) = self.arg_parse()
         self.instead = ""
         self.preprocess_per = 3.7
@@ -76,11 +75,6 @@ class Config:
             action="store_true",
             help="Do not open in browser automatically",
         )
-        parser.add_argument(
-            "--dml",
-            action="store_true",
-            help="torch_dml",
-        )
         cmd_opts = parser.parse_args()
 
         cmd_opts.port = cmd_opts.port if 0 <= cmd_opts.port <= 65535 else 7865
@@ -91,7 +85,6 @@ class Config:
             cmd_opts.colab,
             cmd_opts.noparallel,
             cmd_opts.noautoopen,
-            cmd_opts.dml,
         )
 
     # has_mps is only available in nightly pytorch (for now) and MasOS 12.3+.
@@ -175,56 +168,22 @@ class Config:
             x_query = 5
             x_center = 30
             x_max = 32
-        if self.dml:
-            logger.info("Use DirectML instead")
-            if (
-                os.path.exists(
-                    "runtime\Lib\site-packages\onnxruntime\capi\DirectML.dll"
-                )
-                == False
-            ):
-                try:
-                    os.rename(
-                        "runtime\Lib\site-packages\onnxruntime",
-                        "runtime\Lib\site-packages\onnxruntime-cuda",
-                    )
-                except:
-                    pass
-                try:
-                    os.rename(
-                        "runtime\Lib\site-packages\onnxruntime-dml",
-                        "runtime\Lib\site-packages\onnxruntime",
-                    )
-                except:
-                    pass
-            # if self.device != "cpu":
-            import torch_directml
 
-            self.device = torch_directml.device(torch_directml.default_device())
-            self.is_half = False
-        else:
-            if self.instead:
-                logger.info(f"Use {self.instead} instead")
-            if (
-                os.path.exists(
-                    "runtime\Lib\site-packages\onnxruntime\capi\onnxruntime_providers_cuda.dll"
+        if self.instead:
+            logger.info(f"Use {self.instead} instead")
+        if (
+            os.path.exists(
+                "runtime\Lib\site-packages\onnxruntime\capi\onnxruntime_providers_cuda.dll"
+            )
+            == False
+        ):
+            try:
+                os.rename(
+                    "runtime\Lib\site-packages\onnxruntime-cuda",
+                    "runtime\Lib\site-packages\onnxruntime",
                 )
-                == False
-            ):
-                try:
-                    os.rename(
-                        "runtime\Lib\site-packages\onnxruntime",
-                        "runtime\Lib\site-packages\onnxruntime-dml",
-                    )
-                except:
-                    pass
-                try:
-                    os.rename(
-                        "runtime\Lib\site-packages\onnxruntime-cuda",
-                        "runtime\Lib\site-packages\onnxruntime",
-                    )
-                except:
-                    pass
+            except:
+                pass
         logger.info(
             "Half-precision floating-point: %s, device: %s"
             % (self.is_half, self.device)

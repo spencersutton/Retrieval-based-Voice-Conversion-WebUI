@@ -18,6 +18,7 @@ from random import shuffle
 from subprocess import Popen
 from time import sleep
 
+import fairseq
 import faiss
 import gradio as gr
 import numpy as np
@@ -56,6 +57,14 @@ config = Config()
 vc = VC(config)
 
 
+if config.dml == True:
+
+    def forward_dml(ctx, x, scale):
+        ctx.scale = scale
+        res = x.clone().detach()
+        return res
+
+    fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
 i18n = I18nAuto()
 logger.info(i18n)
 # 判断是否有能用来训练和加速推理的N卡
@@ -113,6 +122,7 @@ else:
     default_batch_size = 1
 gpus = "-".join([i[0] for i in gpu_infos])
 
+from gradio.events import Dependency
 
 class ToolButton(gr.Button, gr.components.FormComponent):
     """Small button with single emoji as text, fits inside gradio forms"""
@@ -122,6 +132,11 @@ class ToolButton(gr.Button, gr.components.FormComponent):
 
     def get_block_name(self):
         return "button"
+    from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
+    from gradio.blocks import Block
+    if TYPE_CHECKING:
+        from gradio.components import Timer
+        from gradio.components.base import Component
 
 
 weight_root = os.getenv("weight_root")
@@ -772,8 +787,14 @@ def change_info_(ckpt_path):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
 
 
+F0GPUVisible = config.dml == False
+
+
 def change_f0_method(f0method8):
-    visible = f0method8 == "rmvpe_gpu"
+    if f0method8 == "rmvpe_gpu":
+        visible = F0GPUVisible
+    else:
+        visible = False
     return {"visible": visible, "__type__": "update"}
 
 
@@ -835,7 +856,11 @@ with gr.Blocks(title="RVC WebUI") as app:
                                 label=i18n(
                                     "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
                                 ),
-                                choices=(["pm", "harvest", "crepe", "rmvpe"]),
+                                choices=(
+                                    ["pm", "harvest", "crepe", "rmvpe"]
+                                    if config.dml == False
+                                    else ["pm", "harvest", "rmvpe"]
+                                ),
                                 value="rmvpe",
                                 interactive=True,
                             )
@@ -961,7 +986,11 @@ with gr.Blocks(title="RVC WebUI") as app:
                             label=i18n(
                                 "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
                             ),
-                            choices=(["pm", "harvest", "crepe", "rmvpe"]),
+                            choices=(
+                                ["pm", "harvest", "crepe", "rmvpe"]
+                                if config.dml == False
+                                else ["pm", "harvest", "rmvpe"]
+                            ),
                             value="rmvpe",
                             interactive=True,
                         )
@@ -1142,8 +1171,11 @@ with gr.Blocks(title="RVC WebUI") as app:
                             ),
                             value=gpus,
                             interactive=True,
+                            visible=F0GPUVisible,
                         )
-                        gpu_info9 = gr.Textbox(label=i18n("显卡信息"), value=gpu_info)
+                        gpu_info9 = gr.Textbox(
+                            label=i18n("显卡信息"), value=gpu_info, visible=F0GPUVisible
+                        )
                     with gr.Column():
                         f0method8 = gr.Radio(
                             label=i18n(
@@ -1159,6 +1191,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                             ),
                             value="%s-%s" % (gpus, gpus),
                             interactive=True,
+                            visible=F0GPUVisible,
                         )
                     but2 = gr.Button(i18n("特征提取"), variant="primary")
                     info2 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
