@@ -27,23 +27,11 @@ import soundfile as sf
 import torch
 import torch.nn.functional as F
 
-if "privateuseone" not in device:
-    device = "cpu"
-    if torch.cuda.is_available():
-        device = "cuda"
-    elif torch.backends.mps.is_available():
-        device = "mps"
-else:
-    import torch_directml
-
-    device = torch_directml.device(torch_directml.default_device())
-
-    def forward_dml(ctx, x, scale):
-        ctx.scale = scale
-        res = x.clone().detach()
-        return res
-
-    fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
+device = "cpu"
+if torch.cuda.is_available():
+    device = "cuda"
+elif torch.backends.mps.is_available():
+    device = "mps"
 
 f = open("%s/extract_f0_feature.log" % exp_dir, "a+")
 

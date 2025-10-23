@@ -2,6 +2,7 @@ import os
 import sys
 import traceback
 from io import BytesIO
+from multiprocessing import Manager as M
 from time import time as ttime
 
 import fairseq
@@ -15,16 +16,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchcrepe
 
+from configs.config import Config
+
+sys.path.append(os.getcwd())
 from infer.lib import jit
 from infer.lib.jit.get_synthesizer import get_synthesizer
 
 now_dir = os.getcwd()
-sys.path.append(now_dir)
-from multiprocessing import Manager as M
 
-from configs.config import Config
-
-# config = Config()
 
 mm = M()
 
@@ -36,8 +35,6 @@ def printt(strr, *args):
         print(strr % args)
 
 
-# config.device=torch.device("cpu")########强制cpu测试
-# config.is_half=False########强制cpu测试
 class RVC:
     def __init__(
         self,
@@ -59,7 +56,6 @@ class RVC:
             self.config = config
             self.inp_q = inp_q
             self.opt_q = opt_q
-            # device="cpu"########强制cpu测试
             self.device = config.device
             self.f0_up_key = key
             self.f0_min = 50
@@ -275,7 +271,6 @@ class RVC:
             self.device
         ):  ###不支持dml，cpu又太慢用不成，拿fcpe顶替
             return self.get_f0(x, f0_up_key, 1, "fcpe")
-        # printt("using crepe,device:%s"%self.device)
         f0, pd = torchcrepe.predict(
             x.unsqueeze(0).float(),
             16000,
@@ -284,7 +279,6 @@ class RVC:
             self.f0_max,
             "full",
             batch_size=512,
-            # device=self.device if self.device.type!="privateuseone" else "cpu",###crepe不用半精度全部是全精度所以不愁###cpu延迟高到没法用
             device=self.device,
             return_periodicity=True,
         )
