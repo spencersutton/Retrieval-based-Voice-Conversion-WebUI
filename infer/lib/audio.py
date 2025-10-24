@@ -3,7 +3,7 @@ import av.audio.frame
 import numpy as np
 
 
-def wav2(i: str, o: str, format: str):
+def wav2(i: str, o: str, format: str) -> None:
     inp = av.open(i, "r")
     if format == "m4a":
         format = "mp4"
