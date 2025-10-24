@@ -150,6 +150,7 @@ def _get_module_name(file_path: str) -> str:
 
     module_parts = []
     found_package_root = False
+    package_root_names = ("src", "lib", "infer", "tools", "app", "modules", "packages")
 
     for i, part in enumerate(parts):
         # Skip absolute path root on Unix (/), or drive letters on Windows (C:)
@@ -158,17 +159,16 @@ def _get_module_name(file_path: str) -> str:
         # Skip common workspace path components
         if part in ("home", "Users", "users"):
             continue
-        # Skip user directories and workspace names that are usually full project names
-        # Look for directories that typically contain packages
-        if i > 0 and not found_package_root:
-            # If we haven't found a package root yet, check if current part looks like one
-            if part in ("src", "lib", "infer", "tools", "app", "modules", "packages"):
-                found_package_root = True
 
-        if found_package_root or (
-            i > 0
-            and part in ("src", "lib", "infer", "tools", "app", "modules", "packages")
-        ):
+        # Check if this part is a package root
+        is_package_root = part in package_root_names
+
+        # Start collecting parts when we find a package root
+        if is_package_root and not found_package_root:
+            found_package_root = True
+
+        # Include parts once we've found the package root
+        if found_package_root:
             module_parts.append(part)
 
     if module_parts:
@@ -221,6 +221,19 @@ def _extract_imports_from_file(file_path: str, target_module_name: str) -> set[s
                         imported_symbols.add("*")
                     else:
                         imported_symbols.add(alias.name)
+
+            # Also check if importing the target module as a submodule
+            # e.g., "from infer.lib.train import utils" when target is "infer.lib.train.utils"
+            elif target_module_name.startswith(module + "."):
+                # The remaining part after the module should be what's imported
+                remaining = target_module_name[len(module) + 1 :]
+                # Check if any imported name matches the first component of remaining
+                first_component = remaining.split(".")[0]
+                for alias in node.names:
+                    if alias.name == first_component:
+                        # Track this as a module import
+                        imported_name = alias.asname if alias.asname else alias.name
+                        imported_symbols.add(f"_import_{imported_name}")
 
             self.generic_visit(node)
 
@@ -294,8 +307,17 @@ def find_all_symbol_references(
             # If this is not the target file, filter references based on imports
             if py_file != target_file:
                 imported_symbols = imports_map.get(py_file, set())
-                # Count if: (1) symbol is explicitly imported, or (2) wildcard import exists
-                if symbol in imported_symbols or "*" in imported_symbols:
+                # Count if:
+                # (1) symbol is explicitly imported, or
+                # (2) wildcard import exists, or
+                # (3) the module itself is imported (indicated by _import_ prefix)
+                has_explicit_import = symbol in imported_symbols
+                has_wildcard_import = "*" in imported_symbols
+                has_module_import = any(
+                    s.startswith("_import_") for s in imported_symbols
+                )
+
+                if has_explicit_import or has_wildcard_import or has_module_import:
                     references.extend(file_references)
             else:
                 # For the target file itself, include all references
@@ -524,6 +546,12 @@ def _find_references_in_ast(tree: ast.AST, symbol_name: str) -> list[ast.AST]:
     class ReferenceFinder(ast.NodeVisitor):
         def visit_Name(self, node: ast.Name) -> None:
             if node.id == symbol_name and isinstance(node.ctx, ast.Load):
+                references.append(node)
+            self.generic_visit(node)
+
+        def visit_Attribute(self, node: ast.Attribute) -> None:
+            # Check if this is accessing the symbol as an attribute (e.g., module.symbol)
+            if node.attr == symbol_name:
                 references.append(node)
             self.generic_visit(node)
 
