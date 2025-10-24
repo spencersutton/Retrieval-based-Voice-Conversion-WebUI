@@ -171,16 +171,7 @@ class Config:
 
         if self.instead:
             logger.info(f"Use {self.instead} instead")
-        if not os.path.exists(
-            "runtime\Lib\site-packages\onnxruntime\capi\onnxruntime_providers_cuda.dll"
-        ):
-            try:
-                os.rename(
-                    "runtime\Lib\site-packages\onnxruntime-cuda",
-                    "runtime\Lib\site-packages\onnxruntime",
-                )
-            except Exception:
-                pass
+
         logger.info(
             "Half-precision floating-point: %s, device: %s"
             % (self.is_half, self.device)
