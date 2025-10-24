@@ -53,7 +53,7 @@ class Slicer:
             raise ValueError(
                 "The following condition must be satisfied: max_sil_kept >= hop_size"
             )
-        min_interval = sr * min_interval / 1000
+        min_interval = sr * min_interval // 1000
         self.threshold = 10 ** (threshold / 20.0)
         self.hop_size = round(sr * hop_size / 1000)
         self.win_size = min(round(min_interval), 4 * self.hop_size)
