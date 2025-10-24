@@ -3,8 +3,6 @@ import torch
 from infer.lib.infer_pack.models_onnx import SynthesizerTrnMsNSFsidM
 
 if __name__ == "__main__":
-    MoeVS = True  # 模型是否为MoeVoiceStudio（原MoeSS）使用
-
     ModelPath = "Shiroha/shiroha.pth"  # 模型路径
     ExportedPath = "model.onnx"  # 输出路径
     hidden_channels = 256  # hidden_channels，为768Vec做准备
