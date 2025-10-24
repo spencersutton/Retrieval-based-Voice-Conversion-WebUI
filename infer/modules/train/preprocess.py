@@ -16,6 +16,7 @@ _inp_root = sys.argv[1]
 _sr = int(sys.argv[2])
 _n_p = int(sys.argv[3])
 _exp_dir = sys.argv[4]
+_noparallel = sys.argv[5] == "True"
 _per = float(sys.argv[6])
 
 _f = open("%s/preprocess.log" % _exp_dir, "a+")
@@ -107,7 +108,7 @@ class _PreProcess:
                 ("%s/%s" % (inp_root, name), idx)
                 for idx, name in enumerate(sorted(list(os.listdir(inp_root))))
             ]
-            if noparallel:
+            if _noparallel:
                 for i in range(n_p):
                     self.pipeline_mp(infos[i::n_p])
             else:
