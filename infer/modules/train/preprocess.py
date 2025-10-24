@@ -82,6 +82,7 @@ class _PreProcess:
             idx1 = 0
             for audio in self.slicer.slice(audio):
                 i = 0
+                tmp_audio = None
                 while 1:
                     start = int(self.sr * (self.per - self.overlap) * i)
                     i += 1

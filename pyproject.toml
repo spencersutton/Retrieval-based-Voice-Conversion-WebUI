@@ -34,3 +34,7 @@ fairseq = { git = "https://github.com/yamada-sexta/fairseq.git" }
 
 [tool.ruff.lint]
 extend-select = ["I"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportMissingParameterType = true

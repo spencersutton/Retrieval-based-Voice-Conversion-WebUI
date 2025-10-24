@@ -576,8 +576,8 @@ def _train_index(exp_dir1: str):
     listdir_res = list(os.listdir(feature_dir))
     if len(listdir_res) == 0:
         return "请先进行特征提取！"
-    infos = []
-    npys = []
+    infos: list[str] = []
+    npys: list[np.ndarray] = []
     for name in sorted(listdir_res):
         phone = np.load("%s/%s" % (feature_dir, name))
         npys.append(phone)
