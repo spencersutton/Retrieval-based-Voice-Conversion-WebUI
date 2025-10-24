@@ -39,7 +39,6 @@ from infer.lib.train.process_ckpt import savee
 
 logger = logging.getLogger(__name__)
 
-now_dir = os.getcwd()
 
 hps = utils.get_hparams()
 os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
@@ -573,7 +572,6 @@ def train_and_evaluate(
                         hps.if_f0,
                         hps.name + "_e%s_s%s" % (epoch, global_step),
                         epoch,
-                        hps.version,
                         hps,
                     ),
                 )
@@ -590,11 +588,7 @@ def train_and_evaluate(
             ckpt = net_g.state_dict()
         logger.info(
             "saving final ckpt:%s"
-            % (
-                savee(
-                    ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps.version, hps
-                )
-            )
+            % (savee(ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps))
         )
         sleep(1)
         os._exit(2333333)
