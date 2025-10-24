@@ -167,7 +167,7 @@ _sr_dict = {
 }
 
 
-def _if_done(done, p):
+def _if_done(done: list[object], p: Popen) -> None:
     while 1:
         if p.poll() is None:
             sleep(0.5)
@@ -191,7 +191,12 @@ def _if_done_multi(done: list[object], ps: list[Popen]) -> None:
     done[0] = True
 
 
-def _preprocess_dataset(trainset_dir: str, exp_dir: str, sr_str: str, n_p: str):
+def _preprocess_dataset(
+    trainset_dir: str,
+    exp_dir: str,
+    sr_str: str,
+    n_p: int,
+):
     sr = _sr_dict[sr_str]
     os.makedirs("%s/logs/%s" % (_now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/preprocess.log" % (_now_dir, exp_dir), "w")
@@ -232,9 +237,9 @@ def _preprocess_dataset(trainset_dir: str, exp_dir: str, sr_str: str, n_p: str):
 
 def _extract_f0_feature(
     gpu_str: str,
-    n_p: str,
+    n_p: int,
     f0method: str,
-    if_f0: str,
+    if_f0: bool,
     exp_dir: str,
     gpus_rmvpe_str: str,
 ):
@@ -322,7 +327,7 @@ def _extract_f0_feature(
         yield log
     # 对不同part分别开多进程
     leng = len(gpus)
-    ps = []
+    ps: list[Popen] = []
     for idx, n_g in enumerate(gpus):
         cmd = (
             '"%s" infer/modules/train/extract_feature_print.py %s %s %s %s "%s/logs/%s" %s'
@@ -361,7 +366,7 @@ def _extract_f0_feature(
     yield log
 
 
-def _get_pretrained_models(path_str, f0_str, sr2):
+def _get_pretrained_models(path_str: str, f0_str: str, sr2: str):
     if_pretrained_generator_exist = os.access(
         "assets/pretrained%s/%sG%s.pth" % (path_str, f0_str, sr2), os.F_OK
     )
@@ -396,13 +401,13 @@ def _get_pretrained_models(path_str, f0_str, sr2):
     )
 
 
-def _change_sr2(sr2, if_f0_3):
+def _change_sr2(sr2: str, if_f0_3: bool):
     path_str = "" if False else "_v2"
     f0_str = "f0" if if_f0_3 else ""
     return _get_pretrained_models(path_str, f0_str, sr2)
 
 
-def _change_f0(if_f0_3, sr2):
+def _change_f0(if_f0_3: bool, sr2: str):
     path_str = "" if False else "_v2"
     return (
         {"visible": if_f0_3, "__type__": "update"},
@@ -412,19 +417,19 @@ def _change_f0(if_f0_3, sr2):
 
 
 def _click_train(
-    exp_dir1,
-    sr2,
-    if_f0_3,
-    spk_id5,
-    save_epoch10,
-    total_epoch11,
-    batch_size12,
-    if_save_latest13,
-    pretrained_G14,
-    pretrained_D15,
-    gpus16,
-    if_cache_gpu17,
-    if_save_every_weights18,
+    exp_dir1: str,
+    sr2: str,
+    if_f0_3: bool,
+    spk_id5: int,
+    save_epoch10: int,
+    total_epoch11: int,
+    batch_size12: int,
+    if_save_latest13: bool,
+    pretrained_G14: str,
+    pretrained_D15: str,
+    gpus16: str,
+    if_cache_gpu17: bool,
+    if_save_every_weights18: bool,
 ):
     # 生成filelist
     exp_dir = "%s/logs/%s" % (_now_dir, exp_dir1)
@@ -553,7 +558,7 @@ def _click_train(
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
 
 
-def _train_index(exp_dir1):
+def _train_index(exp_dir1: str):
     _logger.info("Start training index for %s", exp_dir1)
 
     exp_dir = "logs/%s" % (exp_dir1)
@@ -649,20 +654,20 @@ def _train_index(exp_dir1):
 def _train1key(
     exp_dir1: str,
     sr2: str,
-    if_f0_3: str,
+    if_f0_3: bool,
     trainset_dir4: str,
-    spk_id5: str,
-    np7: str,
+    spk_id5: int,
+    np7: int,
     f0method8: str,
-    save_epoch10: str,
-    total_epoch11: str,
-    batch_size12: str,
-    if_save_latest13: str,
+    save_epoch10: int,
+    total_epoch11: int,
+    batch_size12: int,
+    if_save_latest13: bool,
     pretrained_G14: str,
     pretrained_D15: str,
     gpus16: str,
-    if_cache_gpu17: str,
-    if_save_every_weights18: str,
+    if_cache_gpu17: bool,
+    if_save_every_weights18: bool,
     gpus_rmvpe: str,
 ):
     infos = []
