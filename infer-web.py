@@ -104,20 +104,20 @@ if torch.cuda.is_available() or _ngpu != 0:
                 )
             )
 if _if_gpu_ok and len(_gpu_infos) > 0:
-    default_batch_size = min(_mem) // 2
+    _default_batch_size = min(_mem) // 2
 else:
-    default_batch_size = 1
+    _default_batch_size = 1
 gpus = "-".join([i[0] for i in _gpu_infos])
 
 _weight_root = os.getenv("weight_root")
 _index_root = os.getenv("index_root", "logs")
 _outside_index_root = os.getenv("outside_index_root")
 
-names = []
+names: list[str] = []
 for name in os.listdir(_weight_root):
     if name.endswith(".pth"):
         names.append(name)
-index_paths = []
+index_paths: list[str] = []
 
 
 def _lookup_indices(index_root):
@@ -132,12 +132,12 @@ _lookup_indices(_index_root)
 _lookup_indices(_outside_index_root)
 
 
-def _change_choices():
-    names = []
+def _change_choices() -> tuple[dict[str, object], dict[str, object]]:
+    names: list[str] = []
     for name in os.listdir(_weight_root):
         if name.endswith(".pth"):
             names.append(name)
-    index_paths = []
+    index_paths: list[str] = []
     for root, dirs, files in os.walk(_index_root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
@@ -152,7 +152,7 @@ def _clean():
     return {"value": "", "__type__": "update"}
 
 
-def _export_onnx(ModelPath, ExportedPath):
+def _export_onnx(ModelPath: str, ExportedPath: str) -> None:
     from infer.modules.onnx.export import export_onnx as eo
 
     eo(ModelPath, ExportedPath)
@@ -174,10 +174,10 @@ def _if_done(done, p):
     done[0] = True
 
 
-def _if_done_multi(done, ps):
+def _if_done_multi(done: list[object], ps: list[Popen]) -> None:
     while 1:
-        # poll==None代表进程未结束
-        # 只要有一个进程未结束都不停
+        # poll==None means the process has not ended
+        # As long as one process has not ended, keep looping
         flag = 1
         for p in ps:
             if p.poll() is None:
@@ -189,8 +189,8 @@ def _if_done_multi(done, ps):
     done[0] = True
 
 
-def _preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
-    sr = _sr_dict[sr]
+def _preprocess_dataset(trainset_dir: str, exp_dir: str, sr_str: str, n_p: str):
+    sr = _sr_dict[sr_str]
     os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/preprocess.log" % (now_dir, exp_dir), "w")
     f.close()
@@ -228,8 +228,15 @@ def _preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
     yield log
 
 
-def _extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
-    gpus = gpus.split("-")
+def _extract_f0_feature(
+    gpu_str: str,
+    n_p: str,
+    f0method: str,
+    if_f0: str,
+    exp_dir: str,
+    gpus_rmvpe_str: str,
+):
+    gpus = gpu_str.split("-")
     os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "w")
     f.close()
@@ -257,8 +264,8 @@ def _extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
                 ),
             ).start()
         else:
-            if gpus_rmvpe != "-":
-                gpus_rmvpe = gpus_rmvpe.split("-")
+            if gpus_rmvpe_str != "-":
+                gpus_rmvpe = gpus_rmvpe_str.split("-")
                 leng = len(gpus_rmvpe)
                 ps = []
                 for idx, n_g in enumerate(gpus_rmvpe):
@@ -638,23 +645,23 @@ def _train_index(exp_dir1):
 
 
 def _train1key(
-    exp_dir1,
-    sr2,
-    if_f0_3,
-    trainset_dir4,
-    spk_id5,
-    np7,
-    f0method8,
-    save_epoch10,
-    total_epoch11,
-    batch_size12,
-    if_save_latest13,
-    pretrained_G14,
-    pretrained_D15,
-    gpus16,
-    if_cache_gpu17,
-    if_save_every_weights18,
-    gpus_rmvpe,
+    exp_dir1: str,
+    sr2: str,
+    if_f0_3: str,
+    trainset_dir4: str,
+    spk_id5: str,
+    np7: str,
+    f0method8: str,
+    save_epoch10: str,
+    total_epoch11: str,
+    batch_size12: str,
+    if_save_latest13: str,
+    pretrained_G14: str,
+    pretrained_D15: str,
+    gpus16: str,
+    if_cache_gpu17: str,
+    if_save_every_weights18: str,
+    gpus_rmvpe: str,
 ):
     infos = []
 
@@ -701,7 +708,7 @@ def _train1key(
     yield get_info_str(_i18n("全流程结束！"))
 
 
-def _change_info_(ckpt_path):
+def _change_info_(ckpt_path: str):
     if not os.path.exists(ckpt_path.replace(os.path.basename(ckpt_path), "train.log")):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
     try:
@@ -716,7 +723,7 @@ def _change_info_(ckpt_path):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
 
 
-def _change_f0_method(f0method8):
+def _change_f0_method(f0method8: str):
     visible = f0method8 == "rmvpe_gpu"
     return {"visible": visible, "__type__": "update"}
 
@@ -1137,7 +1144,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         maximum=40,
                         step=1,
                         label=_i18n("每张显卡的batch_size"),
-                        value=default_batch_size,
+                        value=_default_batch_size,
                         interactive=True,
                     )
                     if_save_latest13 = gr.Radio(

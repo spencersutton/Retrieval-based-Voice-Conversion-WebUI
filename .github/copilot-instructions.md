@@ -1,0 +1,1 @@
+When generating type annotations use the new typing syntax (e.g. list[int], dict[str, str]). When a type cannot be determined, use 'object' as the type. Don't use generic types without type parameters (e.g. use 'list[int]' instead of 'list').
