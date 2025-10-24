@@ -104,23 +104,10 @@ if torch.cuda.is_available() or ngpu != 0:
                 )
             )
 if if_gpu_ok and len(gpu_infos) > 0:
-    gpu_info = "\n".join(gpu_infos)
     default_batch_size = min(mem) // 2
 else:
-    gpu_info = i18n("很遗憾您这没有能用的显卡来支持您训练")
     default_batch_size = 1
 gpus = "-".join([i[0] for i in gpu_infos])
-
-
-class ToolButton(gr.Button, gr.components.FormComponent):
-    """Small button with single emoji as text, fits inside gradio forms"""
-
-    def __init__(self, **kwargs):
-        super().__init__(variant="tool", **kwargs)
-
-    def get_block_name(self):
-        return "button"
-
 
 weight_root = os.getenv("weight_root")
 weight_uvr5_root = os.getenv("weight_uvr5_root")
@@ -409,22 +396,6 @@ def change_sr2(sr2, if_f0_3):
     path_str = "" if False else "_v2"
     f0_str = "f0" if if_f0_3 else ""
     return get_pretrained_models(path_str, f0_str, sr2)
-
-
-def change_version19(sr2, if_f0_3):
-    path_str = "" if False else "_v2"
-    if sr2 == "32k" and False:
-        sr2 = "40k"
-    to_return_sr2 = (
-        {"choices": ["40k", "48k"], "__type__": "update", "value": sr2}
-        if False
-        else {"choices": ["40k", "48k", "32k"], "__type__": "update", "value": sr2}
-    )
-    f0_str = "f0" if if_f0_3 else ""
-    return (
-        *get_pretrained_models(path_str, f0_str, sr2),
-        to_return_sr2,
-    )
 
 
 def change_f0(if_f0_3, sr2):
@@ -1109,7 +1080,6 @@ with gr.Blocks(title="RVC WebUI") as app:
                             value=gpus,
                             interactive=True,
                         )
-                        gpu_info9 = gr.Textbox(label=i18n("显卡信息"), value=gpu_info)
                     with gr.Column():
                         f0method8 = gr.Radio(
                             label=i18n(
