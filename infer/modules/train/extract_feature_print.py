@@ -18,8 +18,7 @@ n_part = int(sys.argv[2])
 i_part = int(sys.argv[3])
 if len(sys.argv) == 7:
     exp_dir = sys.argv[4]
-    version = sys.argv[5]
-    is_half = sys.argv[6].lower() == "true"
+    is_half = sys.argv[5].lower() == "true"
 else:
     i_gpu = sys.argv[4]
     exp_dir = sys.argv[5]
