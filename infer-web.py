@@ -50,20 +50,20 @@ warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
 
-config = Config()
-vc = VC(config)
+_config = Config()
+_vc = VC(_config)
 
 
-i18n = I18nAuto()
-logger.info(i18n)
+_i18n = I18nAuto()
+logger.info(_i18n)
 # 判断是否有能用来训练和加速推理的N卡
-ngpu = torch.cuda.device_count()
-gpu_infos = []
-mem = []
-if_gpu_ok = False
+_ngpu = torch.cuda.device_count()
+_gpu_infos = []
+_mem = []
+_if_gpu_ok = False
 
-if torch.cuda.is_available() or ngpu != 0:
-    for i in range(ngpu):
+if torch.cuda.is_available() or _ngpu != 0:
+    for i in range(_ngpu):
         gpu_name = torch.cuda.get_device_name(i)
         if any(
             value in gpu_name.upper()
@@ -92,9 +92,9 @@ if torch.cuda.is_available() or ngpu != 0:
             ]
         ):
             # A10#A100#V100#A40#P40#M40#K80#A4500
-            if_gpu_ok = True  # 至少有一张能用的N卡
-            gpu_infos.append("%s\t%s" % (i, gpu_name))
-            mem.append(
+            _if_gpu_ok = True  # 至少有一张能用的N卡
+            _gpu_infos.append("%s\t%s" % (i, gpu_name))
+            _mem.append(
                 int(
                     torch.cuda.get_device_properties(i).total_memory
                     / 1024
@@ -103,19 +103,19 @@ if torch.cuda.is_available() or ngpu != 0:
                     + 0.4
                 )
             )
-if if_gpu_ok and len(gpu_infos) > 0:
-    default_batch_size = min(mem) // 2
+if _if_gpu_ok and len(_gpu_infos) > 0:
+    default_batch_size = min(_mem) // 2
 else:
     default_batch_size = 1
-gpus = "-".join([i[0] for i in gpu_infos])
+gpus = "-".join([i[0] for i in _gpu_infos])
 
-weight_root = os.getenv("weight_root")
-weight_uvr5_root = os.getenv("weight_uvr5_root")
-index_root = os.getenv("index_root", "logs")
-outside_index_root = os.getenv("outside_index_root")
+_weight_root = os.getenv("weight_root")
+_weight_uvr5_root = os.getenv("weight_uvr5_root")
+_index_root = os.getenv("index_root", "logs")
+_outside_index_root = os.getenv("outside_index_root")
 
 names = []
-for name in os.listdir(weight_root):
+for name in os.listdir(_weight_root):
     if name.endswith(".pth"):
         names.append(name)
 index_paths = []
@@ -129,17 +129,17 @@ def _lookup_indices(index_root):
                 index_paths.append("%s/%s" % (root, name))
 
 
-_lookup_indices(index_root)
-_lookup_indices(outside_index_root)
+_lookup_indices(_index_root)
+_lookup_indices(_outside_index_root)
 
 
-def change_choices():
+def _change_choices():
     names = []
-    for name in os.listdir(weight_root):
+    for name in os.listdir(_weight_root):
         if name.endswith(".pth"):
             names.append(name)
     index_paths = []
-    for root, dirs, files in os.walk(index_root, topdown=False):
+    for root, dirs, files in os.walk(_index_root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
                 index_paths.append("%s/%s" % (root, name))
@@ -149,24 +149,24 @@ def change_choices():
     }
 
 
-def clean():
+def _clean():
     return {"value": "", "__type__": "update"}
 
 
-def export_onnx(ModelPath, ExportedPath):
+def _export_onnx(ModelPath, ExportedPath):
     from infer.modules.onnx.export import export_onnx as eo
 
     eo(ModelPath, ExportedPath)
 
 
-sr_dict = {
+_sr_dict = {
     "32k": 32000,
     "40k": 40000,
     "48k": 48000,
 }
 
 
-def if_done(done, p):
+def _if_done(done, p):
     while 1:
         if p.poll() is None:
             sleep(0.5)
@@ -175,7 +175,7 @@ def if_done(done, p):
     done[0] = True
 
 
-def if_done_multi(done, ps):
+def _if_done_multi(done, ps):
     while 1:
         # poll==None代表进程未结束
         # 只要有一个进程未结束都不停
@@ -190,20 +190,20 @@ def if_done_multi(done, ps):
     done[0] = True
 
 
-def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
-    sr = sr_dict[sr]
+def _preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
+    sr = _sr_dict[sr]
     os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/preprocess.log" % (now_dir, exp_dir), "w")
     f.close()
     cmd = '"%s" infer/modules/train/preprocess.py "%s" %s %s "%s/logs/%s" %s %.1f' % (
-        config.python_cmd,
+        _config.python_cmd,
         trainset_dir,
         sr,
         n_p,
         now_dir,
         exp_dir,
-        config.noparallel,
-        config.preprocess_per,
+        _config.noparallel,
+        _config.preprocess_per,
     )
     logger.info("Execute: " + cmd)
 
@@ -211,7 +211,7 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
     threading.Thread(
-        target=if_done,
+        target=_if_done,
         args=(
             done,
             p,
@@ -229,7 +229,7 @@ def preprocess_dataset(trainset_dir, exp_dir, sr, n_p):
     yield log
 
 
-def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
+def _extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
     gpus = gpus.split("-")
     os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "w")
@@ -239,7 +239,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
             cmd = (
                 '"%s" infer/modules/train/extract/extract_f0_print.py "%s/logs/%s" %s %s'
                 % (
-                    config.python_cmd,
+                    _config.python_cmd,
                     now_dir,
                     exp_dir,
                     n_p,
@@ -251,7 +251,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
             # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
             done = [False]
             threading.Thread(
-                target=if_done,
+                target=_if_done,
                 args=(
                     done,
                     p,
@@ -266,13 +266,13 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
                     cmd = (
                         '"%s" infer/modules/train/extract/extract_f0_rmvpe.py %s %s %s "%s/logs/%s" %s '
                         % (
-                            config.python_cmd,
+                            _config.python_cmd,
                             leng,
                             idx,
                             n_g,
                             now_dir,
                             exp_dir,
-                            config.is_half,
+                            _config.is_half,
                         )
                     )
                     logger.info("Execute: " + cmd)
@@ -281,7 +281,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
                 # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
                 done = [False]
                 threading.Thread(
-                    target=if_done_multi,  #
+                    target=_if_done_multi,  #
                     args=(
                         done,
                         ps,
@@ -289,7 +289,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
                 ).start()
             else:
                 cmd = (
-                    config.python_cmd
+                    _config.python_cmd
                     + ' infer/modules/train/extract/extract_f0_rmvpe_dml.py "%s/logs/%s" '
                     % (
                         now_dir,
@@ -319,14 +319,14 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
         cmd = (
             '"%s" infer/modules/train/extract_feature_print.py %s %s %s %s "%s/logs/%s" %s'
             % (
-                config.python_cmd,
-                config.device,
+                _config.python_cmd,
+                _config.device,
                 leng,
                 idx,
                 n_g,
                 now_dir,
                 exp_dir,
-                config.is_half,
+                _config.is_half,
             )
         )
         logger.info("Execute: " + cmd)
@@ -335,7 +335,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
     threading.Thread(
-        target=if_done_multi,
+        target=_if_done_multi,
         args=(
             done,
             ps,
@@ -353,7 +353,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
     yield log
 
 
-def get_pretrained_models(path_str, f0_str, sr2):
+def _get_pretrained_models(path_str, f0_str, sr2):
     if_pretrained_generator_exist = os.access(
         "assets/pretrained%s/%sG%s.pth" % (path_str, f0_str, sr2), os.F_OK
     )
@@ -388,22 +388,22 @@ def get_pretrained_models(path_str, f0_str, sr2):
     )
 
 
-def change_sr2(sr2, if_f0_3):
+def _change_sr2(sr2, if_f0_3):
     path_str = "" if False else "_v2"
     f0_str = "f0" if if_f0_3 else ""
-    return get_pretrained_models(path_str, f0_str, sr2)
+    return _get_pretrained_models(path_str, f0_str, sr2)
 
 
-def change_f0(if_f0_3, sr2):
+def _change_f0(if_f0_3, sr2):
     path_str = "" if False else "_v2"
     return (
         {"visible": if_f0_3, "__type__": "update"},
         {"visible": if_f0_3, "__type__": "update"},
-        *get_pretrained_models(path_str, "f0" if if_f0_3 else "", sr2),
+        *_get_pretrained_models(path_str, "f0" if if_f0_3 else "", sr2),
     )
 
 
-def click_train(
+def _click_train(
     exp_dir1,
     sr2,
     if_f0_3,
@@ -495,7 +495,7 @@ def click_train(
     if not pathlib.Path(config_save_path).exists():
         with open(config_save_path, "w", encoding="utf-8") as f:
             json.dump(
-                config.json_config[config_path],
+                _config.json_config[config_path],
                 f,
                 ensure_ascii=False,
                 indent=4,
@@ -506,7 +506,7 @@ def click_train(
         cmd = (
             '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -g %s -te %s -se %s %s %s -l %s -c %s -sw %s'
             % (
-                config.python_cmd,
+                _config.python_cmd,
                 exp_dir1,
                 sr2,
                 1 if if_f0_3 else 0,
@@ -516,16 +516,16 @@ def click_train(
                 save_epoch10,
                 "-pg %s" % pretrained_G14 if pretrained_G14 != "" else "",
                 "-pd %s" % pretrained_D15 if pretrained_D15 != "" else "",
-                1 if if_save_latest13 == i18n("是") else 0,
-                1 if if_cache_gpu17 == i18n("是") else 0,
-                1 if if_save_every_weights18 == i18n("是") else 0,
+                1 if if_save_latest13 == _i18n("是") else 0,
+                1 if if_cache_gpu17 == _i18n("是") else 0,
+                1 if if_save_every_weights18 == _i18n("是") else 0,
             )
         )
     else:
         cmd = (
             '"%s" infer/modules/train/train.py -e "%s" -sr %s -f0 %s -bs %s -te %s -se %s %s %s -l %s -c %s -sw %s'
             % (
-                config.python_cmd,
+                _config.python_cmd,
                 exp_dir1,
                 sr2,
                 1 if if_f0_3 else 0,
@@ -534,9 +534,9 @@ def click_train(
                 save_epoch10,
                 "-pg %s" % pretrained_G14 if pretrained_G14 != "" else "",
                 "-pd %s" % pretrained_D15 if pretrained_D15 != "" else "",
-                1 if if_save_latest13 == i18n("是") else 0,
-                1 if if_cache_gpu17 == i18n("是") else 0,
-                1 if if_save_every_weights18 == i18n("是") else 0,
+                1 if if_save_latest13 == _i18n("是") else 0,
+                1 if if_cache_gpu17 == _i18n("是") else 0,
+                1 if if_save_every_weights18 == _i18n("是") else 0,
             )
         )
     logger.info("Execute: " + cmd)
@@ -545,7 +545,7 @@ def click_train(
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
 
 
-def train_index(exp_dir1):
+def _train_index(exp_dir1):
     logger.info("Start training index for %s", exp_dir1)
 
     exp_dir = "logs/%s" % (exp_dir1)
@@ -575,7 +575,7 @@ def train_index(exp_dir1):
                 MiniBatchKMeans(
                     n_clusters=10000,
                     verbose=True,
-                    batch_size=256 * config.n_cpu,
+                    batch_size=256 * _config.n_cpu,
                     compute_labels=False,
                     init="random",
                 )
@@ -624,21 +624,21 @@ def train_index(exp_dir1):
             % (exp_dir, n_ivf, index_ivf.nprobe, exp_dir1),
             "%s/%s_IVF%s_Flat_nprobe_%s_%s.index"
             % (
-                outside_index_root,
+                _outside_index_root,
                 exp_dir1,
                 n_ivf,
                 index_ivf.nprobe,
                 exp_dir1,
             ),
         )
-        infos.append("链接索引到外部-%s" % (outside_index_root))
+        infos.append("链接索引到外部-%s" % (_outside_index_root))
     except Exception:
-        infos.append("链接索引到外部-%s失败" % (outside_index_root))
+        infos.append("链接索引到外部-%s失败" % (_outside_index_root))
 
     yield "\n".join(infos)
 
 
-def train1key(
+def _train1key(
     exp_dir1,
     sr2,
     if_f0_3,
@@ -664,21 +664,21 @@ def train1key(
         return "\n".join(infos)
 
     # step1:处理数据
-    yield get_info_str(i18n("step1:正在处理数据"))
-    [get_info_str(_) for _ in preprocess_dataset(trainset_dir4, exp_dir1, sr2, np7)]
+    yield get_info_str(_i18n("step1:正在处理数据"))
+    [get_info_str(_) for _ in _preprocess_dataset(trainset_dir4, exp_dir1, sr2, np7)]
 
     # step2a:提取音高
-    yield get_info_str(i18n("step2:正在提取音高&正在提取特征"))
+    yield get_info_str(_i18n("step2:正在提取音高&正在提取特征"))
     [
         get_info_str(_)
-        for _ in extract_f0_feature(
+        for _ in _extract_f0_feature(
             gpus16, np7, f0method8, if_f0_3, exp_dir1, gpus_rmvpe
         )
     ]
 
     # step3a:训练模型
-    yield get_info_str(i18n("step3a:正在训练模型"))
-    click_train(
+    yield get_info_str(_i18n("step3a:正在训练模型"))
+    _click_train(
         exp_dir1,
         sr2,
         if_f0_3,
@@ -694,15 +694,15 @@ def train1key(
         if_save_every_weights18,
     )
     yield get_info_str(
-        i18n("训练结束, 您可查看控制台训练日志或实验文件夹下的train.log")
+        _i18n("训练结束, 您可查看控制台训练日志或实验文件夹下的train.log")
     )
 
     # step3b:训练索引
-    [get_info_str(_) for _ in train_index(exp_dir1)]
-    yield get_info_str(i18n("全流程结束！"))
+    [get_info_str(_) for _ in _train_index(exp_dir1)]
+    yield get_info_str(_i18n("全流程结束！"))
 
 
-def change_info_(ckpt_path):
+def _change_info_(ckpt_path):
     if not os.path.exists(ckpt_path.replace(os.path.basename(ckpt_path), "train.log")):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
     try:
@@ -717,7 +717,7 @@ def change_info_(ckpt_path):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
 
 
-def change_f0_method(f0method8):
+def _change_f0_method(f0method8):
     visible = f0method8 == "rmvpe_gpu"
     return {"visible": visible, "__type__": "update"}
 
@@ -725,59 +725,59 @@ def change_f0_method(f0method8):
 with gr.Blocks(title="RVC WebUI") as app:
     gr.Markdown("## RVC WebUI")
     gr.Markdown(
-        value=i18n(
+        value=_i18n(
             "本软件以MIT协议开源, 作者不对软件具备任何控制力, 使用软件者、传播软件导出的声音者自负全责. <br>如不认可该条款, 则不能使用或引用软件包内任何代码和文件. 详见根目录<b>LICENSE</b>."
         )
     )
     with gr.Tabs():
-        with gr.TabItem(i18n("模型推理")):
+        with gr.TabItem(_i18n("模型推理")):
             with gr.Row():
-                sid0 = gr.Dropdown(label=i18n("推理音色"), choices=sorted(names))
+                sid0 = gr.Dropdown(label=_i18n("推理音色"), choices=sorted(names))
                 with gr.Column():
                     refresh_button = gr.Button(
-                        i18n("刷新音色列表和索引路径"), variant="primary"
+                        _i18n("刷新音色列表和索引路径"), variant="primary"
                     )
-                    clean_button = gr.Button(i18n("卸载音色省显存"), variant="primary")
+                    clean_button = gr.Button(_i18n("卸载音色省显存"), variant="primary")
                 spk_item = gr.Slider(
                     minimum=0,
                     maximum=2333,
                     step=1,
-                    label=i18n("请选择说话人id"),
+                    label=_i18n("请选择说话人id"),
                     value=0,
                     visible=False,
                     interactive=True,
                 )
                 clean_button.click(
-                    fn=clean, inputs=[], outputs=[sid0], api_name="infer_clean"
+                    fn=_clean, inputs=[], outputs=[sid0], api_name="infer_clean"
                 )
-            with gr.TabItem(i18n("单次推理")):
+            with gr.TabItem(_i18n("单次推理")):
                 with gr.Group():
                     with gr.Row():
                         with gr.Column():
                             vc_transform0 = gr.Number(
-                                label=i18n("变调(整数, 半音数量, 升八度12降八度-12)"),
+                                label=_i18n("变调(整数, 半音数量, 升八度12降八度-12)"),
                                 value=0,
                             )
                             input_audio0 = gr.Textbox(
-                                label=i18n(
+                                label=_i18n(
                                     "输入待处理音频文件路径(默认是正确格式示例)"
                                 ),
                                 placeholder="C:\\Users\\Desktop\\audio_example.wav",
                             )
                             file_index1 = gr.Textbox(
-                                label=i18n(
+                                label=_i18n(
                                     "特征检索库文件路径,为空则使用下拉的选择结果"
                                 ),
                                 placeholder="C:\\Users\\Desktop\\model_example.index",
                                 interactive=True,
                             )
                             file_index2 = gr.Dropdown(
-                                label=i18n("自动检测index路径,下拉式选择(dropdown)"),
+                                label=_i18n("自动检测index路径,下拉式选择(dropdown)"),
                                 choices=sorted(index_paths),
                                 interactive=True,
                             )
                             f0method0 = gr.Radio(
-                                label=i18n(
+                                label=_i18n(
                                     "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
                                 ),
                                 choices=(["pm", "harvest", "crepe", "rmvpe"]),
@@ -789,7 +789,9 @@ with gr.Blocks(title="RVC WebUI") as app:
                             resample_sr0 = gr.Slider(
                                 minimum=0,
                                 maximum=48000,
-                                label=i18n("后处理重采样至最终采样率，0为不进行重采样"),
+                                label=_i18n(
+                                    "后处理重采样至最终采样率，0为不进行重采样"
+                                ),
                                 value=0,
                                 step=1,
                                 interactive=True,
@@ -797,7 +799,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                             rms_mix_rate0 = gr.Slider(
                                 minimum=0,
                                 maximum=1,
-                                label=i18n(
+                                label=_i18n(
                                     "输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"
                                 ),
                                 value=0.25,
@@ -806,7 +808,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                             protect0 = gr.Slider(
                                 minimum=0,
                                 maximum=0.5,
-                                label=i18n(
+                                label=_i18n(
                                     "保护清辅音和呼吸声，防止电音撕裂等artifact，拉满0.5不开启，调低加大保护力度但可能降低索引效果"
                                 ),
                                 value=0.33,
@@ -816,7 +818,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                             filter_radius0 = gr.Slider(
                                 minimum=0,
                                 maximum=7,
-                                label=i18n(
+                                label=_i18n(
                                     ">=3则使用对harvest音高识别的结果使用中值滤波，数值为滤波半径，使用可以削弱哑音"
                                 ),
                                 value=3,
@@ -826,34 +828,34 @@ with gr.Blocks(title="RVC WebUI") as app:
                             index_rate1 = gr.Slider(
                                 minimum=0,
                                 maximum=1,
-                                label=i18n("检索特征占比"),
+                                label=_i18n("检索特征占比"),
                                 value=0.75,
                                 interactive=True,
                             )
                             f0_file = gr.File(
-                                label=i18n(
+                                label=_i18n(
                                     "F0曲线文件, 可选, 一行一个音高, 代替默认F0及升降调"
                                 ),
                                 visible=False,
                             )
 
                             refresh_button.click(
-                                fn=change_choices,
+                                fn=_change_choices,
                                 inputs=[],
                                 outputs=[sid0, file_index2],
                                 api_name="infer_refresh",
                             )
                 with gr.Group():
                     with gr.Column():
-                        but0 = gr.Button(i18n("转换"), variant="primary")
+                        but0 = gr.Button(_i18n("转换"), variant="primary")
                         with gr.Row():
-                            vc_output1 = gr.Textbox(label=i18n("输出信息"))
+                            vc_output1 = gr.Textbox(label=_i18n("输出信息"))
                             vc_output2 = gr.Audio(
-                                label=i18n("输出音频(右下角三个点,点了可以下载)")
+                                label=_i18n("输出音频(右下角三个点,点了可以下载)")
                             )
 
                         but0.click(
-                            vc.vc_single,
+                            _vc.vc_single,
                             [
                                 spk_item,
                                 input_audio0,
@@ -871,33 +873,33 @@ with gr.Blocks(title="RVC WebUI") as app:
                             [vc_output1, vc_output2],
                             api_name="infer_convert",
                         )
-            with gr.TabItem(i18n("批量推理")):
+            with gr.TabItem(_i18n("批量推理")):
                 gr.Markdown(
-                    value=i18n(
+                    value=_i18n(
                         "批量转换, 输入待转换音频文件夹, 或上传多个音频文件, 在指定文件夹(默认opt)下输出转换的音频. "
                     )
                 )
                 with gr.Row():
                     with gr.Column():
                         vc_transform1 = gr.Number(
-                            label=i18n("变调(整数, 半音数量, 升八度12降八度-12)"),
+                            label=_i18n("变调(整数, 半音数量, 升八度12降八度-12)"),
                             value=0,
                         )
                         opt_input = gr.Textbox(
-                            label=i18n("指定输出文件夹"), value="opt"
+                            label=_i18n("指定输出文件夹"), value="opt"
                         )
                         file_index3 = gr.Textbox(
-                            label=i18n("特征检索库文件路径,为空则使用下拉的选择结果"),
+                            label=_i18n("特征检索库文件路径,为空则使用下拉的选择结果"),
                             value="",
                             interactive=True,
                         )
                         file_index4 = gr.Dropdown(
-                            label=i18n("自动检测index路径,下拉式选择(dropdown)"),
+                            label=_i18n("自动检测index路径,下拉式选择(dropdown)"),
                             choices=sorted(index_paths),
                             interactive=True,
                         )
                         f0method1 = gr.Radio(
-                            label=i18n(
+                            label=_i18n(
                                 "选择音高提取算法,输入歌声可用pm提速,harvest低音好但巨慢无比,crepe效果好但吃GPU,rmvpe效果最好且微吃GPU"
                             ),
                             choices=(["pm", "harvest", "crepe", "rmvpe"]),
@@ -905,14 +907,14 @@ with gr.Blocks(title="RVC WebUI") as app:
                             interactive=True,
                         )
                         format1 = gr.Radio(
-                            label=i18n("导出文件格式"),
+                            label=_i18n("导出文件格式"),
                             choices=["wav", "flac", "mp3", "m4a"],
                             value="wav",
                             interactive=True,
                         )
 
                         refresh_button.click(
-                            fn=lambda: change_choices()[1],
+                            fn=lambda: _change_choices()[1],
                             inputs=[],
                             outputs=file_index4,
                             api_name="infer_refresh_batch",
@@ -922,7 +924,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         resample_sr1 = gr.Slider(
                             minimum=0,
                             maximum=48000,
-                            label=i18n("后处理重采样至最终采样率，0为不进行重采样"),
+                            label=_i18n("后处理重采样至最终采样率，0为不进行重采样"),
                             value=0,
                             step=1,
                             interactive=True,
@@ -930,7 +932,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         rms_mix_rate1 = gr.Slider(
                             minimum=0,
                             maximum=1,
-                            label=i18n(
+                            label=_i18n(
                                 "输入源音量包络替换输出音量包络融合比例，越靠近1越使用输出包络"
                             ),
                             value=1,
@@ -939,7 +941,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         protect1 = gr.Slider(
                             minimum=0,
                             maximum=0.5,
-                            label=i18n(
+                            label=_i18n(
                                 "保护清辅音和呼吸声，防止电音撕裂等artifact，拉满0.5不开启，调低加大保护力度但可能降低索引效果"
                             ),
                             value=0.33,
@@ -949,7 +951,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         filter_radius1 = gr.Slider(
                             minimum=0,
                             maximum=7,
-                            label=i18n(
+                            label=_i18n(
                                 ">=3则使用对harvest音高识别的结果使用中值滤波，数值为滤波半径，使用可以削弱哑音"
                             ),
                             value=3,
@@ -959,28 +961,28 @@ with gr.Blocks(title="RVC WebUI") as app:
                         index_rate2 = gr.Slider(
                             minimum=0,
                             maximum=1,
-                            label=i18n("检索特征占比"),
+                            label=_i18n("检索特征占比"),
                             value=1,
                             interactive=True,
                         )
                 with gr.Row():
                     dir_input = gr.Textbox(
-                        label=i18n(
+                        label=_i18n(
                             "输入待处理音频文件夹路径(去文件管理器地址栏拷就行了)"
                         ),
                         placeholder="C:\\Users\\Desktop\\input_vocal_dir",
                     )
                     inputs = gr.File(
                         file_count="multiple",
-                        label=i18n("也可批量输入音频文件, 二选一, 优先读文件夹"),
+                        label=_i18n("也可批量输入音频文件, 二选一, 优先读文件夹"),
                     )
 
                 with gr.Row():
-                    but1 = gr.Button(i18n("转换"), variant="primary")
-                    vc_output3 = gr.Textbox(label=i18n("输出信息"))
+                    but1 = gr.Button(_i18n("转换"), variant="primary")
+                    vc_output3 = gr.Textbox(label=_i18n("输出信息"))
 
                     but1.click(
-                        vc.vc_multi,
+                        _vc.vc_multi,
                         [
                             spk_item,
                             dir_input,
@@ -1001,76 +1003,76 @@ with gr.Blocks(title="RVC WebUI") as app:
                         api_name="infer_convert_batch",
                     )
                 sid0.change(
-                    fn=vc.get_vc,
+                    fn=_vc.get_vc,
                     inputs=[sid0, protect0, protect1],
                     outputs=[spk_item, protect0, protect1, file_index2, file_index4],
                     api_name="infer_change_voice",
                 )
-        with gr.TabItem(i18n("训练")):
+        with gr.TabItem(_i18n("训练")):
             gr.Markdown(
-                value=i18n(
+                value=_i18n(
                     "step1: 填写实验配置. 实验数据放在logs下, 每个实验一个文件夹, 需手工输入实验名路径, 内含实验配置, 日志, 训练得到的模型文件. "
                 )
             )
             with gr.Row():
-                exp_dir1 = gr.Textbox(label=i18n("输入实验名"), value="mi-test")
+                exp_dir1 = gr.Textbox(label=_i18n("输入实验名"), value="mi-test")
                 sr2 = gr.Radio(
-                    label=i18n("目标采样率"),
+                    label=_i18n("目标采样率"),
                     choices=["40k", "48k"],
                     value="40k",
                     interactive=True,
                 )
                 if_f0_3 = gr.Radio(
-                    label=i18n("模型是否带音高指导(唱歌一定要, 语音可以不要)"),
+                    label=_i18n("模型是否带音高指导(唱歌一定要, 语音可以不要)"),
                     choices=[True, False],
                     value=True,
                     interactive=True,
                 )
                 np7 = gr.Slider(
                     minimum=0,
-                    maximum=config.n_cpu,
+                    maximum=_config.n_cpu,
                     step=1,
-                    label=i18n("提取音高和处理数据使用的CPU进程数"),
-                    value=int(np.ceil(config.n_cpu / 1.5)),
+                    label=_i18n("提取音高和处理数据使用的CPU进程数"),
+                    value=int(np.ceil(_config.n_cpu / 1.5)),
                     interactive=True,
                 )
             with gr.Group():  # 暂时单人的, 后面支持最多4人的#数据处理
                 gr.Markdown(
-                    value=i18n(
+                    value=_i18n(
                         "step2a: 自动遍历训练文件夹下所有可解码成音频的文件并进行切片归一化, 在实验目录下生成2个wav文件夹; 暂时只支持单人训练. "
                     )
                 )
                 with gr.Row():
                     trainset_dir4 = gr.Textbox(
-                        label=i18n("输入训练文件夹路径"),
-                        value=i18n("E:\\语音音频+标注\\米津玄师\\src"),
+                        label=_i18n("输入训练文件夹路径"),
+                        value=_i18n("E:\\语音音频+标注\\米津玄师\\src"),
                     )
                     spk_id5 = gr.Slider(
                         minimum=0,
                         maximum=4,
                         step=1,
-                        label=i18n("请指定说话人id"),
+                        label=_i18n("请指定说话人id"),
                         value=0,
                         interactive=True,
                     )
-                    but1 = gr.Button(i18n("处理数据"), variant="primary")
-                    info1 = gr.Textbox(label=i18n("输出信息"), value="")
+                    but1 = gr.Button(_i18n("处理数据"), variant="primary")
+                    info1 = gr.Textbox(label=_i18n("输出信息"), value="")
                     but1.click(
-                        preprocess_dataset,
+                        _preprocess_dataset,
                         [trainset_dir4, exp_dir1, sr2, np7],
                         [info1],
                         api_name="train_preprocess",
                     )
             with gr.Group():
                 gr.Markdown(
-                    value=i18n(
+                    value=_i18n(
                         "step2b: 使用CPU提取音高(如果模型带音高), 使用GPU提取特征(选择卡号)"
                     )
                 )
                 with gr.Row():
                     with gr.Column():
                         gpus6 = gr.Textbox(
-                            label=i18n(
+                            label=_i18n(
                                 "以-分隔输入使用的卡号, 例如   0-1-2   使用卡0和卡1和卡2"
                             ),
                             value=gpus,
@@ -1078,7 +1080,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         )
                     with gr.Column():
                         f0method8 = gr.Radio(
-                            label=i18n(
+                            label=_i18n(
                                 "选择音高提取算法:输入歌声可用pm提速,高质量语音但CPU差可用dio提速,harvest质量更好但慢,rmvpe效果最好且微吃CPU/GPU"
                             ),
                             choices=["pm", "harvest", "dio", "rmvpe", "rmvpe_gpu"],
@@ -1086,21 +1088,21 @@ with gr.Blocks(title="RVC WebUI") as app:
                             interactive=True,
                         )
                         gpus_rmvpe = gr.Textbox(
-                            label=i18n(
+                            label=_i18n(
                                 "rmvpe卡号配置：以-分隔输入使用的不同进程卡号,例如0-0-1使用在卡0上跑2个进程并在卡1上跑1个进程"
                             ),
                             value="%s-%s" % (gpus, gpus),
                             interactive=True,
                         )
-                    but2 = gr.Button(i18n("特征提取"), variant="primary")
-                    info2 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
+                    but2 = gr.Button(_i18n("特征提取"), variant="primary")
+                    info2 = gr.Textbox(label=_i18n("输出信息"), value="", max_lines=8)
                     f0method8.change(
-                        fn=change_f0_method,
+                        fn=_change_f0_method,
                         inputs=[f0method8],
                         outputs=[gpus_rmvpe],
                     )
                     but2.click(
-                        extract_f0_feature,
+                        _extract_f0_feature,
                         [
                             gpus6,
                             np7,
@@ -1113,13 +1115,13 @@ with gr.Blocks(title="RVC WebUI") as app:
                         api_name="train_extract_f0_feature",
                     )
             with gr.Group():
-                gr.Markdown(value=i18n("step3: 填写训练设置, 开始训练模型和索引"))
+                gr.Markdown(value=_i18n("step3: 填写训练设置, 开始训练模型和索引"))
                 with gr.Row():
                     save_epoch10 = gr.Slider(
                         minimum=1,
                         maximum=50,
                         step=1,
-                        label=i18n("保存频率save_every_epoch"),
+                        label=_i18n("保存频率save_every_epoch"),
                         value=5,
                         interactive=True,
                     )
@@ -1127,7 +1129,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                         minimum=2,
                         maximum=1000,
                         step=1,
-                        label=i18n("总训练轮数total_epoch"),
+                        label=_i18n("总训练轮数total_epoch"),
                         value=20,
                         interactive=True,
                     )
@@ -1135,66 +1137,66 @@ with gr.Blocks(title="RVC WebUI") as app:
                         minimum=1,
                         maximum=40,
                         step=1,
-                        label=i18n("每张显卡的batch_size"),
+                        label=_i18n("每张显卡的batch_size"),
                         value=default_batch_size,
                         interactive=True,
                     )
                     if_save_latest13 = gr.Radio(
-                        label=i18n("是否仅保存最新的ckpt文件以节省硬盘空间"),
-                        choices=[i18n("是"), i18n("否")],
-                        value=i18n("否"),
+                        label=_i18n("是否仅保存最新的ckpt文件以节省硬盘空间"),
+                        choices=[_i18n("是"), _i18n("否")],
+                        value=_i18n("否"),
                         interactive=True,
                     )
                     if_cache_gpu17 = gr.Radio(
-                        label=i18n(
+                        label=_i18n(
                             "是否缓存所有训练集至显存. 10min以下小数据可缓存以加速训练, 大数据缓存会炸显存也加不了多少速"
                         ),
-                        choices=[i18n("是"), i18n("否")],
-                        value=i18n("否"),
+                        choices=[_i18n("是"), _i18n("否")],
+                        value=_i18n("否"),
                         interactive=True,
                     )
                     if_save_every_weights18 = gr.Radio(
-                        label=i18n(
+                        label=_i18n(
                             "是否在每次保存时间点将最终小模型保存至weights文件夹"
                         ),
-                        choices=[i18n("是"), i18n("否")],
-                        value=i18n("否"),
+                        choices=[_i18n("是"), _i18n("否")],
+                        value=_i18n("否"),
                         interactive=True,
                     )
                 with gr.Row():
                     pretrained_G14 = gr.Textbox(
-                        label=i18n("加载预训练底模G路径"),
+                        label=_i18n("加载预训练底模G路径"),
                         value="assets/pretrained_v2/f0G40k.pth",
                         interactive=True,
                     )
                     pretrained_D15 = gr.Textbox(
-                        label=i18n("加载预训练底模D路径"),
+                        label=_i18n("加载预训练底模D路径"),
                         value="assets/pretrained_v2/f0D40k.pth",
                         interactive=True,
                     )
                     sr2.change(
-                        change_sr2,
+                        _change_sr2,
                         [sr2, if_f0_3],
                         [pretrained_G14, pretrained_D15],
                     )
                     if_f0_3.change(
-                        change_f0,
+                        _change_f0,
                         [if_f0_3, sr2],
                         [f0method8, gpus_rmvpe, pretrained_G14, pretrained_D15],
                     )
                     gpus16 = gr.Textbox(
-                        label=i18n(
+                        label=_i18n(
                             "以-分隔输入使用的卡号, 例如   0-1-2   使用卡0和卡1和卡2"
                         ),
                         value=gpus,
                         interactive=True,
                     )
-                    but3 = gr.Button(i18n("训练模型"), variant="primary")
-                    but4 = gr.Button(i18n("训练特征索引"), variant="primary")
-                    but5 = gr.Button(i18n("一键训练"), variant="primary")
-                    info3 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=10)
+                    but3 = gr.Button(_i18n("训练模型"), variant="primary")
+                    but4 = gr.Button(_i18n("训练特征索引"), variant="primary")
+                    but5 = gr.Button(_i18n("一键训练"), variant="primary")
+                    info3 = gr.Textbox(label=_i18n("输出信息"), value="", max_lines=10)
                     but3.click(
-                        click_train,
+                        _click_train,
                         [
                             exp_dir1,
                             sr2,
@@ -1213,9 +1215,9 @@ with gr.Blocks(title="RVC WebUI") as app:
                         info3,
                         api_name="train_start",
                     )
-                    but4.click(train_index, [exp_dir1], info3)
+                    but4.click(_train_index, [exp_dir1], info3)
                     but5.click(
-                        train1key,
+                        _train1key,
                         [
                             exp_dir1,
                             sr2,
@@ -1239,51 +1241,51 @@ with gr.Blocks(title="RVC WebUI") as app:
                         api_name="train_start_all",
                     )
 
-        with gr.TabItem(i18n("ckpt处理")):
+        with gr.TabItem(_i18n("ckpt处理")):
             with gr.Group():
-                gr.Markdown(value=i18n("模型融合, 可用于测试音色融合"))
+                gr.Markdown(value=_i18n("模型融合, 可用于测试音色融合"))
                 with gr.Row():
                     ckpt_a = gr.Textbox(
-                        label=i18n("A模型路径"), value="", interactive=True
+                        label=_i18n("A模型路径"), value="", interactive=True
                     )
                     ckpt_b = gr.Textbox(
-                        label=i18n("B模型路径"), value="", interactive=True
+                        label=_i18n("B模型路径"), value="", interactive=True
                     )
                     alpha_a = gr.Slider(
                         minimum=0,
                         maximum=1,
-                        label=i18n("A模型权重"),
+                        label=_i18n("A模型权重"),
                         value=0.5,
                         interactive=True,
                     )
                 with gr.Row():
                     sr_ = gr.Radio(
-                        label=i18n("目标采样率"),
+                        label=_i18n("目标采样率"),
                         choices=["40k", "48k"],
                         value="40k",
                         interactive=True,
                     )
                     if_f0_ = gr.Radio(
-                        label=i18n("模型是否带音高指导"),
-                        choices=[i18n("是"), i18n("否")],
-                        value=i18n("是"),
+                        label=_i18n("模型是否带音高指导"),
+                        choices=[_i18n("是"), _i18n("否")],
+                        value=_i18n("是"),
                         interactive=True,
                     )
                     info__ = gr.Textbox(
-                        label=i18n("要置入的模型信息"),
+                        label=_i18n("要置入的模型信息"),
                         value="",
                         max_lines=8,
                         interactive=True,
                     )
                     name_to_save0 = gr.Textbox(
-                        label=i18n("保存的模型名不带后缀"),
+                        label=_i18n("保存的模型名不带后缀"),
                         value="",
                         max_lines=1,
                         interactive=True,
                     )
                 with gr.Row():
-                    but6 = gr.Button(i18n("融合"), variant="primary")
-                    info4 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
+                    but6 = gr.Button(_i18n("融合"), variant="primary")
+                    info4 = gr.Textbox(label=_i18n("输出信息"), value="", max_lines=8)
                 but6.click(
                     merge,
                     [
@@ -1300,27 +1302,27 @@ with gr.Blocks(title="RVC WebUI") as app:
                 )
             with gr.Group():
                 gr.Markdown(
-                    value=i18n("修改模型信息(仅支持weights文件夹下提取的小模型文件)")
+                    value=_i18n("修改模型信息(仅支持weights文件夹下提取的小模型文件)")
                 )
                 with gr.Row():
                     ckpt_path0 = gr.Textbox(
-                        label=i18n("模型路径"), value="", interactive=True
+                        label=_i18n("模型路径"), value="", interactive=True
                     )
                     info_ = gr.Textbox(
-                        label=i18n("要改的模型信息"),
+                        label=_i18n("要改的模型信息"),
                         value="",
                         max_lines=8,
                         interactive=True,
                     )
                     name_to_save1 = gr.Textbox(
-                        label=i18n("保存的文件名, 默认空为和源文件同名"),
+                        label=_i18n("保存的文件名, 默认空为和源文件同名"),
                         value="",
                         max_lines=8,
                         interactive=True,
                     )
                 with gr.Row():
-                    but7 = gr.Button(i18n("修改"), variant="primary")
-                    info5 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
+                    but7 = gr.Button(_i18n("修改"), variant="primary")
+                    info5 = gr.Textbox(label=_i18n("输出信息"), value="", max_lines=8)
                 but7.click(
                     change_info,
                     [ckpt_path0, info_, name_to_save1],
@@ -1329,51 +1331,51 @@ with gr.Blocks(title="RVC WebUI") as app:
                 )
             with gr.Group():
                 gr.Markdown(
-                    value=i18n("查看模型信息(仅支持weights文件夹下提取的小模型文件)")
+                    value=_i18n("查看模型信息(仅支持weights文件夹下提取的小模型文件)")
                 )
                 with gr.Row():
                     ckpt_path1 = gr.Textbox(
-                        label=i18n("模型路径"), value="", interactive=True
+                        label=_i18n("模型路径"), value="", interactive=True
                     )
-                    but8 = gr.Button(i18n("查看"), variant="primary")
-                    info6 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
+                    but8 = gr.Button(_i18n("查看"), variant="primary")
+                    info6 = gr.Textbox(label=_i18n("输出信息"), value="", max_lines=8)
                 but8.click(show_info, [ckpt_path1], info6, api_name="ckpt_show")
             with gr.Group():
                 gr.Markdown(
-                    value=i18n(
+                    value=_i18n(
                         "模型提取(输入logs文件夹下大文件模型路径),适用于训一半不想训了模型没有自动提取保存小文件模型,或者想测试中间模型的情况"
                     )
                 )
                 with gr.Row():
                     ckpt_path2 = gr.Textbox(
-                        label=i18n("模型路径"),
+                        label=_i18n("模型路径"),
                         value="E:\\codes\\py39\\logs\\mi-test_f0_48k\\G_23333.pth",
                         interactive=True,
                     )
                     save_name = gr.Textbox(
-                        label=i18n("保存名"), value="", interactive=True
+                        label=_i18n("保存名"), value="", interactive=True
                     )
                     sr__ = gr.Radio(
-                        label=i18n("目标采样率"),
+                        label=_i18n("目标采样率"),
                         choices=["32k", "40k", "48k"],
                         value="40k",
                         interactive=True,
                     )
                     if_f0__ = gr.Radio(
-                        label=i18n("模型是否带音高指导,1是0否"),
+                        label=_i18n("模型是否带音高指导,1是0否"),
                         choices=["1", "0"],
                         value="1",
                         interactive=True,
                     )
                     info___ = gr.Textbox(
-                        label=i18n("要置入的模型信息"),
+                        label=_i18n("要置入的模型信息"),
                         value="",
                         max_lines=8,
                         interactive=True,
                     )
-                    but9 = gr.Button(i18n("提取"), variant="primary")
-                    info7 = gr.Textbox(label=i18n("输出信息"), value="", max_lines=8)
-                    ckpt_path2.change(change_info_, [ckpt_path2], [sr__, if_f0__])
+                    but9 = gr.Button(_i18n("提取"), variant="primary")
+                    info7 = gr.Textbox(label=_i18n("输出信息"), value="", max_lines=8)
+                    ckpt_path2.change(_change_info_, [ckpt_path2], [sr__, if_f0__])
                 but9.click(
                     extract_small_model,
                     [ckpt_path2, save_name, sr__, if_f0__, info___],
@@ -1381,24 +1383,24 @@ with gr.Blocks(title="RVC WebUI") as app:
                     api_name="ckpt_extract",
                 )
 
-        with gr.TabItem(i18n("Onnx导出")):
+        with gr.TabItem(_i18n("Onnx导出")):
             with gr.Row():
                 ckpt_dir = gr.Textbox(
-                    label=i18n("RVC模型路径"), value="", interactive=True
+                    label=_i18n("RVC模型路径"), value="", interactive=True
                 )
             with gr.Row():
                 onnx_dir = gr.Textbox(
-                    label=i18n("Onnx输出路径"), value="", interactive=True
+                    label=_i18n("Onnx输出路径"), value="", interactive=True
                 )
             with gr.Row():
                 infoOnnx = gr.Label(label="info")
             with gr.Row():
-                butOnnx = gr.Button(i18n("导出Onnx模型"), variant="primary")
+                butOnnx = gr.Button(_i18n("导出Onnx模型"), variant="primary")
             butOnnx.click(
-                export_onnx, [ckpt_dir, onnx_dir], infoOnnx, api_name="export_onnx"
+                _export_onnx, [ckpt_dir, onnx_dir], infoOnnx, api_name="export_onnx"
             )
 
-        tab_faq = i18n("常见问题解答")
+        tab_faq = _i18n("常见问题解答")
         with gr.TabItem(tab_faq):
             try:
                 if tab_faq == "常见问题解答":
@@ -1411,12 +1413,12 @@ with gr.Blocks(title="RVC WebUI") as app:
             except Exception:
                 gr.Markdown(traceback.format_exc())
 
-    if config.iscolab:
+    if _config.iscolab:
         app.queue(max_size=1022).launch(share=True)
     else:
         app.queue(max_size=1022).launch(
             server_name="0.0.0.0",
-            inbrowser=not config.noautoopen,
-            server_port=config.listen_port,
+            inbrowser=not _config.noautoopen,
+            server_port=_config.listen_port,
             quiet=True,
         )
