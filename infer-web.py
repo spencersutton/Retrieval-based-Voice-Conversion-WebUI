@@ -30,22 +30,24 @@ from infer.modules.vc.modules import VC
 
 load_dotenv()
 
-now_dir = os.getcwd()
+_now_dir = os.getcwd()
 
 logging.getLogger("numba").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
-tmp = os.path.join(now_dir, "TEMP")
-shutil.rmtree(tmp, ignore_errors=True)
-shutil.rmtree("%s/runtime/Lib/site-packages/infer_pack" % (now_dir), ignore_errors=True)
-shutil.rmtree("%s/runtime/Lib/site-packages/uvr5_pack" % (now_dir), ignore_errors=True)
-os.makedirs(tmp, exist_ok=True)
-os.makedirs(os.path.join(now_dir, "logs"), exist_ok=True)
-os.makedirs(os.path.join(now_dir, "assets/weights"), exist_ok=True)
-os.environ["TEMP"] = tmp
+_tmp = os.path.join(_now_dir, "TEMP")
+shutil.rmtree(_tmp, ignore_errors=True)
+shutil.rmtree(
+    "%s/runtime/Lib/site-packages/infer_pack" % (_now_dir), ignore_errors=True
+)
+shutil.rmtree("%s/runtime/Lib/site-packages/uvr5_pack" % (_now_dir), ignore_errors=True)
+os.makedirs(_tmp, exist_ok=True)
+os.makedirs(os.path.join(_now_dir, "logs"), exist_ok=True)
+os.makedirs(os.path.join(_now_dir, "assets/weights"), exist_ok=True)
+os.environ["TEMP"] = _tmp
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
@@ -55,11 +57,11 @@ _vc = VC(_config)
 
 
 _i18n = I18nAuto()
-logger.info(_i18n)
+_logger.info(_i18n)
 # 判断是否有能用来训练和加速推理的N卡
 _ngpu = torch.cuda.device_count()
-_gpu_infos = []
-_mem = []
+_gpu_infos: list[str] = []
+_mem: list[int] = []
 _if_gpu_ok = False
 
 if torch.cuda.is_available() or _ngpu != 0:
@@ -191,20 +193,20 @@ def _if_done_multi(done: list[object], ps: list[Popen]) -> None:
 
 def _preprocess_dataset(trainset_dir: str, exp_dir: str, sr_str: str, n_p: str):
     sr = _sr_dict[sr_str]
-    os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
-    f = open("%s/logs/%s/preprocess.log" % (now_dir, exp_dir), "w")
+    os.makedirs("%s/logs/%s" % (_now_dir, exp_dir), exist_ok=True)
+    f = open("%s/logs/%s/preprocess.log" % (_now_dir, exp_dir), "w")
     f.close()
     cmd = '"%s" infer/modules/train/preprocess.py "%s" %s %s "%s/logs/%s" %s %.1f' % (
         _config.python_cmd,
         trainset_dir,
         sr,
         n_p,
-        now_dir,
+        _now_dir,
         exp_dir,
         _config.noparallel,
         _config.preprocess_per,
     )
-    logger.info("Execute: " + cmd)
+    _logger.info("Execute: " + cmd)
 
     p = Popen(cmd, shell=True)
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
@@ -217,14 +219,14 @@ def _preprocess_dataset(trainset_dir: str, exp_dir: str, sr_str: str, n_p: str):
         ),
     ).start()
     while 1:
-        with open("%s/logs/%s/preprocess.log" % (now_dir, exp_dir), "r") as f:
+        with open("%s/logs/%s/preprocess.log" % (_now_dir, exp_dir), "r") as f:
             yield (f.read())
         sleep(1)
         if done[0]:
             break
-    with open("%s/logs/%s/preprocess.log" % (now_dir, exp_dir), "r") as f:
+    with open("%s/logs/%s/preprocess.log" % (_now_dir, exp_dir), "r") as f:
         log = f.read()
-    logger.info(log)
+    _logger.info(log)
     yield log
 
 
@@ -237,8 +239,8 @@ def _extract_f0_feature(
     gpus_rmvpe_str: str,
 ):
     gpus = gpu_str.split("-")
-    os.makedirs("%s/logs/%s" % (now_dir, exp_dir), exist_ok=True)
-    f = open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "w")
+    os.makedirs("%s/logs/%s" % (_now_dir, exp_dir), exist_ok=True)
+    f = open("%s/logs/%s/extract_f0_feature.log" % (_now_dir, exp_dir), "w")
     f.close()
     if if_f0:
         if f0method != "rmvpe_gpu":
@@ -246,14 +248,14 @@ def _extract_f0_feature(
                 '"%s" infer/modules/train/extract/extract_f0_print.py "%s/logs/%s" %s %s'
                 % (
                     _config.python_cmd,
-                    now_dir,
+                    _now_dir,
                     exp_dir,
                     n_p,
                     f0method,
                 )
             )
-            logger.info("Execute: " + cmd)
-            p = Popen(cmd, shell=True, cwd=now_dir)
+            _logger.info("Execute: " + cmd)
+            p = Popen(cmd, shell=True, cwd=_now_dir)
             # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
             done = [False]
             threading.Thread(
@@ -276,13 +278,13 @@ def _extract_f0_feature(
                             leng,
                             idx,
                             n_g,
-                            now_dir,
+                            _now_dir,
                             exp_dir,
                             _config.is_half,
                         )
                     )
-                    logger.info("Execute: " + cmd)
-                    p = Popen(cmd, shell=True, cwd=now_dir)
+                    _logger.info("Execute: " + cmd)
+                    p = Popen(cmd, shell=True, cwd=_now_dir)
                     ps.append(p)
                 # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
                 done = [False]
@@ -298,25 +300,25 @@ def _extract_f0_feature(
                     _config.python_cmd
                     + ' infer/modules/train/extract/extract_f0_rmvpe_dml.py "%s/logs/%s" '
                     % (
-                        now_dir,
+                        _now_dir,
                         exp_dir,
                     )
                 )
-                logger.info("Execute: " + cmd)
-                p = Popen(cmd, shell=True, cwd=now_dir)
+                _logger.info("Execute: " + cmd)
+                p = Popen(cmd, shell=True, cwd=_now_dir)
                 p.wait()
                 done = [True]
         while 1:
             with open(
-                "%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "r"
+                "%s/logs/%s/extract_f0_feature.log" % (_now_dir, exp_dir), "r"
             ) as f:
                 yield (f.read())
             sleep(1)
             if done[0]:
                 break
-        with open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "r") as f:
+        with open("%s/logs/%s/extract_f0_feature.log" % (_now_dir, exp_dir), "r") as f:
             log = f.read()
-        logger.info(log)
+        _logger.info(log)
         yield log
     # 对不同part分别开多进程
     leng = len(gpus)
@@ -330,13 +332,13 @@ def _extract_f0_feature(
                 leng,
                 idx,
                 n_g,
-                now_dir,
+                _now_dir,
                 exp_dir,
                 _config.is_half,
             )
         )
-        logger.info("Execute: " + cmd)
-        p = Popen(cmd, shell=True, cwd=now_dir)
+        _logger.info("Execute: " + cmd)
+        p = Popen(cmd, shell=True, cwd=_now_dir)
         ps.append(p)
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
@@ -348,14 +350,14 @@ def _extract_f0_feature(
         ),
     ).start()
     while 1:
-        with open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "r") as f:
+        with open("%s/logs/%s/extract_f0_feature.log" % (_now_dir, exp_dir), "r") as f:
             yield (f.read())
         sleep(1)
         if done[0]:
             break
-    with open("%s/logs/%s/extract_f0_feature.log" % (now_dir, exp_dir), "r") as f:
+    with open("%s/logs/%s/extract_f0_feature.log" % (_now_dir, exp_dir), "r") as f:
         log = f.read()
-    logger.info(log)
+    _logger.info(log)
     yield log
 
 
@@ -367,14 +369,14 @@ def _get_pretrained_models(path_str, f0_str, sr2):
         "assets/pretrained%s/%sD%s.pth" % (path_str, f0_str, sr2), os.F_OK
     )
     if not if_pretrained_generator_exist:
-        logger.warning(
+        _logger.warning(
             "assets/pretrained%s/%sG%s.pth not exist, will not use pretrained model",
             path_str,
             f0_str,
             sr2,
         )
     if not if_pretrained_discriminator_exist:
-        logger.warning(
+        _logger.warning(
             "assets/pretrained%s/%sD%s.pth not exist, will not use pretrained model",
             path_str,
             f0_str,
@@ -425,7 +427,7 @@ def _click_train(
     if_save_every_weights18,
 ):
     # 生成filelist
-    exp_dir = "%s/logs/%s" % (now_dir, exp_dir1)
+    exp_dir = "%s/logs/%s" % (_now_dir, exp_dir1)
     os.makedirs(exp_dir, exist_ok=True)
     gt_wavs_dir = "%s/0_gt_wavs" % (exp_dir)
     feature_dir = (
@@ -477,25 +479,25 @@ def _click_train(
         for _ in range(2):
             opt.append(
                 "%s/logs/mute/0_gt_wavs/mute%s.wav|%s/logs/mute/3_feature%s/mute.npy|%s/logs/mute/2a_f0/mute.wav.npy|%s/logs/mute/2b-f0nsf/mute.wav.npy|%s"
-                % (now_dir, sr2, now_dir, fea_dim, now_dir, now_dir, spk_id5)
+                % (_now_dir, sr2, _now_dir, fea_dim, _now_dir, _now_dir, spk_id5)
             )
     else:
         for _ in range(2):
             opt.append(
                 "%s/logs/mute/0_gt_wavs/mute%s.wav|%s/logs/mute/3_feature%s/mute.npy|%s"
-                % (now_dir, sr2, now_dir, fea_dim, spk_id5)
+                % (_now_dir, sr2, _now_dir, fea_dim, spk_id5)
             )
     shuffle(opt)
     with open("%s/filelist.txt" % exp_dir, "w") as f:
         f.write("\n".join(opt))
-    logger.debug("Write filelist done")
+    _logger.debug("Write filelist done")
     # 生成config#无需生成config
 
-    logger.info("Use gpus: %s", str(gpus16))
+    _logger.info("Use gpus: %s", str(gpus16))
     if pretrained_G14 == "":
-        logger.info("No pretrained Generator")
+        _logger.info("No pretrained Generator")
     if pretrained_D15 == "":
-        logger.info("No pretrained Discriminator")
+        _logger.info("No pretrained Discriminator")
     config_path = "v2/%s.json" % sr2
     config_save_path = os.path.join(exp_dir, "config.json")
     if not pathlib.Path(config_save_path).exists():
@@ -545,14 +547,14 @@ def _click_train(
                 1 if if_save_every_weights18 == _i18n("是") else 0,
             )
         )
-    logger.info("Execute: " + cmd)
-    p = Popen(cmd, shell=True, cwd=now_dir)
+    _logger.info("Execute: " + cmd)
+    p = Popen(cmd, shell=True, cwd=_now_dir)
     p.wait()
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
 
 
 def _train_index(exp_dir1):
-    logger.info("Start training index for %s", exp_dir1)
+    _logger.info("Start training index for %s", exp_dir1)
 
     exp_dir = "logs/%s" % (exp_dir1)
     os.makedirs(exp_dir, exist_ok=True)
@@ -590,7 +592,7 @@ def _train_index(exp_dir1):
             )
         except Exception:
             info = traceback.format_exc()
-            logger.info(info)
+            _logger.info(info)
             infos.append(info)
             yield "\n".join(infos)
 
