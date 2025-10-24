@@ -24,4 +24,4 @@ class I18nAuto:
         return self.language_map.get(key, key)
 
     def __repr__(self):
-        return "Use Language: " + self.language
+        return f"Use Language: {self.language}"
