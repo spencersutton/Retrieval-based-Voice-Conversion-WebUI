@@ -111,7 +111,7 @@ gpus = "-".join([i[0] for i in gpu_infos])
 
 weight_root = os.getenv("weight_root")
 weight_uvr5_root = os.getenv("weight_uvr5_root")
-index_root = os.getenv("index_root")
+index_root = os.getenv("index_root", "logs")
 outside_index_root = os.getenv("outside_index_root")
 
 names = []
