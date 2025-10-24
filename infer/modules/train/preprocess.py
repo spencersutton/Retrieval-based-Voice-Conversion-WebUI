@@ -12,23 +12,23 @@ from infer.lib.audio import load_audio
 from infer.lib.slicer2 import Slicer
 
 print(*sys.argv[1:])
-inp_root = sys.argv[1]
-sr = int(sys.argv[2])
-n_p = int(sys.argv[3])
-exp_dir = sys.argv[4]
-noparallel = sys.argv[5] == "True"
-per = float(sys.argv[6])
+_inp_root = sys.argv[1]
+_sr = int(sys.argv[2])
+_n_p = int(sys.argv[3])
+_exp_dir = sys.argv[4]
+_noparallel = sys.argv[5] == "True"
+_per = float(sys.argv[6])
 
-f = open("%s/preprocess.log" % exp_dir, "a+")
+_f = open("%s/preprocess.log" % _exp_dir, "a+")
 
 
-def println(strr):
+def _println(strr):
     print(strr)
-    f.write("%s\n" % strr)
-    f.flush()
+    _f.write("%s\n" % strr)
+    _f.flush()
 
 
-class PreProcess:
+class _PreProcess:
     def __init__(self, sr, exp_dir, per=3.7):
         self.slicer = Slicer(
             sr=sr,
@@ -94,9 +94,9 @@ class PreProcess:
                         idx1 += 1
                         break
                 self.norm_write(tmp_audio, idx0, idx1)
-            println("%s\t-> Success" % path)
+            _println("%s\t-> Success" % path)
         except Exception:
-            println("%s\t-> %s" % (path, traceback.format_exc()))
+            _println("%s\t-> %s" % (path, traceback.format_exc()))
 
     def pipeline_mp(self, infos):
         for path, idx0 in infos:
@@ -122,15 +122,15 @@ class PreProcess:
                 for i in range(n_p):
                     ps[i].join()
         except Exception:
-            println("Fail. %s" % traceback.format_exc())
+            _println("Fail. %s" % traceback.format_exc())
 
 
-def preprocess_trainset(inp_root, sr, n_p, exp_dir, per):
-    pp = PreProcess(sr, exp_dir, per)
-    println("start preprocess")
+def _preprocess_trainset(inp_root, sr, n_p, exp_dir, per):
+    pp = _PreProcess(sr, exp_dir, per)
+    _println("start preprocess")
     pp.pipeline_mp_inp_dir(inp_root, n_p)
-    println("end preprocess")
+    _println("end preprocess")
 
 
 if __name__ == "__main__":
-    preprocess_trainset(inp_root, sr, n_p, exp_dir, per)
+    _preprocess_trainset(_inp_root, _sr, _n_p, _exp_dir, _per)
