@@ -3,11 +3,11 @@ import av.audio.frame
 import numpy as np
 
 
-def wav2(i, o, format):
-    inp = av.open(i, "rb")
+def wav2(i: str, o: str, format: str):
+    inp = av.open(i, "r")
     if format == "m4a":
         format = "mp4"
-    out = av.open(o, "wb", format=format)
+    out = av.open(o, "w", format=format)
     if format == "ogg":
         format = "libvorbis"
     if format == "mp4":
