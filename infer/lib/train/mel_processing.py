@@ -1,12 +1,6 @@
-import logging
-
 import torch
 import torch.utils.data
 from librosa.filters import mel as librosa_mel_fn
-
-logger = logging.getLogger(__name__)
-
-MAX_WAV_VALUE = 32768.0
 
 
 def dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
@@ -18,21 +12,8 @@ def dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
-def dynamic_range_decompression_torch(x, C=1):
-    """
-    PARAMS
-    ------
-    C: compression factor used to compress
-    """
-    return torch.exp(x) / C
-
-
 def spectral_normalize_torch(magnitudes):
     return dynamic_range_compression_torch(magnitudes)
-
-
-def spectral_de_normalize_torch(magnitudes):
-    return dynamic_range_decompression_torch(magnitudes)
 
 
 # Reusable banks

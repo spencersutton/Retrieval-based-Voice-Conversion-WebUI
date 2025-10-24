@@ -1,6 +1,3 @@
-import platform
-import re
-
 import av
 import av.audio.frame
 import numpy as np
@@ -57,12 +54,3 @@ def load_audio(file: str, sr: int) -> np.ndarray:
     except Exception as e:
         raise RuntimeError(f"Failed to load audio with PyAV: {e}") from e
     return np.array([])
-
-
-def clean_path(path_str):
-    if platform.system() == "Windows":
-        path_str = path_str.replace("/", "\\")
-    path_str = re.sub(
-        r"[\u202a\u202b\u202c\u202d\u202e]", "", path_str
-    )  # 移除 Unicode 控制字符
-    return path_str.strip(" ").strip('"').strip("\n").strip('"').strip(" ")
