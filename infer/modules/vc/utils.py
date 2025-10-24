@@ -4,12 +4,13 @@ from fairseq import checkpoint_utils
 
 
 def get_index_path_from_model(sid):
+    index_path = os.getenv("index_root") or "assets/index"
     return next(
         (
             f
             for f in [
                 os.path.join(root, name)
-                for root, _, files in os.walk(os.getenv("index_root"), topdown=False)
+                for root, _, files in os.walk(index_path, topdown=False)
                 for name in files
                 if name.endswith(".index") and "trained" not in name
             ]
