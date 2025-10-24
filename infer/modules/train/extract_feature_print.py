@@ -16,7 +16,7 @@ os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
 device = sys.argv[1]
 n_part = int(sys.argv[2])
 i_part = int(sys.argv[3])
-if len(sys.argv) == 7:
+if len(sys.argv) == 6:
     exp_dir = sys.argv[4]
     is_half = sys.argv[5].lower() == "true"
 else:
