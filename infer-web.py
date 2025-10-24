@@ -122,7 +122,9 @@ for name in os.listdir(_weight_root):
 index_paths: list[str] = []
 
 
-def _lookup_indices(index_root):
+def _lookup_indices(index_root: str | None) -> None:
+    if index_root is None:
+        return
     global index_paths
     for root, dirs, files in os.walk(index_root, topdown=False):
         for name in files:
@@ -139,25 +141,25 @@ def _change_choices() -> tuple[dict[str, object], dict[str, object]]:
     for name in os.listdir(_weight_root):
         if name.endswith(".pth"):
             names.append(name)
-    index_paths: list[str] = []
+    index_paths_local: list[str] = []
     for root, dirs, files in os.walk(_index_root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
-                index_paths.append("%s/%s" % (root, name))
+                index_paths_local.append("%s/%s" % (root, name))
     return {"choices": sorted(names), "__type__": "update"}, {
-        "choices": sorted(index_paths),
+        "choices": sorted(index_paths_local),
         "__type__": "update",
     }
 
 
-def _clean():
+def _clean() -> dict[str, object]:
     return {"value": "", "__type__": "update"}
 
 
-def _export_onnx(ModelPath: str, ExportedPath: str) -> None:
+def _export_onnx(model_path: str, exported_path: str) -> None:
     from infer.modules.onnx.export import export_onnx as eo
 
-    eo(ModelPath, ExportedPath)
+    eo(model_path, exported_path)
 
 
 _sr_dict = {
@@ -167,7 +169,7 @@ _sr_dict = {
 }
 
 
-def _if_done(done: list[object], p: Popen) -> None:
+def _if_done(done: list[object], p: Popen[bytes]) -> None:
     while 1:
         if p.poll() is None:
             sleep(0.5)
@@ -176,7 +178,7 @@ def _if_done(done: list[object], p: Popen) -> None:
     done[0] = True
 
 
-def _if_done_multi(done: list[object], ps: list[Popen]) -> None:
+def _if_done_multi(done: list[object], ps: list[Popen[bytes]]) -> None:
     while 1:
         # poll==None means the process has not ended
         # As long as one process has not ended, keep looping
@@ -196,7 +198,7 @@ def _preprocess_dataset(
     exp_dir: str,
     sr_str: str,
     n_p: int,
-):
+) -> object:
     sr = _sr_dict[sr_str]
     os.makedirs("%s/logs/%s" % (_now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/preprocess.log" % (_now_dir, exp_dir), "w")
