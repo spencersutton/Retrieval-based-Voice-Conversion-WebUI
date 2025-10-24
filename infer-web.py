@@ -334,7 +334,7 @@ def extract_f0_feature(gpus, n_p, f0method, if_f0, exp_dir, gpus_rmvpe):
     ps = []
     for idx, n_g in enumerate(gpus):
         cmd = (
-            '"%s" infer/modules/train/extract_feature_print.py %s %s %s %s "%s/logs/%s" %s %s'
+            '"%s" infer/modules/train/extract_feature_print.py %s %s %s %s "%s/logs/%s" %s'
             % (
                 config.python_cmd,
                 config.device,
