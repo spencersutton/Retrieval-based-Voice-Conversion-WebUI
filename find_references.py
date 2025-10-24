@@ -328,29 +328,6 @@ def find_all_symbol_references(
     return symbol_references
 
 
-def _extract_symbol_at_position(line: str, column: int) -> Optional[str]:
-    """
-    Extract the symbol (identifier) at the given column position in a line.
-
-    Args:
-        line: The source code line
-        column: Column position (0-indexed)
-
-    Returns:
-        The symbol name or None if not at an identifier
-    """
-    # Valid Python identifier pattern
-    identifier_pattern = r"[a-zA-Z_][a-zA-Z0-9_]*"
-
-    # Find all identifiers and their positions in the line
-    for match in re.finditer(identifier_pattern, line):
-        start, end = match.span()
-        if start <= column < end:
-            return match.group()
-
-    return None
-
-
 def _find_python_files(
     root_dir: str, exclude_dirs: Optional[list[str]] = None
 ) -> list[str]:
