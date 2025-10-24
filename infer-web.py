@@ -7,6 +7,7 @@ import shutil
 import threading
 import traceback
 import warnings
+from collections.abc import Generator
 from random import shuffle
 from subprocess import Popen
 from time import sleep
@@ -198,7 +199,7 @@ def _preprocess_dataset(
     exp_dir: str,
     sr_str: str,
     n_p: int,
-) -> object:
+) -> Generator[str]:
     sr = _sr_dict[sr_str]
     os.makedirs("%s/logs/%s" % (_now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/preprocess.log" % (_now_dir, exp_dir), "w")
@@ -440,6 +441,8 @@ def _click_train(
     feature_dir = (
         "%s/3_feature256" % (exp_dir) if False else "%s/3_feature768" % (exp_dir)
     )
+    f0_dir = ""
+    f0nsf_dir = ""
     if if_f0_3:
         f0_dir = "%s/2a_f0" % (exp_dir)
         f0nsf_dir = "%s/2b-f0nsf" % (exp_dir)
