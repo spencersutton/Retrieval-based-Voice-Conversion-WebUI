@@ -89,7 +89,7 @@ def main():
         children[i].join()
 
 
-def run(rank, n_gpus, hps, logger: logging.Logger):
+def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> None:
     global global_step
     if rank == 0:
         logger.info(hps)
@@ -227,7 +227,7 @@ def run(rank, n_gpus, hps, logger: logging.Logger):
 
     scaler = GradScaler(enabled=hps.train.fp16_run)
 
-    cache = []
+    cache: list[object] = []
     for epoch in range(epoch_str, hps.train.epochs + 1):
         if rank == 0:
             train_and_evaluate(
@@ -262,8 +262,18 @@ def run(rank, n_gpus, hps, logger: logging.Logger):
 
 
 def train_and_evaluate(
-    rank, epoch, hps, nets, optims, schedulers, scaler, loaders, logger, writers, cache
-):
+    rank: int,
+    epoch: int,
+    hps: object,
+    nets: list[object],
+    optims: list[object],
+    schedulers: list[object],
+    scaler: GradScaler,
+    loaders: list[object],
+    logger: logging.Logger | None,
+    writers: list[object] | None,
+    cache: list[object],
+) -> None:
     net_g, net_d = nets
     optim_g, optim_d = optims
     train_loader, eval_loader = loaders
