@@ -23,8 +23,7 @@ else:
     i_gpu = sys.argv[4]
     exp_dir = sys.argv[5]
     os.environ["CUDA_VISIBLE_DEVICES"] = str(i_gpu)
-    version = sys.argv[6]
-    is_half = sys.argv[7].lower() == "true"
+    is_half = sys.argv[6].lower() == "true"
 device = "cpu"
 if torch.cuda.is_available():
     device = "cuda"
