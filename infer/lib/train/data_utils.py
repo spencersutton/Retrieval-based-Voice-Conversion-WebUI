@@ -12,9 +12,6 @@ from infer.lib.train.utils import load_filepaths_and_text, load_wav_to_torch
 logger = logging.getLogger(__name__)
 
 
-from torch._C import LongTensor
-
-
 class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
     """
     1) loads audio, text pairs
@@ -49,7 +46,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         self.audiopaths_and_text = audiopaths_and_text_new
         self.lengths = lengths
 
-    def get_sid(self, sid: int | str) -> LongTensor:
+    def get_sid(self, sid: int | str) -> torch.LongTensor:
         sid = torch.LongTensor([int(sid)])
         return sid
 
@@ -142,9 +139,6 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         return len(self.audiopaths_and_text)
 
 
-from torch._C import FloatTensor, LongTensor
-
-
 class TextAudioCollateMultiNSFsid:
     """Zero-pads model inputs and targets"""
 
@@ -154,15 +148,15 @@ class TextAudioCollateMultiNSFsid:
     def __call__(
         self, batch: list[object]
     ) -> tuple[
-        FloatTensor,
-        LongTensor,
-        LongTensor,
-        FloatTensor,
-        FloatTensor,
-        LongTensor,
-        FloatTensor,
-        LongTensor,
-        LongTensor,
+        torch.FloatTensor,
+        torch.LongTensor,
+        torch.LongTensor,
+        torch.FloatTensor,
+        torch.FloatTensor,
+        torch.LongTensor,
+        torch.FloatTensor,
+        torch.LongTensor,
+        torch.LongTensor,
     ]:
         """Collate's training batch from normalized text and aduio
         PARAMS
@@ -231,9 +225,6 @@ class TextAudioCollateMultiNSFsid:
         )
 
 
-from torch._C import LongTensor
-
-
 class TextAudioLoader(torch.utils.data.Dataset):
     """
     1) loads audio, text pairs
@@ -268,7 +259,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
         self.audiopaths_and_text = audiopaths_and_text_new
         self.lengths = lengths
 
-    def get_sid(self, sid: int | str) -> LongTensor:
+    def get_sid(self, sid: int | str) -> torch.LongTensor:
         sid = torch.LongTensor([int(sid)])
         return sid
 
@@ -345,9 +336,6 @@ class TextAudioLoader(torch.utils.data.Dataset):
         return len(self.audiopaths_and_text)
 
 
-from torch._C import FloatTensor, LongTensor
-
-
 class TextAudioCollate:
     """Zero-pads model inputs and targets"""
 
@@ -357,13 +345,13 @@ class TextAudioCollate:
     def __call__(
         self, batch: list[object]
     ) -> tuple[
-        FloatTensor,
-        LongTensor,
-        FloatTensor,
-        LongTensor,
-        FloatTensor,
-        LongTensor,
-        LongTensor,
+        torch.FloatTensor,
+        torch.LongTensor,
+        torch.FloatTensor,
+        torch.LongTensor,
+        torch.FloatTensor,
+        torch.LongTensor,
+        torch.LongTensor,
     ]:
         """Collate's training batch from normalized text and aduio
         PARAMS
