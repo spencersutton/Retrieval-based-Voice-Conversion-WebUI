@@ -189,7 +189,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         global_step = 0
         if hps.pretrainG != "":
             if rank == 0:
-                logger.info("loaded pretrained %s" % (hps.pretrainG))
+                logger.info("loaded pretrained {}".format(hps.pretrainG))
             if hasattr(net_g, "module"):
                 logger.info(
                     net_g.module.load_state_dict(
@@ -204,7 +204,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                 )  ##测试不加载优化器
         if hps.pretrainD != "":
             if rank == 0:
-                logger.info("loaded pretrained %s" % (hps.pretrainD))
+                logger.info("loaded pretrained {}".format(hps.pretrainD))
             if hasattr(net_d, "module"):
                 logger.info(
                     net_d.module.load_state_dict(
@@ -572,15 +572,14 @@ def train_and_evaluate(
             else:
                 ckpt = net_g.state_dict()
             logger.info(
-                "saving ckpt %s_e%s:%s"
-                % (
+                "saving ckpt {}_e{}:{}".format(
                     hps.name,
                     epoch,
                     savee(
                         ckpt,
                         hps.sample_rate,
                         hps.if_f0,
-                        hps.name + "_e%s_s%s" % (epoch, global_step),
+                        hps.name + "_e{}_s{}".format(epoch, global_step),
                         epoch,
                         hps,
                     ),
@@ -597,8 +596,9 @@ def train_and_evaluate(
         else:
             ckpt = net_g.state_dict()
         logger.info(
-            "saving final ckpt:%s"
-            % (savee(ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps))
+            "saving final ckpt:{}".format(
+                savee(ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps)
+            )
         )
         sleep(1)
         os._exit(2333333)

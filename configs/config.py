@@ -176,7 +176,8 @@ class Config:
             logger.info(f"Use {self.instead} instead")
 
         logger.info(
-            "Half-precision floating-point: %s, device: %s"
-            % (self.is_half, self.device)
+            "Half-precision floating-point: {}, device: {}".format(
+                self.is_half, self.device
+            )
         )
         return x_pad, x_query, x_center, x_max

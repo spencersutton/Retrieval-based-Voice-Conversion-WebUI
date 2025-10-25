@@ -489,7 +489,7 @@ class RMVPE:
             import onnxruntime as ort
 
             ort_session = ort.InferenceSession(
-                "%s/rmvpe.onnx" % os.environ["rmvpe_root"],
+                "{}/rmvpe.onnx".format(os.environ["rmvpe_root"]),
                 providers=["DmlExecutionProvider"],
             )
             self.model = ort_session

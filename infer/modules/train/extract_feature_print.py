@@ -30,12 +30,12 @@ if torch.cuda.is_available():
 elif torch.backends.mps.is_available():
     _device = "mps"
 
-_f = open("%s/extract_f0_feature.log" % _exp_dir, "a+")
+_f = open("{}/extract_f0_feature.log".format(_exp_dir), "a+")
 
 
 def printt(strr):
     print(strr)
-    _f.write("%s\n" % strr)
+    _f.write("{}\n".format(strr))
     _f.flush()
 
 
@@ -43,8 +43,8 @@ printt(" ".join(sys.argv))
 _model_path = "assets/hubert/hubert_base.pt"
 
 printt("exp_dir: " + _exp_dir)
-_wavPath = "%s/1_16k_wavs" % _exp_dir
-_outPath = "%s/3_feature768" % _exp_dir
+_wavPath = "{}/1_16k_wavs".format(_exp_dir)
+_outPath = "{}/3_feature768".format(_exp_dir)
 os.makedirs(_outPath, exist_ok=True)
 
 
@@ -68,8 +68,9 @@ printt("load model(s) from {}".format(_model_path))
 # if hubert model is exist
 if not os.access(_model_path, os.F_OK):
     printt(
-        "Error: Extracting is shut down because %s does not exist, you may download it from https://huggingface.co/lj1995/VoiceConversionWebUI/tree/main"
-        % _model_path
+        "Error: Extracting is shut down because {} does not exist, you may download it from https://huggingface.co/lj1995/VoiceConversionWebUI/tree/main".format(
+            _model_path
+        )
     )
     exit(0)
 with safe_globals([Dictionary]):
@@ -79,7 +80,7 @@ with safe_globals([Dictionary]):
     )
 _model = models[0]
 _model = _model.to(_device)
-printt("move model to %s" % _device)
+printt("move model to {}".format(_device))
 if _is_half:
     if _device not in ["mps", "cpu"]:
         _model = _model.half()
@@ -90,12 +91,12 @@ _n = max(1, len(_todo) // 10)  # 最多打印十条
 if len(_todo) == 0:
     printt("no-feature-todo")
 else:
-    printt("all-feature-%s" % len(_todo))
+    printt("all-feature-{}".format(len(_todo)))
     for idx, file in enumerate(_todo):
         try:
             if file.endswith(".wav"):
-                wav_path = "%s/%s" % (_wavPath, file)
-                out_path = "%s/%s" % (_outPath, file.replace("wav", "npy"))
+                wav_path = "{}/{}".format(_wavPath, file)
+                out_path = "{}/{}".format(_outPath, file.replace("wav", "npy"))
 
                 if os.path.exists(out_path):
                     continue
@@ -119,9 +120,11 @@ else:
                 if np.isnan(feats).sum() == 0:
                     np.save(out_path, feats, allow_pickle=False)
                 else:
-                    printt("%s-contains nan" % file)
+                    printt("{}-contains nan".format(file))
                 if idx % _n == 0:
-                    printt("now-%s,all-%s,%s,%s" % (len(_todo), idx, file, feats.shape))
+                    printt(
+                        "now-{},all-{},{},{}".format(len(_todo), idx, file, feats.shape)
+                    )
         except Exception:
             printt(traceback.format_exc())
     printt("all-feature-done")
