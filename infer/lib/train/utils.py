@@ -1,9 +1,8 @@
 import argparse
-import glob
 import json
 import logging
-import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -15,9 +14,12 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging
 
 
-def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt=1):
-    assert os.path.isfile(checkpoint_path)
-    checkpoint_dict = torch.load(checkpoint_path, map_location="cpu")
+def load_checkpoint(
+    checkpoint_path: str, model: object, optimizer: object = None, load_opt: int = 1
+) -> tuple[object, object, object, object]:
+    checkpoint_file = Path(checkpoint_path)
+    assert checkpoint_file.is_file()
+    checkpoint_dict = torch.load(str(checkpoint_file), map_location="cpu")
 
     saved_state_dict = checkpoint_dict["model"]
     if hasattr(model, "module"):
@@ -34,10 +36,9 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt=1):
                     k,
                     state_dict[k].shape,
                     saved_state_dict[k].shape,
-                )  #
+                )
                 raise KeyError
         except Exception:
-            # logger.info(traceback.format_exc())
             logger.info("%s is not in the checkpoint", k)  # pretrain缺失的
             new_state_dict[k] = v  # 模型自带的随机值
     if hasattr(model, "module"):
@@ -95,10 +96,13 @@ def summarize(
         writer.add_audio(k, v, global_step, audio_sampling_rate)
 
 
-def latest_checkpoint_path(dir_path, regex="G_*.pth"):
-    f_list = glob.glob(os.path.join(dir_path, regex))
-    f_list.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
-    x = f_list[-1]
+def latest_checkpoint_path(dir_path_str: str, regex: str = "G_*.pth") -> str:
+    dir_path = Path(dir_path_str)
+    f_list = sorted(
+        dir_path.glob(regex),
+        key=lambda f: int("".join(filter(str.isdigit, f.name))),
+    )
+    x = str(f_list[-1])
     logger.debug(x)
     return x
 
@@ -134,15 +138,13 @@ def load_wav_to_torch(full_path):
     return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
 
-def load_filepaths_and_text(filename, split="|"):
+def load_filepaths_and_text(filename: str, split: str = "|") -> list[list[str]]:
+    path = Path(filename)
     try:
-        with open(filename, encoding="utf-8") as f:
-            filepaths_and_text = [line.strip().split(split) for line in f]
+        lines = path.read_text(encoding="utf-8").splitlines()
     except UnicodeDecodeError:
-        with open(filename) as f:
-            filepaths_and_text = [line.strip().split(split) for line in f]
-
-    return filepaths_and_text
+        lines = path.read_text().splitlines()
+    return [line.strip().split(split) for line in lines]
 
 
 def get_hparams(init=True):
@@ -220,14 +222,12 @@ def get_hparams(init=True):
         required=True,
         help="if caching the dataset in GPU memory, 1 or 0",
     )
-
     args = parser.parse_args()
     name = args.experiment_dir
-    experiment_dir = os.path.join("./logs", args.experiment_dir)
+    experiment_dir = Path("./logs") / args.experiment_dir
 
-    config_save_path = os.path.join(experiment_dir, "config.json")
-    with open(config_save_path) as f:
-        config = json.load(f)
+    config_save_path = experiment_dir / "config.json"
+    config = json.loads(config_save_path.read_text(encoding="utf-8"))
 
     hparams = HParams(**config)
     hparams.model_dir = hparams.experiment_dir = experiment_dir
@@ -248,18 +248,19 @@ def get_hparams(init=True):
     return hparams
 
 
-def get_logger(model_dir, filename="train.log"):
+def get_logger(model_dir: str, filename: str = "train.log") -> logging.Logger:
     global logger
-    logger = logging.getLogger(os.path.basename(model_dir))
+    model_dir_path = Path(model_dir)
+    logger = logging.getLogger(model_dir_path.name)
     logger.setLevel(logging.DEBUG)
 
     formatter = logging.Formatter("%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-    h = logging.FileHandler(os.path.join(model_dir, filename))
-    h.setLevel(logging.DEBUG)
-    h.setFormatter(formatter)
-    logger.addHandler(h)
+    model_dir_path.mkdir(parents=True, exist_ok=True)
+    log_file = model_dir_path / filename
+    handler = logging.FileHandler(str(log_file))
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
     return logger
 
 
