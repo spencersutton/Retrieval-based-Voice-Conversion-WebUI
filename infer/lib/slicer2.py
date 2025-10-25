@@ -3,13 +3,12 @@ import numpy as np
 
 # This function is obtained from librosa.
 def _get_rms(
-    y,
-    frame_length=2048,
-    hop_length=512,
-    pad_mode="constant",
-):
+    y: np.ndarray,
+    frame_length: int = 2048,
+    hop_length: int = 512,
+) -> np.ndarray:
     padding = (int(frame_length // 2), int(frame_length // 2))
-    y = np.pad(y, padding, mode=pad_mode)
+    y = np.pad(y, padding, mode="constant")
 
     axis = -1
     # put our new within-frame axis at the end for now
@@ -61,15 +60,19 @@ class Slicer:
         self.min_interval = round(min_interval / self.hop_size)
         self.max_sil_kept = round(sample_rate * max_sil_kept / 1000 / self.hop_size)
 
-    def _apply_slice(self, waveform, begin, end):
-        if len(waveform.shape) > 1:
-            return waveform[
-                :, begin * self.hop_size : min(waveform.shape[1], end * self.hop_size)
-            ]
-        else:
+    def _apply_slice(
+        self,
+        waveform: np.ndarray,
+        begin: np.integer | int,
+        end: np.integer | int,
+    ) -> np.ndarray:
+        if len(waveform.shape) == 1:
             return waveform[
                 begin * self.hop_size : min(waveform.shape[0], end * self.hop_size)
             ]
+        return waveform[
+            :, begin * self.hop_size : min(waveform.shape[1], end * self.hop_size)
+        ]
 
     def slice(self, waveform: np.ndarray) -> list[np.ndarray]:
         if len(waveform.shape) > 1:
@@ -81,7 +84,7 @@ class Slicer:
         rms_list = _get_rms(
             y=samples, frame_length=self.win_size, hop_length=self.hop_size
         ).squeeze(0)
-        sil_tags = []
+        sil_tags: list[tuple[np.signedinteger | int, np.signedinteger]] = []
         silence_start = None
         clip_start = 0
         for i, rms in enumerate(rms_list):
@@ -164,7 +167,7 @@ class Slicer:
         if len(sil_tags) == 0:
             return [waveform]
         else:
-            chunks = []
+            chunks: list[np.ndarray] = []
             if sil_tags[0][0] > 0:
                 chunks.append(self._apply_slice(waveform, 0, sil_tags[0][0]))
             for i in range(len(sil_tags) - 1):
