@@ -189,7 +189,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         global_step = 0
         if hps.pretrainG != "":
             if rank == 0:
-                logger.info("loaded pretrained {}".format(hps.pretrainG))
+                logger.info(f"loaded pretrained {hps.pretrainG}")
             if hasattr(net_g, "module"):
                 logger.info(
                     net_g.module.load_state_dict(
@@ -204,7 +204,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                 )  ##测试不加载优化器
         if hps.pretrainD != "":
             if rank == 0:
-                logger.info("loaded pretrained {}".format(hps.pretrainD))
+                logger.info(f"loaded pretrained {hps.pretrainD}")
             if hasattr(net_d, "module"):
                 logger.info(
                     net_d.module.load_state_dict(
@@ -477,9 +477,7 @@ def train_and_evaluate(
             if global_step % hps.train.log_interval == 0:
                 lr = optim_g.param_groups[0]["lr"]
                 logger.info(
-                    "Train Epoch: {} [{:.0f}%]".format(
-                        epoch, 100.0 * batch_idx / len(train_loader)
-                    )
+                    f"Train Epoch: {epoch} [{100.0 * batch_idx / len(train_loader):.0f}%]"
                 )
                 # Amor For Tensorboard display
                 if loss_mel > 75:
@@ -506,14 +504,12 @@ def train_and_evaluate(
                     }
                 )
 
+                scalar_dict.update({f"loss/g/{i}": v for i, v in enumerate(losses_gen)})
                 scalar_dict.update(
-                    {"loss/g/{}".format(i): v for i, v in enumerate(losses_gen)}
+                    {f"loss/d_r/{i}": v for i, v in enumerate(losses_disc_r)}
                 )
                 scalar_dict.update(
-                    {"loss/d_r/{}".format(i): v for i, v in enumerate(losses_disc_r)}
-                )
-                scalar_dict.update(
-                    {"loss/d_g/{}".format(i): v for i, v in enumerate(losses_disc_g)}
+                    {f"loss/d_g/{i}": v for i, v in enumerate(losses_disc_g)}
                 )
                 image_dict = {
                     "slice/mel_org": utils.plot_spectrogram_to_numpy(
@@ -542,14 +538,14 @@ def train_and_evaluate(
                 optim_g,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, "G_{}.pth".format(global_step)),
+                os.path.join(hps.model_dir, f"G_{global_step}.pth"),
             )
             utils.save_checkpoint(
                 net_d,
                 optim_d,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, "D_{}.pth".format(global_step)),
+                os.path.join(hps.model_dir, f"D_{global_step}.pth"),
             )
         else:
             utils.save_checkpoint(
@@ -557,14 +553,14 @@ def train_and_evaluate(
                 optim_g,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, "G_{}.pth".format(2333333)),
+                os.path.join(hps.model_dir, f"G_{2333333}.pth"),
             )
             utils.save_checkpoint(
                 net_d,
                 optim_d,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, "D_{}.pth".format(2333333)),
+                os.path.join(hps.model_dir, f"D_{2333333}.pth"),
             )
         if rank == 0 and hps.save_every_weights == "1":
             if hasattr(net_g, "module"):
@@ -579,7 +575,7 @@ def train_and_evaluate(
                         ckpt,
                         hps.sample_rate,
                         hps.if_f0,
-                        hps.name + "_e{}_s{}".format(epoch, global_step),
+                        hps.name + f"_e{epoch}_s{global_step}",
                         epoch,
                         hps,
                     ),
@@ -587,7 +583,7 @@ def train_and_evaluate(
             )
 
     if rank == 0:
-        logger.info("====> Epoch: {} {}".format(epoch, epoch_recorder.record()))
+        logger.info(f"====> Epoch: {epoch} {epoch_recorder.record()}")
     if epoch >= hps.total_epoch and rank == 0:
         logger.info("Training is done. The program is closed.")
 
@@ -596,9 +592,7 @@ def train_and_evaluate(
         else:
             ckpt = net_g.state_dict()
         logger.info(
-            "saving final ckpt:{}".format(
-                savee(ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps)
-            )
+            f"saving final ckpt:{savee(ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps)}"
         )
         sleep(1)
         os._exit(2333333)

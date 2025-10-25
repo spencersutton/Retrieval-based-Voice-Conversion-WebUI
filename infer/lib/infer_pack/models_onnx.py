@@ -551,7 +551,7 @@ class SynthesizerTrnMsNSFsidM(nn.Module):
         **kwargs,
     ):
         super().__init__()
-        if type(sr) == type("strr"):
+        if type(sr) == str:
             sr = sr2sr[sr]
         self.spec_channels = spec_channels
         self.inter_channels = inter_channels

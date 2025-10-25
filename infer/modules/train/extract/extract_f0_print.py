@@ -13,12 +13,12 @@ from infer.lib.audio import load_audio
 logging.getLogger("numba").setLevel(logging.WARNING)
 
 exp_dir = sys.argv[1]
-f = open("{}/extract_f0_feature.log".format(exp_dir), "a+")
+f = open(f"{exp_dir}/extract_f0_feature.log", "a+")
 
 
 def printt(strr):
     print(strr)
-    f.write("{}\n".format(strr))
+    f.write(f"{strr}\n")
     f.flush()
 
 
@@ -26,7 +26,7 @@ n_p = int(sys.argv[2])
 f0method = sys.argv[3]
 
 
-class FeatureInput(object):
+class FeatureInput:
     def __init__(self, samplerate=16000, hop_size=160):
         self.fs = samplerate
         self.hop = hop_size
@@ -108,14 +108,12 @@ class FeatureInput(object):
         if len(paths) == 0:
             printt("no-f0-todo")
         else:
-            printt("todo-f0-{}".format(len(paths)))
+            printt(f"todo-f0-{len(paths)}")
             n = max(len(paths) // 5, 1)  # 每个进程最多打印5条
             for idx, (inp_path, opt_path1, opt_path2) in enumerate(paths):
                 try:
                     if idx % n == 0:
-                        printt(
-                            "f0ing,now-{},all-{},-{}".format(idx, len(paths), inp_path)
-                        )
+                        printt(f"f0ing,now-{idx},all-{len(paths)},-{inp_path}")
                     if os.path.exists(opt_path1 + ".npy") and os.path.exists(
                         opt_path2 + ".npy"
                     ):
@@ -133,27 +131,25 @@ class FeatureInput(object):
                         allow_pickle=False,
                     )  # ori
                 except Exception:
-                    printt(
-                        "f0fail-{}-{}-{}".format(idx, inp_path, traceback.format_exc())
-                    )
+                    printt(f"f0fail-{idx}-{inp_path}-{traceback.format_exc()}")
 
 
 if __name__ == "__main__":
     printt(" ".join(sys.argv))
     featureInput = FeatureInput()
     paths = []
-    inp_root = "{}/1_16k_wavs".format(exp_dir)
-    opt_root1 = "{}/2a_f0".format(exp_dir)
-    opt_root2 = "{}/2b-f0nsf".format(exp_dir)
+    inp_root = f"{exp_dir}/1_16k_wavs"
+    opt_root1 = f"{exp_dir}/2a_f0"
+    opt_root2 = f"{exp_dir}/2b-f0nsf"
 
     os.makedirs(opt_root1, exist_ok=True)
     os.makedirs(opt_root2, exist_ok=True)
     for name in sorted(list(os.listdir(inp_root))):
-        inp_path = "{}/{}".format(inp_root, name)
+        inp_path = f"{inp_root}/{name}"
         if "spec" in inp_path:
             continue
-        opt_path1 = "{}/{}".format(opt_root1, name)
-        opt_path2 = "{}/{}".format(opt_root2, name)
+        opt_path1 = f"{opt_root1}/{name}"
+        opt_path2 = f"{opt_root2}/{name}"
         paths.append([inp_path, opt_path1, opt_path2])
 
     ps = []

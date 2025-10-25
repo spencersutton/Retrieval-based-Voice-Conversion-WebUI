@@ -33,7 +33,7 @@ faiss = { git = "https://github.com/spencersutton/faiss.git" }
 fairseq = { git = "https://github.com/yamada-sexta/fairseq.git" }
 
 [tool.ruff.lint]
-extend-select = ["I", "UP031"]
+extend-select = ["I", "UP"]
 
 [tool.pyright]
 typeCheckingMode = "strict"

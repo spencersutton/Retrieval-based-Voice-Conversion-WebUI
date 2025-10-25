@@ -37,10 +37,10 @@ def savee(ckpt, sr, if_f0, name, epoch, hps) -> str:
             hps.model.gin_channels,
             hps.data.sampling_rate,
         ]
-        opt["info"] = "{}epoch".format(epoch)
+        opt["info"] = f"{epoch}epoch"
         opt["sr"] = sr
         opt["f0"] = if_f0
-        torch.save(opt, "assets/weights/{}.pth".format(name))
+        torch.save(opt, f"assets/weights/{name}.pth")
         return "Success."
     except Exception:
         return traceback.format_exc()
@@ -137,7 +137,7 @@ def extract_small_model(path: str, name: str, sr: str, if_f0: object, info: str)
         opt["info"] = info
         opt["sr"] = sr
         opt["f0"] = int(if_f0)
-        torch.save(opt, "assets/weights/{}.pth".format(name))
+        torch.save(opt, f"assets/weights/{name}.pth")
         return "Success."
     except Exception:
         return traceback.format_exc()
@@ -149,7 +149,7 @@ def change_info(path: str, info: str, name: str) -> str:
         ckpt["info"] = info
         if name == "":
             name = os.path.basename(path)
-        torch.save(ckpt, "assets/weights/{}".format(name))
+        torch.save(ckpt, f"assets/weights/{name}")
         return "Success."
     except Exception:
         return traceback.format_exc()
@@ -206,7 +206,7 @@ def merge(
         opt["sr"] = sr
         opt["f0"] = 1 if f0 == i18n("是") else 0
         opt["info"] = info
-        torch.save(opt, "assets/weights/{}.pth".format(name))
+        torch.save(opt, f"assets/weights/{name}.pth")
         return "Success."
     except Exception:
         return traceback.format_exc()

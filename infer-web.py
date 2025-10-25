@@ -41,12 +41,8 @@ _logger = logging.getLogger(__name__)
 
 _tmp = os.path.join(_now_dir, "TEMP")
 shutil.rmtree(_tmp, ignore_errors=True)
-shutil.rmtree(
-    "{}/runtime/Lib/site-packages/infer_pack".format(_now_dir), ignore_errors=True
-)
-shutil.rmtree(
-    "{}/runtime/Lib/site-packages/uvr5_pack".format(_now_dir), ignore_errors=True
-)
+shutil.rmtree(f"{_now_dir}/runtime/Lib/site-packages/infer_pack", ignore_errors=True)
+shutil.rmtree(f"{_now_dir}/runtime/Lib/site-packages/uvr5_pack", ignore_errors=True)
 os.makedirs(_tmp, exist_ok=True)
 os.makedirs(os.path.join(_now_dir, "logs"), exist_ok=True)
 os.makedirs(os.path.join(_now_dir, "assets/weights"), exist_ok=True)
@@ -98,7 +94,7 @@ if torch.cuda.is_available() or _ngpu != 0:
         ):
             # A10#A100#V100#A40#P40#M40#K80#A4500
             _if_gpu_ok = True  # 至少有一张能用的N卡
-            _gpu_infos.append("{}\t{}".format(i, gpu_name))
+            _gpu_infos.append(f"{i}\t{gpu_name}")
             _mem.append(
                 int(
                     torch.cuda.get_device_properties(i).total_memory
@@ -132,7 +128,7 @@ def _lookup_indices(index_root: str | None) -> None:
     for root, _dirs, files in os.walk(index_root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
-                index_paths.append("{}/{}".format(root, name))
+                index_paths.append(f"{root}/{name}")
 
 
 _lookup_indices(_index_root)
@@ -148,7 +144,7 @@ def _change_choices() -> tuple[dict[str, object], dict[str, object]]:
     for root, _dirs, files in os.walk(_index_root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
-                index_paths_local.append("{}/{}".format(root, name))
+                index_paths_local.append(f"{root}/{name}")
     return {"choices": sorted(names), "__type__": "update"}, {
         "choices": sorted(index_paths_local),
         "__type__": "update",
@@ -203,19 +199,10 @@ def _preprocess_dataset(
     n_p: int,
 ) -> Generator[str]:
     sr = _sr_dict[sr_str]
-    os.makedirs("{}/logs/{}".format(_now_dir, exp_dir), exist_ok=True)
-    f = open("{}/logs/{}/preprocess.log".format(_now_dir, exp_dir), "w")
+    os.makedirs(f"{_now_dir}/logs/{exp_dir}", exist_ok=True)
+    f = open(f"{_now_dir}/logs/{exp_dir}/preprocess.log", "w")
     f.close()
-    cmd = '"{}" infer/modules/train/preprocess.py "{}" {} {} "{}/logs/{}" {} {:.1f}'.format(
-        _config.python_cmd,
-        trainset_dir,
-        sr,
-        n_p,
-        _now_dir,
-        exp_dir,
-        _config.noparallel,
-        _config.preprocess_per,
-    )
+    cmd = f'"{_config.python_cmd}" infer/modules/train/preprocess.py "{trainset_dir}" {sr} {n_p} "{_now_dir}/logs/{exp_dir}" {_config.noparallel} {_config.preprocess_per:.1f}'
     _logger.info("Execute: " + cmd)
 
     p = Popen(cmd, shell=True)
@@ -229,12 +216,12 @@ def _preprocess_dataset(
         ),
     ).start()
     while 1:
-        with open("{}/logs/{}/preprocess.log".format(_now_dir, exp_dir), "r") as f:
+        with open(f"{_now_dir}/logs/{exp_dir}/preprocess.log") as f:
             yield (f.read())
         sleep(1)
         if done[0]:
             break
-    with open("{}/logs/{}/preprocess.log".format(_now_dir, exp_dir), "r") as f:
+    with open(f"{_now_dir}/logs/{exp_dir}/preprocess.log") as f:
         log = f.read()
     _logger.info(log)
     yield log
@@ -249,18 +236,12 @@ def _extract_f0_feature(
     gpus_rmvpe_str: str,
 ):
     gpus = gpu_str.split("-")
-    os.makedirs("{}/logs/{}".format(_now_dir, exp_dir), exist_ok=True)
-    f = open("{}/logs/{}/extract_f0_feature.log".format(_now_dir, exp_dir), "w")
+    os.makedirs(f"{_now_dir}/logs/{exp_dir}", exist_ok=True)
+    f = open(f"{_now_dir}/logs/{exp_dir}/extract_f0_feature.log", "w")
     f.close()
     if if_f0:
         if f0method != "rmvpe_gpu":
-            cmd = '"{}" infer/modules/train/extract/extract_f0_print.py "{}/logs/{}" {} {}'.format(
-                _config.python_cmd,
-                _now_dir,
-                exp_dir,
-                n_p,
-                f0method,
-            )
+            cmd = f'"{_config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{_now_dir}/logs/{exp_dir}" {n_p} {f0method}'
             _logger.info("Execute: " + cmd)
             p = Popen(cmd, shell=True, cwd=_now_dir)
             # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
@@ -278,15 +259,7 @@ def _extract_f0_feature(
                 leng = len(gpus_rmvpe)
                 ps = []
                 for idx, n_g in enumerate(gpus_rmvpe):
-                    cmd = '"{}" infer/modules/train/extract/extract_f0_rmvpe.py {} {} {} "{}/logs/{}" {} '.format(
-                        _config.python_cmd,
-                        leng,
-                        idx,
-                        n_g,
-                        _now_dir,
-                        exp_dir,
-                        _config.is_half,
-                    )
+                    cmd = f'"{_config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {leng} {idx} {n_g} "{_now_dir}/logs/{exp_dir}" {_config.is_half} '
                     _logger.info("Execute: " + cmd)
                     p = Popen(cmd, shell=True, cwd=_now_dir)
                     ps.append(p)
@@ -302,26 +275,19 @@ def _extract_f0_feature(
             else:
                 cmd = (
                     _config.python_cmd
-                    + ' infer/modules/train/extract/extract_f0_rmvpe_dml.py "{}/logs/{}" '.format(
-                        _now_dir,
-                        exp_dir,
-                    )
+                    + f' infer/modules/train/extract/extract_f0_rmvpe_dml.py "{_now_dir}/logs/{exp_dir}" '
                 )
                 _logger.info("Execute: " + cmd)
                 p = Popen(cmd, shell=True, cwd=_now_dir)
                 p.wait()
                 done = [True]
         while 1:
-            with open(
-                "{}/logs/{}/extract_f0_feature.log".format(_now_dir, exp_dir), "r"
-            ) as f:
+            with open(f"{_now_dir}/logs/{exp_dir}/extract_f0_feature.log") as f:
                 yield (f.read())
             sleep(1)
             if done[0]:
                 break
-        with open(
-            "{}/logs/{}/extract_f0_feature.log".format(_now_dir, exp_dir), "r"
-        ) as f:
+        with open(f"{_now_dir}/logs/{exp_dir}/extract_f0_feature.log") as f:
             log = f.read()
         _logger.info(log)
         yield log
@@ -329,16 +295,7 @@ def _extract_f0_feature(
     leng = len(gpus)
     ps: list[Popen[bytes]] = []
     for idx, n_g in enumerate(gpus):
-        cmd = '"{}" infer/modules/train/extract_feature_print.py {} {} {} {} "{}/logs/{}" {}'.format(
-            _config.python_cmd,
-            _config.device,
-            leng,
-            idx,
-            n_g,
-            _now_dir,
-            exp_dir,
-            _config.is_half,
-        )
+        cmd = f'"{_config.python_cmd}" infer/modules/train/extract_feature_print.py {_config.device} {leng} {idx} {n_g} "{_now_dir}/logs/{exp_dir}" {_config.is_half}'
         _logger.info("Execute: " + cmd)
         p = Popen(cmd, shell=True, cwd=_now_dir)
         ps.append(p)
@@ -352,14 +309,12 @@ def _extract_f0_feature(
         ),
     ).start()
     while 1:
-        with open(
-            "{}/logs/{}/extract_f0_feature.log".format(_now_dir, exp_dir), "r"
-        ) as f:
+        with open(f"{_now_dir}/logs/{exp_dir}/extract_f0_feature.log") as f:
             yield (f.read())
         sleep(1)
         if done[0]:
             break
-    with open("{}/logs/{}/extract_f0_feature.log".format(_now_dir, exp_dir), "r") as f:
+    with open(f"{_now_dir}/logs/{exp_dir}/extract_f0_feature.log") as f:
         log = f.read()
     _logger.info(log)
     yield log
@@ -367,10 +322,10 @@ def _extract_f0_feature(
 
 def _get_pretrained_models(path_str: str, f0_str: str, sr2: str):
     if_pretrained_generator_exist = os.access(
-        "assets/pretrained{}/{}G{}.pth".format(path_str, f0_str, sr2), os.F_OK
+        f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth", os.F_OK
     )
     if_pretrained_discriminator_exist = os.access(
-        "assets/pretrained{}/{}D{}.pth".format(path_str, f0_str, sr2), os.F_OK
+        f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth", os.F_OK
     )
     if not if_pretrained_generator_exist:
         _logger.warning(
@@ -388,12 +343,12 @@ def _get_pretrained_models(path_str: str, f0_str: str, sr2: str):
         )
     return (
         (
-            "assets/pretrained{}/{}G{}.pth".format(path_str, f0_str, sr2)
+            f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth"
             if if_pretrained_generator_exist
             else ""
         ),
         (
-            "assets/pretrained{}/{}D{}.pth".format(path_str, f0_str, sr2)
+            f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth"
             if if_pretrained_discriminator_exist
             else ""
         ),
@@ -431,19 +386,15 @@ def _click_train(
     if_save_every_weights18: bool,
 ):
     # 生成filelist
-    exp_dir = "{}/logs/{}".format(_now_dir, exp_dir1)
+    exp_dir = f"{_now_dir}/logs/{exp_dir1}"
     os.makedirs(exp_dir, exist_ok=True)
-    gt_wavs_dir = "{}/0_gt_wavs".format(exp_dir)
-    feature_dir = (
-        "{}/3_feature256".format(exp_dir)
-        if False
-        else "{}/3_feature768".format(exp_dir)
-    )
+    gt_wavs_dir = f"{exp_dir}/0_gt_wavs"
+    feature_dir = f"{exp_dir}/3_feature256" if False else f"{exp_dir}/3_feature768"
     f0_dir = ""
     f0nsf_dir = ""
     if if_f0_3:
-        f0_dir = "{}/2a_f0".format(exp_dir)
-        f0nsf_dir = "{}/2b-f0nsf".format(exp_dir)
+        f0_dir = f"{exp_dir}/2a_f0"
+        f0nsf_dir = f"{exp_dir}/2b-f0nsf"
         names = (
             set([name.split(".")[0] for name in os.listdir(gt_wavs_dir)])
             & set([name.split(".")[0] for name in os.listdir(feature_dir)])
@@ -484,19 +435,15 @@ def _click_train(
     if if_f0_3:
         for _ in range(2):
             opt.append(
-                "{}/logs/mute/0_gt_wavs/mute{}.wav|{}/logs/mute/3_feature{}/mute.npy|{}/logs/mute/2a_f0/mute.wav.npy|{}/logs/mute/2b-f0nsf/mute.wav.npy|{}".format(
-                    _now_dir, sr2, _now_dir, fea_dim, _now_dir, _now_dir, spk_id5
-                )
+                f"{_now_dir}/logs/mute/0_gt_wavs/mute{sr2}.wav|{_now_dir}/logs/mute/3_feature{fea_dim}/mute.npy|{_now_dir}/logs/mute/2a_f0/mute.wav.npy|{_now_dir}/logs/mute/2b-f0nsf/mute.wav.npy|{spk_id5}"
             )
     else:
         for _ in range(2):
             opt.append(
-                "{}/logs/mute/0_gt_wavs/mute{}.wav|{}/logs/mute/3_feature{}/mute.npy|{}".format(
-                    _now_dir, sr2, _now_dir, fea_dim, spk_id5
-                )
+                f"{_now_dir}/logs/mute/0_gt_wavs/mute{sr2}.wav|{_now_dir}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id5}"
             )
     shuffle(opt)
-    with open("{}/filelist.txt".format(exp_dir), "w") as f:
+    with open(f"{exp_dir}/filelist.txt", "w") as f:
         f.write("\n".join(opt))
     _logger.debug("Write filelist done")
     # 生成config#无需生成config
@@ -506,7 +453,7 @@ def _click_train(
         _logger.info("No pretrained Generator")
     if pretrained_D15 == "":
         _logger.info("No pretrained Discriminator")
-    config_path = "v2/{}.json".format(sr2)
+    config_path = f"v2/{sr2}.json"
     config_save_path = os.path.join(exp_dir, "config.json")
     if not pathlib.Path(config_save_path).exists():
         with open(config_save_path, "w", encoding="utf-8") as f:
@@ -528,8 +475,8 @@ def _click_train(
             gpus16,
             total_epoch11,
             save_epoch10,
-            "-pg {}".format(pretrained_G14) if pretrained_G14 != "" else "",
-            "-pd {}".format(pretrained_D15) if pretrained_D15 != "" else "",
+            f"-pg {pretrained_G14}" if pretrained_G14 != "" else "",
+            f"-pd {pretrained_D15}" if pretrained_D15 != "" else "",
             1 if if_save_latest13 == _i18n("是") else 0,
             1 if if_cache_gpu17 == _i18n("是") else 0,
             1 if if_save_every_weights18 == _i18n("是") else 0,
@@ -543,8 +490,8 @@ def _click_train(
             batch_size12,
             total_epoch11,
             save_epoch10,
-            "-pg {}".format(pretrained_G14) if pretrained_G14 != "" else "",
-            "-pd {}".format(pretrained_D15) if pretrained_D15 != "" else "",
+            f"-pg {pretrained_G14}" if pretrained_G14 != "" else "",
+            f"-pd {pretrained_D15}" if pretrained_D15 != "" else "",
             1 if if_save_latest13 == _i18n("是") else 0,
             1 if if_cache_gpu17 == _i18n("是") else 0,
             1 if if_save_every_weights18 == _i18n("是") else 0,
@@ -558,13 +505,9 @@ def _click_train(
 def _train_index(exp_dir1: str):
     _logger.info("Start training index for %s", exp_dir1)
 
-    exp_dir = "logs/{}".format(exp_dir1)
+    exp_dir = f"logs/{exp_dir1}"
     os.makedirs(exp_dir, exist_ok=True)
-    feature_dir = (
-        "{}/3_feature256".format(exp_dir)
-        if False
-        else "{}/3_feature768".format(exp_dir)
-    )
+    feature_dir = f"{exp_dir}/3_feature256" if False else f"{exp_dir}/3_feature768"
     if not os.path.exists(feature_dir):
         return "请先进行特征提取!"
     listdir_res = list(os.listdir(feature_dir))
@@ -573,16 +516,14 @@ def _train_index(exp_dir1: str):
     infos: list[str] = []
     npys: list[np.ndarray] = []
     for name in sorted(listdir_res):
-        phone = np.load("{}/{}".format(feature_dir, name))
+        phone = np.load(f"{feature_dir}/{name}")
         npys.append(phone)
     big_npy = np.concatenate(npys, 0)
     big_npy_idx = np.arange(big_npy.shape[0])
     np.random.shuffle(big_npy_idx)
     big_npy = big_npy[big_npy_idx]
     if big_npy.shape[0] > 2e5:
-        infos.append(
-            "Trying doing kmeans {} shape to 10k centers.".format(big_npy.shape[0])
-        )
+        infos.append(f"Trying doing kmeans {big_npy.shape[0]} shape to 10k centers.")
         yield "\n".join(infos)
         try:
             big_npy = (
@@ -602,11 +543,11 @@ def _train_index(exp_dir1: str):
             infos.append(info)
             yield "\n".join(infos)
 
-    np.save("{}/total_fea.npy".format(exp_dir), big_npy)
+    np.save(f"{exp_dir}/total_fea.npy", big_npy)
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
-    infos.append("{},{}".format(big_npy.shape, n_ivf))
+    infos.append(f"{big_npy.shape},{n_ivf}")
     yield "\n".join(infos)
-    index = faiss.index_factory(256 if False else 768, "IVF{},Flat".format(n_ivf))
+    index = faiss.index_factory(256 if False else 768, f"IVF{n_ivf},Flat")
     infos.append("training")
     yield "\n".join(infos)
     index_ivf = faiss.extract_index_ivf(index)  #
@@ -614,9 +555,7 @@ def _train_index(exp_dir1: str):
     index.train(big_npy)
     faiss.write_index(
         index,
-        "{}/trained_IVF{}_Flat_nprobe_{}_{}.index".format(
-            exp_dir, n_ivf, index_ivf.nprobe, exp_dir1
-        ),
+        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index",
     )
     infos.append("adding")
     yield "\n".join(infos)
@@ -625,32 +564,20 @@ def _train_index(exp_dir1: str):
         index.add(big_npy[i : i + batch_size_add])
     faiss.write_index(
         index,
-        "{}/added_IVF{}_Flat_nprobe_{}_{}.index".format(
-            exp_dir, n_ivf, index_ivf.nprobe, exp_dir1
-        ),
+        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index",
     )
     infos.append(
-        "成功构建索引 added_IVF{}_Flat_nprobe_{}_{}.index".format(
-            n_ivf, index_ivf.nprobe, exp_dir1
-        )
+        f"成功构建索引 added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
     )
     try:
         link = os.link if platform.system() == "Windows" else os.symlink
         link(
-            "{}/added_IVF{}_Flat_nprobe_{}_{}.index".format(
-                exp_dir, n_ivf, index_ivf.nprobe, exp_dir1
-            ),
-            "{}/{}_IVF{}_Flat_nprobe_{}_{}.index".format(
-                _outside_index_root,
-                exp_dir1,
-                n_ivf,
-                index_ivf.nprobe,
-                exp_dir1,
-            ),
+            f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index",
+            f"{_outside_index_root}/{exp_dir1}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index",
         )
-        infos.append("链接索引到外部-{}".format(_outside_index_root))
+        infos.append(f"链接索引到外部-{_outside_index_root}")
     except Exception:
-        infos.append("链接索引到外部-{}失败".format(_outside_index_root))
+        infos.append(f"链接索引到外部-{_outside_index_root}失败")
 
     yield "\n".join(infos)
 
@@ -723,9 +650,7 @@ def _change_info_(ckpt_path: str):
     if not os.path.exists(ckpt_path.replace(os.path.basename(ckpt_path), "train.log")):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
     try:
-        with open(
-            ckpt_path.replace(os.path.basename(ckpt_path), "train.log"), "r"
-        ) as f:
+        with open(ckpt_path.replace(os.path.basename(ckpt_path), "train.log")) as f:
             info = eval(f.read().strip("\n").split("\n")[0].split("\t")[-1])
             sr, f0 = info["sample_rate"], info["if_f0"]
             return sr, str(f0)
@@ -1108,7 +1033,7 @@ with gr.Blocks(title="RVC WebUI") as app:
                             label=_i18n(
                                 "rmvpe卡号配置：以-分隔输入使用的不同进程卡号,例如0-0-1使用在卡0上跑2个进程并在卡1上跑1个进程"
                             ),
-                            value="{}-{}".format(gpus, gpus),
+                            value=f"{gpus}-{gpus}",
                             interactive=True,
                         )
                     but2 = gr.Button(_i18n("特征提取"), variant="primary")
@@ -1421,10 +1346,10 @@ with gr.Blocks(title="RVC WebUI") as app:
         with gr.TabItem(tab_faq):
             try:
                 if tab_faq == "常见问题解答":
-                    with open("docs/cn/faq.md", "r", encoding="utf8") as f:
+                    with open("docs/cn/faq.md", encoding="utf8") as f:
                         info = f.read()
                 else:
-                    with open("docs/en/faq_en.md", "r", encoding="utf8") as f:
+                    with open("docs/en/faq_en.md", encoding="utf8") as f:
                         info = f.read()
                 gr.Markdown(value=info)
             except Exception:

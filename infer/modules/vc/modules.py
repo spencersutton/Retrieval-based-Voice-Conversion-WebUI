@@ -203,7 +203,7 @@ class VC:
             else:
                 tgt_sr = self.tgt_sr
             index_info = (
-                "Index:\n{}.".format(file_index)
+                f"Index:\n{file_index}."
                 if os.path.exists(file_index)
                 else "Index not used."
             )
@@ -272,18 +272,12 @@ class VC:
                         tgt_sr, audio_opt = opt
                         if format1 in ["wav", "flac"]:
                             sf.write(
-                                "{}/{}.{}".format(
-                                    opt_root, os.path.basename(path), format1
-                                ),
+                                f"{opt_root}/{os.path.basename(path)}.{format1}",
                                 audio_opt,
                                 tgt_sr,
                             )
                         else:
-                            path = "{}/{}.{}".format(
-                                opt_root,
-                                os.path.basename(path),
-                                format1,
-                            )
+                            path = f"{opt_root}/{os.path.basename(path)}.{format1}"
                             with BytesIO() as wavf:
                                 sf.write(wavf, audio_opt, tgt_sr, format="wav")
                                 wavf.seek(0, 0)
@@ -291,7 +285,7 @@ class VC:
                                     wav2(wavf, outf, format1)
                     except Exception:
                         info += traceback.format_exc()
-                infos.append("{}->{}".format(os.path.basename(path), info))
+                infos.append(f"{os.path.basename(path)}->{info}")
                 yield "\n".join(infos)
             yield "\n".join(infos)
         except Exception:

@@ -56,7 +56,7 @@ def change_rms(data1, sr1, data2, sr2, rate):  # 1是输入音频，2是输出�
     return data2
 
 
-class Pipeline(object):
+class Pipeline:
     def __init__(self, tgt_sr, config):
         self.x_pad, self.x_query, self.x_center, self.x_max, self.is_half = (
             config.x_pad,
@@ -326,7 +326,7 @@ class Pipeline(object):
         inp_f0 = None
         if hasattr(f0_file, "name"):
             try:
-                with open(f0_file.name, "r") as f:
+                with open(f0_file.name) as f:
                     lines = f.read().strip("\n").split("\n")
                 inp_f0 = []
                 for line in lines:

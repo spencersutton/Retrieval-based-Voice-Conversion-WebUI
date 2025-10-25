@@ -29,7 +29,6 @@ import re
 import sys
 import warnings
 from pathlib import Path
-from typing import Optional
 
 # Suppress SyntaxWarnings from the AST parser
 warnings.filterwarnings("ignore", category=SyntaxWarning)
@@ -48,10 +47,10 @@ def extract_top_level_symbols(file_path: str) -> list[str]:
         List of symbol names
     """
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             source = f.read()
-    except (IOError, UnicodeDecodeError) as e:
-        raise IOError(f"Cannot read file {file_path}: {e}")
+    except (OSError, UnicodeDecodeError) as e:
+        raise OSError(f"Cannot read file {file_path}: {e}")
 
     try:
         tree = ast.parse(source)
@@ -192,9 +191,9 @@ def _extract_imports_from_file(file_path: str, target_module_name: str) -> set[s
     imported_symbols = set()
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             source = f.read()
-    except (IOError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError):
         return imported_symbols
 
     try:
@@ -256,7 +255,7 @@ def _extract_imports_from_file(file_path: str, target_module_name: str) -> set[s
 
 def find_all_symbol_references(
     target_file: str,
-    workspace_root: Optional[str] = None,
+    workspace_root: str | None = None,
 ) -> dict[str, list[dict]]:
     """
     Find all references to top-level symbols from a target file.
@@ -329,7 +328,7 @@ def find_all_symbol_references(
 
 
 def _find_python_files(
-    root_dir: str, exclude_dirs: Optional[list[str]] = None
+    root_dir: str, exclude_dirs: list[str] | None = None
 ) -> list[str]:
     """
     Find all Python files in the given directory.
@@ -371,10 +370,10 @@ def _find_references_in_file(file_path: str, symbol_name: str) -> list[dict]:
     references = []
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             source = f.read()
             lines = source.split("\n")
-    except (IOError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError):
         return references
 
     try:

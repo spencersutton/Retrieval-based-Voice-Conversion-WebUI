@@ -4,8 +4,9 @@ import logging
 import os
 import shutil
 import sys
+from collections.abc import Callable
 from multiprocessing import cpu_count
-from typing import Any, Callable
+from typing import Any
 
 import torch
 
@@ -59,7 +60,7 @@ class Config:
             p = f"configs/inuse/{config_file}"
             if not os.path.exists(p):
                 shutil.copy(f"configs/{config_file}", p)
-            with open(f"configs/inuse/{config_file}", "r") as f:
+            with open(f"configs/inuse/{config_file}") as f:
                 d[config_file] = json.load(f)
         return d
 
@@ -105,7 +106,7 @@ class Config:
     def use_fp32_config(self):
         for config_file in version_config_list:
             self.json_config[config_file]["train"]["fp16_run"] = False
-            with open(f"configs/inuse/{config_file}", "r") as f:
+            with open(f"configs/inuse/{config_file}") as f:
                 strr = f.read().replace("true", "false")
             with open(f"configs/inuse/{config_file}", "w") as f:
                 f.write(strr)
@@ -176,8 +177,6 @@ class Config:
             logger.info(f"Use {self.instead} instead")
 
         logger.info(
-            "Half-precision floating-point: {}, device: {}".format(
-                self.is_half, self.device
-            )
+            f"Half-precision floating-point: {self.is_half}, device: {self.device}"
         )
         return x_pad, x_query, x_center, x_max

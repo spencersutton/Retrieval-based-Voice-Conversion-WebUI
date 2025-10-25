@@ -19,12 +19,12 @@ _exp_dir = sys.argv[4]
 _noparallel = sys.argv[5] == "True"
 _per = float(sys.argv[6])
 
-_f = open("{}/preprocess.log".format(_exp_dir), "a+")
+_f = open(f"{_exp_dir}/preprocess.log", "a+")
 
 
 def _println(strr):
     print(strr)
-    _f.write("{}\n".format(strr))
+    _f.write(f"{strr}\n")
     _f.flush()
 
 
@@ -46,8 +46,8 @@ class _PreProcess:
         self.max = 0.9
         self.alpha = 0.75
         self.exp_dir = exp_dir
-        self.gt_wavs_dir = "{}/0_gt_wavs".format(exp_dir)
-        self.wavs16k_dir = "{}/1_16k_wavs".format(exp_dir)
+        self.gt_wavs_dir = f"{exp_dir}/0_gt_wavs"
+        self.wavs16k_dir = f"{exp_dir}/1_16k_wavs"
         os.makedirs(self.exp_dir, exist_ok=True)
         os.makedirs(self.gt_wavs_dir, exist_ok=True)
         os.makedirs(self.wavs16k_dir, exist_ok=True)
@@ -55,19 +55,19 @@ class _PreProcess:
     def norm_write(self, tmp_audio, idx0, idx1):
         tmp_max = np.abs(tmp_audio).max()
         if tmp_max > 2.5:
-            print("{}-{}-{}-filtered".format(idx0, idx1, tmp_max))
+            print(f"{idx0}-{idx1}-{tmp_max}-filtered")
             return
         tmp_audio = (tmp_audio / tmp_max * (self.max * self.alpha)) + (
             1 - self.alpha
         ) * tmp_audio
         wavfile.write(
-            "{}/{}_{}.wav".format(self.gt_wavs_dir, idx0, idx1),
+            f"{self.gt_wavs_dir}/{idx0}_{idx1}.wav",
             self.sr,
             tmp_audio.astype(np.float32),
         )
         tmp_audio = librosa.resample(tmp_audio, orig_sr=self.sr, target_sr=16000)
         wavfile.write(
-            "{}/{}_{}.wav".format(self.wavs16k_dir, idx0, idx1),
+            f"{self.wavs16k_dir}/{idx0}_{idx1}.wav",
             16000,
             tmp_audio.astype(np.float32),
         )
@@ -95,9 +95,9 @@ class _PreProcess:
                         idx1 += 1
                         break
                 self.norm_write(tmp_audio, idx0, idx1)
-            _println("{}\t-> Success".format(path))
+            _println(f"{path}\t-> Success")
         except Exception:
-            _println("{}\t-> {}".format(path, traceback.format_exc()))
+            _println(f"{path}\t-> {traceback.format_exc()}")
 
     def pipeline_mp(self, infos):
         for path, idx0 in infos:
@@ -106,7 +106,7 @@ class _PreProcess:
     def pipeline_mp_inp_dir(self, inp_root, n_p):
         try:
             infos = [
-                ("{}/{}".format(inp_root, name), idx)
+                (f"{inp_root}/{name}", idx)
                 for idx, name in enumerate(sorted(list(os.listdir(inp_root))))
             ]
             if _noparallel:
@@ -123,7 +123,7 @@ class _PreProcess:
                 for i in range(n_p):
                     ps[i].join()
         except Exception:
-            _println("Fail. {}".format(traceback.format_exc()))
+            _println(f"Fail. {traceback.format_exc()}")
 
 
 def _preprocess_trainset(inp_root, sr, n_p, exp_dir, per):

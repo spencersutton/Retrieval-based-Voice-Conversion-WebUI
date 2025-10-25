@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 
 
@@ -56,7 +54,7 @@ def fused_add_tanh_sigmoid_multiply(input_a, input_b, n_channels):
     return acts
 
 
-def sequence_mask(length: torch.Tensor, max_length: Optional[int] = None):
+def sequence_mask(length: torch.Tensor, max_length: int | None = None):
     if max_length is None:
         max_length = length.max()
     x = torch.arange(max_length, dtype=length.dtype, device=length.device)
