@@ -1,7 +1,7 @@
 import multiprocessing
-import os
 import sys
 import traceback
+from pathlib import Path
 
 import librosa
 import numpy as np
@@ -12,45 +12,45 @@ from infer.lib.audio import load_audio
 from infer.lib.slicer2 import Slicer
 
 print(*sys.argv[1:])
-_inp_root = sys.argv[1]
-_sr = int(sys.argv[2])
-_n_p = int(sys.argv[3])
-_exp_dir = sys.argv[4]
-_noparallel = sys.argv[5] == "True"
+_input_root = Path(sys.argv[1])
+_sample_rate = int(sys.argv[2])
+_num_processes = int(sys.argv[3])
+_exp_dir = Path(sys.argv[4])
+_no_parallel = sys.argv[5] == "True"
 _per = float(sys.argv[6])
 
-_f = open(f"{_exp_dir}/preprocess.log", "a+")
+_f = (_exp_dir / "preprocess.log").open("a+", encoding="utf-8")
 
 
-def _println(strr):
+def _println(strr: str):
     print(strr)
     _f.write(f"{strr}\n")
     _f.flush()
 
 
 class _PreProcess:
-    def __init__(self, sr, exp_dir, per=3.7):
+    def __init__(self, sample_rate: int, exp_dir: Path, per: float = 3.7):
         self.slicer = Slicer(
-            sr=sr,
+            sample_rate=sample_rate,
             threshold=-42,
             min_length=1500,
             min_interval=400,
             hop_size=15,
             max_sil_kept=500,
         )
-        self.sr = sr
-        self.bh, self.ah = signal.butter(N=5, Wn=48, btype="high", fs=self.sr)
+        self.sr = sample_rate
+        self.bh, self.ah = signal.butter(N=5, Wn=48, btype="high", fs=self.sr)  # type: ignore
         self.per = per
         self.overlap = 0.3
         self.tail = self.per + self.overlap
         self.max = 0.9
         self.alpha = 0.75
         self.exp_dir = exp_dir
-        self.gt_wavs_dir = f"{exp_dir}/0_gt_wavs"
-        self.wavs16k_dir = f"{exp_dir}/1_16k_wavs"
-        os.makedirs(self.exp_dir, exist_ok=True)
-        os.makedirs(self.gt_wavs_dir, exist_ok=True)
-        os.makedirs(self.wavs16k_dir, exist_ok=True)
+        self.gt_wavs_dir = exp_dir / "0_gt_wavs"
+        self.wavs16k_dir = exp_dir / "1_16k_wavs"
+        self.exp_dir.mkdir(exist_ok=True, parents=True)
+        self.gt_wavs_dir.mkdir(exist_ok=True, parents=True)
+        self.wavs16k_dir.mkdir(exist_ok=True, parents=True)
 
     def norm_write(self, tmp_audio, idx0, idx1):
         tmp_max = np.abs(tmp_audio).max()
@@ -72,7 +72,7 @@ class _PreProcess:
             tmp_audio.astype(np.float32),
         )
 
-    def pipeline(self, path, idx0):
+    def pipeline(self, path: str, idx0: int):
         try:
             audio = load_audio(path, self.sr)
             # zero phased digital filter cause pre-ringing noise...
@@ -103,35 +103,47 @@ class _PreProcess:
         for path, idx0 in infos:
             self.pipeline(path, idx0)
 
-    def pipeline_mp_inp_dir(self, inp_root, n_p):
+    def pipeline_mp_inp_dir(self, input_root: Path, num_processes: int):
         try:
             infos = [
-                (f"{inp_root}/{name}", idx)
-                for idx, name in enumerate(sorted(list(os.listdir(inp_root))))
+                (str(path), idx)
+                for idx, path in enumerate(sorted(input_root.iterdir()))
             ]
-            if _noparallel:
-                for i in range(n_p):
-                    self.pipeline_mp(infos[i::n_p])
+            if _no_parallel:
+                for i in range(num_processes):
+                    self.pipeline_mp(infos[i::num_processes])
             else:
                 ps = []
-                for i in range(n_p):
+                for i in range(num_processes):
                     p = multiprocessing.Process(
-                        target=self.pipeline_mp, args=(infos[i::n_p],)
+                        target=self.pipeline_mp, args=(infos[i::num_processes],)
                     )
                     ps.append(p)
                     p.start()
-                for i in range(n_p):
+                for i in range(num_processes):
                     ps[i].join()
         except Exception:
             _println(f"Fail. {traceback.format_exc()}")
 
 
-def _preprocess_trainset(inp_root, sr, n_p, exp_dir, per):
-    pp = _PreProcess(sr, exp_dir, per)
+def _preprocess_trainset(
+    input_root: Path,
+    sample_rate: int,
+    num_processes: int,
+    exp_dir: Path,
+    per: float,
+):
+    pp = _PreProcess(sample_rate, exp_dir, per)
     _println("start preprocess")
-    pp.pipeline_mp_inp_dir(inp_root, n_p)
+    pp.pipeline_mp_inp_dir(input_root, num_processes)
     _println("end preprocess")
 
 
 if __name__ == "__main__":
-    _preprocess_trainset(_inp_root, _sr, _n_p, _exp_dir, _per)
+    _preprocess_trainset(
+        _input_root,
+        _sample_rate,
+        _num_processes,
+        _exp_dir,
+        _per,
+    )
