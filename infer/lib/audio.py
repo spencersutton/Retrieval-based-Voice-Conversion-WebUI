@@ -13,14 +13,14 @@ def wav2(i: str, o: str, format: str) -> None:
     if format == "mp4":
         format = "aac"
 
-    ostream = out.add_stream(format)
+    ostream = out.add_stream(format)  # pyright: ignore[reportUnknownMemberType]
 
     for frame in inp.decode(audio=0):
-        for p in ostream.encode(frame):
-            out.mux(p)
+        for p in ostream.encode(frame):  # type: ignore
+            out.mux(p)  # type: ignore
 
-    for p in ostream.encode(None):
-        out.mux(p)
+    for p in ostream.encode(None):  # type: ignore
+        out.mux(p)  # pyright: ignore[reportUnknownArgumentType]
 
     out.close()
     inp.close()
@@ -33,7 +33,7 @@ def load_audio(file: str, sr: int) -> np.ndarray:
 
             resampler = av.AudioResampler(format="flt", layout="mono", rate=sr)
 
-            audio_data = []
+            audio_data: list[np.ndarray] = []
             for frame in container.decode(stream):
                 if not isinstance(frame, av.audio.frame.AudioFrame):
                     continue
@@ -41,10 +41,8 @@ def load_audio(file: str, sr: int) -> np.ndarray:
                 resampled = resampler.resample(frame)
                 if not resampled:
                     continue
-                if isinstance(resampled, list):
-                    frames = resampled
-                else:
-                    frames = [resampled]
+                assert isinstance(resampled, list)
+                frames = resampled
 
                 for f in frames:
                     arr = f.to_ndarray()
