@@ -36,6 +36,7 @@ from infer.lib.train.losses import (
 )
 from infer.lib.train.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 from infer.lib.train.process_ckpt import savee
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -93,18 +94,18 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
     global global_step
     if rank == 0:
         logger.info(hps)
+        model_dir_path = Path(hps.model_dir)
+        writer = SummaryWriter(log_dir=str(model_dir_path))
+        writer_eval = SummaryWriter(log_dir=str(model_dir_path / "eval"))
 
-        writer = SummaryWriter(log_dir=hps.model_dir)
-        writer_eval = SummaryWriter(log_dir=os.path.join(hps.model_dir, "eval"))
-
-    dist.init_process_group(
+        dist.init_process_group(
         backend="gloo", init_method="env://", world_size=n_gpus, rank=rank
-    )
-    torch.manual_seed(hps.train.seed)
-    if torch.cuda.is_available():
+        )
+        torch.manual_seed(hps.train.seed)
+        if torch.cuda.is_available():
         torch.cuda.set_device(rank)
 
-    if hps.if_f0 == 1:
+        if hps.if_f0 == 1:
         train_dataset = TextAudioLoaderMultiNSFsid(hps.data.training_files, hps.data)
     else:
         train_dataset = TextAudioLoader(hps.data.training_files, hps.data)
