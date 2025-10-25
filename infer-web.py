@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import pathlib
 import platform
 import shutil
 import threading
@@ -55,7 +54,7 @@ _tmp.mkdir(exist_ok=True)
 (_now_dir / "assets" / "weights").mkdir(exist_ok=True)
 os.environ["TEMP"] = str(_tmp)
 warnings.filterwarnings("ignore")
-torch.manual_seed(114514)
+torch.manual_seed(114514)  # type: ignore
 
 
 _config = Config()
@@ -122,9 +121,9 @@ _index_root = os.getenv("index_root", "logs")
 _outside_index_root = os.getenv("outside_index_root")
 
 names: list[str] = []
-for name in os.listdir(_weight_root):
-    if name.endswith(".pth"):
-        names.append(name)
+if _weight_root:
+    for path in Path(_weight_root).glob("*.pth"):
+        names.append(path.name)
 index_paths: list[str] = []
 
 
@@ -144,14 +143,14 @@ _lookup_indices(_outside_index_root)
 
 def _change_choices() -> tuple[dict[str, object], dict[str, object]]:
     names: list[str] = []
-    for name in os.listdir(_weight_root):
-        if name.endswith(".pth"):
-            names.append(name)
+    if _weight_root:
+        for path in Path(_weight_root).glob("*.pth"):
+            names.append(path.name)
     index_paths_local: list[str] = []
-    for root, _dirs, files in os.walk(_index_root, topdown=False):
-        for name in files:
-            if name.endswith(".index") and "trained" not in name:
-                index_paths_local.append(f"{root}/{name}")
+    if _index_root:
+        for path in Path(_index_root).rglob("*.index"):
+            if "trained" not in path.name:
+                index_paths_local.append(str(path))
     return {"choices": sorted(names), "__type__": "update"}, {
         "choices": sorted(index_paths_local),
         "__type__": "update",
@@ -206,30 +205,22 @@ def _preprocess_dataset(
     n_p: int,
 ) -> Generator[str]:
     sr = _sr_dict[sr_str]
-    os.makedirs(f"{_now_dir}/logs/{exp_dir}", exist_ok=True)
-    f = open(f"{_now_dir}/logs/{exp_dir}/preprocess.log", "w")
-    f.close()
-    cmd = f'"{_config.python_cmd}" infer/modules/train/preprocess.py "{trainset_dir}" {sr} {n_p} "{_now_dir}/logs/{exp_dir}" {_config.noparallel} {_config.preprocess_per:.1f}'
+    exp_path = _now_dir / "logs" / exp_dir
+    exp_path.mkdir(parents=True, exist_ok=True)
+    log_path = exp_path / "preprocess.log"
+    log_path.write_text("")
+    cmd = f'"{_config.python_cmd}" infer/modules/train/preprocess.py "{trainset_dir}" {sr} {n_p} "{exp_path}" {_config.noparallel} {_config.preprocess_per:.1f}'
     _logger.info("Execute: " + cmd)
 
     p = Popen(cmd, shell=True)
-    # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
-    threading.Thread(
-        target=_if_done,
-        args=(
-            done,
-            p,
-        ),
-    ).start()
-    while 1:
-        with open(f"{_now_dir}/logs/{exp_dir}/preprocess.log") as f:
-            yield (f.read())
+    threading.Thread(target=_if_done, args=(done, p)).start()
+    while True:
+        yield log_path.read_text()
         sleep(1)
         if done[0]:
             break
-    with open(f"{_now_dir}/logs/{exp_dir}/preprocess.log") as f:
-        log = f.read()
+    log = log_path.read_text()
     _logger.info(log)
     yield log
 
@@ -243,9 +234,9 @@ def _extract_f0_feature(
     gpus_rmvpe_str: str,
 ):
     gpus = gpu_str.split("-")
-    os.makedirs(f"{_now_dir}/logs/{exp_dir}", exist_ok=True)
-    f = open(f"{_now_dir}/logs/{exp_dir}/extract_f0_feature.log", "w")
-    f.close()
+    log_dir = _now_dir / "logs" / exp_dir
+    log_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / "extract_f0_feature.log").touch()
     if if_f0:
         if f0method != "rmvpe_gpu":
             cmd = f'"{_config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{_now_dir}/logs/{exp_dir}" {n_p} {f0method}'
@@ -253,13 +244,7 @@ def _extract_f0_feature(
             p = Popen(cmd, shell=True, cwd=_now_dir)
             # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
             done = [False]
-            threading.Thread(
-                target=_if_done,
-                args=(
-                    done,
-                    p,
-                ),
-            ).start()
+            threading.Thread(target=_if_done, args=(done, p)).start()
         else:
             if gpus_rmvpe_str != "-":
                 gpus_rmvpe = gpus_rmvpe_str.split("-")
@@ -272,93 +257,56 @@ def _extract_f0_feature(
                     ps.append(p)
                 # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
                 done = [False]
-                threading.Thread(
-                    target=_if_done_multi,  #
-                    args=(
-                        done,
-                        ps,
-                    ),
-                ).start()
+                threading.Thread(target=_if_done_multi, args=(done, ps)).start()
             else:
-                cmd = (
-                    _config.python_cmd
-                    + f' infer/modules/train/extract/extract_f0_rmvpe_dml.py "{_now_dir}/logs/{exp_dir}" '
-                )
+                cmd = f'"{_config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe_dml.py "{_now_dir}/logs/{exp_dir}"'
                 _logger.info("Execute: " + cmd)
                 p = Popen(cmd, shell=True, cwd=_now_dir)
                 p.wait()
                 done = [True]
-        while 1:
-            with open(f"{_now_dir}/logs/{exp_dir}/extract_f0_feature.log") as f:
-                yield (f.read())
+        log_file = _now_dir / "logs" / exp_dir / "extract_f0_feature.log"
+        while True:
+            yield log_file.read_text()
             sleep(1)
             if done[0]:
                 break
-        with open(f"{_now_dir}/logs/{exp_dir}/extract_f0_feature.log") as f:
-            log = f.read()
+        log = log_file.read_text()
         _logger.info(log)
         yield log
     # 对不同part分别开多进程
     leng = len(gpus)
     ps: list[Popen[bytes]] = []
+    log_file = _now_dir / "logs" / exp_dir / "extract_f0_feature.log"
     for idx, n_g in enumerate(gpus):
         cmd = f'"{_config.python_cmd}" infer/modules/train/extract_feature_print.py {_config.device} {leng} {idx} {n_g} "{_now_dir}/logs/{exp_dir}" {_config.is_half}'
         _logger.info("Execute: " + cmd)
         p = Popen(cmd, shell=True, cwd=_now_dir)
         ps.append(p)
-    # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
-    threading.Thread(
-        target=_if_done_multi,
-        args=(
-            done,
-            ps,
-        ),
-    ).start()
-    while 1:
-        with open(f"{_now_dir}/logs/{exp_dir}/extract_f0_feature.log") as f:
-            yield (f.read())
+    threading.Thread(target=_if_done_multi, args=(done, ps)).start()
+    log_file = _now_dir / "logs" / exp_dir / "extract_f0_feature.log"
+    while True:
+        yield log_file.read_text()
         sleep(1)
         if done[0]:
             break
-    with open(f"{_now_dir}/logs/{exp_dir}/extract_f0_feature.log") as f:
-        log = f.read()
+    log = log_file.read_text()
     _logger.info(log)
     yield log
 
 
-def _get_pretrained_models(path_str: str, f0_str: str, sr2: str):
-    if_pretrained_generator_exist = os.access(
-        f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth", os.F_OK
-    )
-    if_pretrained_discriminator_exist = os.access(
-        f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth", os.F_OK
-    )
-    if not if_pretrained_generator_exist:
-        _logger.warning(
-            "assets/pretrained%s/%sG%s.pth not exist, will not use pretrained model",
-            path_str,
-            f0_str,
-            sr2,
-        )
-    if not if_pretrained_discriminator_exist:
-        _logger.warning(
-            "assets/pretrained%s/%sD%s.pth not exist, will not use pretrained model",
-            path_str,
-            f0_str,
-            sr2,
-        )
+def _get_pretrained_models(path_str: str, f0_str: str, sr2: str) -> tuple[str, str]:
+    pretrained_dir = Path("assets") / f"pretrained{path_str}"
+    gen_path = pretrained_dir / f"{f0_str}G{sr2}.pth"
+    disc_path = pretrained_dir / f"{f0_str}D{sr2}.pth"
+
+    if not gen_path.exists():
+        _logger.warning("%s not exist, will not use pretrained model", gen_path)
+    if not disc_path.exists():
+        _logger.warning("%s not exist, will not use pretrained model", disc_path)
     return (
-        (
-            f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth"
-            if if_pretrained_generator_exist
-            else ""
-        ),
-        (
-            f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth"
-            if if_pretrained_discriminator_exist
-            else ""
-        ),
+        str(gen_path) if gen_path.exists() else "",
+        str(disc_path) if disc_path.exists() else "",
     )
 
 
@@ -393,65 +341,62 @@ def _click_train(
     if_save_every_weights18: bool,
 ):
     # 生成filelist
-    exp_dir = f"{_now_dir}/logs/{exp_dir1}"
-    os.makedirs(exp_dir, exist_ok=True)
-    gt_wavs_dir = f"{exp_dir}/0_gt_wavs"
-    feature_dir = f"{exp_dir}/3_feature256" if False else f"{exp_dir}/3_feature768"
-    f0_dir = ""
-    f0nsf_dir = ""
+    exp_dir = Path(_now_dir) / "logs" / exp_dir1
+    exp_dir.mkdir(exist_ok=True)
+    gt_wavs_dir = exp_dir / "0_gt_wavs"
+    feature_dir = exp_dir / ("3_feature256" if False else "3_feature768")
+    f0_dir = exp_dir / "2a_f0" if if_f0_3 else Path()
+    f0nsf_dir = exp_dir / "2b-f0nsf" if if_f0_3 else Path()
+
     if if_f0_3:
-        f0_dir = f"{exp_dir}/2a_f0"
-        f0nsf_dir = f"{exp_dir}/2b-f0nsf"
         names = (
-            set([name.split(".")[0] for name in os.listdir(gt_wavs_dir)])
-            & set([name.split(".")[0] for name in os.listdir(feature_dir)])
-            & set([name.split(".")[0] for name in os.listdir(f0_dir)])
-            & set([name.split(".")[0] for name in os.listdir(f0nsf_dir)])
+            set(p.stem for p in gt_wavs_dir.iterdir() if p.is_file())
+            & set(p.stem for p in feature_dir.iterdir() if p.is_file())
+            & set(p.stem for p in f0_dir.iterdir() if p.is_file())
+            & set(p.stem for p in f0nsf_dir.iterdir() if p.is_file())
         )
     else:
-        names = set([name.split(".")[0] for name in os.listdir(gt_wavs_dir)]) & set(
-            [name.split(".")[0] for name in os.listdir(feature_dir)]
+        names = set(p.stem for p in gt_wavs_dir.iterdir() if p.is_file()) & set(
+            p.stem for p in feature_dir.iterdir() if p.is_file()
         )
+
     opt: list[str] = []
     for name in names:
         if if_f0_3:
             opt.append(
-                "{}/{}.wav|{}/{}.npy|{}/{}.wav.npy|{}/{}.wav.npy|{}".format(
-                    gt_wavs_dir.replace("\\", "\\\\"),
-                    name,
-                    feature_dir.replace("\\", "\\\\"),
-                    name,
-                    f0_dir.replace("\\", "\\\\"),
-                    name,
-                    f0nsf_dir.replace("\\", "\\\\"),
-                    name,
-                    spk_id5,
-                )
+                f"{gt_wavs_dir.as_posix()}/{name}.wav|"
+                f"{feature_dir.as_posix()}/{name}.npy|"
+                f"{f0_dir.as_posix()}/{name}.wav.npy|"
+                f"{f0nsf_dir.as_posix()}/{name}.wav.npy|"
+                f"{spk_id5}"
             )
         else:
             opt.append(
-                "{}/{}.wav|{}/{}.npy|{}".format(
-                    gt_wavs_dir.replace("\\", "\\\\"),
-                    name,
-                    feature_dir.replace("\\", "\\\\"),
-                    name,
-                    spk_id5,
-                )
+                f"{gt_wavs_dir.as_posix()}/{name}.wav|"
+                f"{feature_dir.as_posix()}/{name}.npy|"
+                f"{spk_id5}"
             )
+
     fea_dim = 256 if False else 768
-    if if_f0_3:
-        for _ in range(2):
+    mute_dir = _now_dir / "logs" / "mute"
+    for _ in range(2):
+        if if_f0_3:
             opt.append(
-                f"{_now_dir}/logs/mute/0_gt_wavs/mute{sr2}.wav|{_now_dir}/logs/mute/3_feature{fea_dim}/mute.npy|{_now_dir}/logs/mute/2a_f0/mute.wav.npy|{_now_dir}/logs/mute/2b-f0nsf/mute.wav.npy|{spk_id5}"
+                f"{(mute_dir / '0_gt_wavs' / f'mute{sr2}.wav').as_posix()}|"
+                f"{(mute_dir / f'3_feature{fea_dim}' / 'mute.npy').as_posix()}|"
+                f"{(mute_dir / '2a_f0' / 'mute.wav.npy').as_posix()}|"
+                f"{(mute_dir / '2b-f0nsf' / 'mute.wav.npy').as_posix()}|"
+                f"{spk_id5}"
             )
-    else:
-        for _ in range(2):
+        else:
             opt.append(
-                f"{_now_dir}/logs/mute/0_gt_wavs/mute{sr2}.wav|{_now_dir}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id5}"
+                f"{(mute_dir / '0_gt_wavs' / f'mute{sr2}.wav').as_posix()}|"
+                f"{(mute_dir / f'3_feature{fea_dim}' / 'mute.npy').as_posix()}|"
+                f"{spk_id5}"
             )
+
     shuffle(opt)
-    with open(f"{exp_dir}/filelist.txt", "w") as f:
-        f.write("\n".join(opt))
+    (exp_dir / "filelist.txt").write_text("\n".join(opt), encoding="utf-8")
     _logger.debug("Write filelist done")
     # 生成config#无需生成config
 
@@ -460,49 +405,44 @@ def _click_train(
         _logger.info("No pretrained Generator")
     if pretrained_D15 == "":
         _logger.info("No pretrained Discriminator")
+
     config_path = f"v2/{sr2}.json"
-    config_save_path = os.path.join(exp_dir, "config.json")
-    if not pathlib.Path(config_save_path).exists():
-        with open(config_save_path, "w", encoding="utf-8") as f:
-            json.dump(
+    config_save_path = exp_dir / "config.json"
+    if not config_save_path.exists():
+        config_save_path.write_text(
+            json.dumps(
                 _config.json_config[config_path],
-                f,
                 ensure_ascii=False,
                 indent=4,
                 sort_keys=True,
             )
-            f.write("\n")
+            + "\n",
+            encoding="utf-8",
+        )
+
+    cmd_base = (
+        f'"{_config.python_cmd}" infer/modules/train/train.py -e "{exp_dir1}" '
+        f"-sr {sr2} -f0 {1 if if_f0_3 else 0} -bs {batch_size12} "
+    )
     if gpus16:
-        cmd = '"{}" infer/modules/train/train.py -e "{}" -sr {} -f0 {} -bs {} -g {} -te {} -se {} {} {} -l {} -c {} -sw {}'.format(
-            _config.python_cmd,
-            exp_dir1,
-            sr2,
-            1 if if_f0_3 else 0,
-            batch_size12,
-            gpus16,
-            total_epoch11,
-            save_epoch10,
-            f"-pg {pretrained_G14}" if pretrained_G14 != "" else "",
-            f"-pd {pretrained_D15}" if pretrained_D15 != "" else "",
-            1 if if_save_latest13 == _i18n("是") else 0,
-            1 if if_cache_gpu17 == _i18n("是") else 0,
-            1 if if_save_every_weights18 == _i18n("是") else 0,
+        cmd = (
+            f"{cmd_base}-g {gpus16} -te {total_epoch11} -se {save_epoch10} "
+            f"{f'-pg {pretrained_G14}' if pretrained_G14 else ''} "
+            f"{f'-pd {pretrained_D15}' if pretrained_D15 else ''} "
+            f"-l {1 if if_save_latest13 == _i18n('是') else 0} "
+            f"-c {1 if if_cache_gpu17 == _i18n('是') else 0} "
+            f"-sw {1 if if_save_every_weights18 == _i18n('是') else 0}"
         )
     else:
-        cmd = '"{}" infer/modules/train/train.py -e "{}" -sr {} -f0 {} -bs {} -te {} -se {} {} {} -l {} -c {} -sw {}'.format(
-            _config.python_cmd,
-            exp_dir1,
-            sr2,
-            1 if if_f0_3 else 0,
-            batch_size12,
-            total_epoch11,
-            save_epoch10,
-            f"-pg {pretrained_G14}" if pretrained_G14 != "" else "",
-            f"-pd {pretrained_D15}" if pretrained_D15 != "" else "",
-            1 if if_save_latest13 == _i18n("是") else 0,
-            1 if if_cache_gpu17 == _i18n("是") else 0,
-            1 if if_save_every_weights18 == _i18n("是") else 0,
+        cmd = (
+            f"{cmd_base}-te {total_epoch11} -se {save_epoch10} "
+            f"{f'-pg {pretrained_G14}' if pretrained_G14 else ''} "
+            f"{f'-pd {pretrained_D15}' if pretrained_D15 else ''} "
+            f"-l {1 if if_save_latest13 == _i18n('是') else 0} "
+            f"-c {1 if if_cache_gpu17 == _i18n('是') else 0} "
+            f"-sw {1 if if_save_every_weights18 == _i18n('是') else 0}"
         )
+
     _logger.info("Execute: " + cmd)
     p = Popen(cmd, shell=True, cwd=_now_dir)
     p.wait()
