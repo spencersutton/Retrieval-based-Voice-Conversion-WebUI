@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from scipy.io.wav_file import read
+from scipy.io.wav_file import read  # type: ignore
 
 MATPLOTLIB_FLAG = False
 
@@ -16,18 +16,22 @@ logger = logging
 
 
 def load_checkpoint(
-    checkpoint_path: str, model: object, optimizer: object = None, load_opt: int = 1
-) -> tuple[object, object, object, object]:
+    checkpoint_path: str,
+    model: torch.nn.parallel.DistributedDataParallel,
+    optimizer: torch.optim.Optimizer | None = None,
+    load_opt: int = 1,
+) -> tuple[torch.nn.Module, torch.optim.Optimizer | None, float, int]:
     checkpoint_file = Path(checkpoint_path)
     assert checkpoint_file.is_file()
     checkpoint_dict = torch.load(str(checkpoint_file), map_location="cpu")
 
     saved_state_dict = checkpoint_dict["model"]
     if hasattr(model, "module"):
+        assert isinstance(model.module, torch.nn.Module)  # type: ignore
         state_dict = model.module.state_dict()
     else:
         state_dict = model.state_dict()
-    new_state_dict = {}
+    new_state_dict: dict[str, torch.Tensor] = {}
     for k, v in state_dict.items():  # 模型需要的shape
         try:
             new_state_dict[k] = saved_state_dict[k]
@@ -43,6 +47,7 @@ def load_checkpoint(
             logger.info("%s is not in the checkpoint", k)  # pretrain缺失的
             new_state_dict[k] = v  # 模型自带的随机值
     if hasattr(model, "module"):
+        assert isinstance(model.module, torch.nn.Module)  # type: ignore
         model.module.load_state_dict(new_state_dict, strict=False)
     else:
         model.load_state_dict(new_state_dict, strict=False)
@@ -59,14 +64,22 @@ def load_checkpoint(
     return model, optimizer, learning_rate, iteration
 
 
-def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path):
+def save_checkpoint(
+    model: torch.nn.parallel.DistributedDataParallel,
+    optimizer: torch.optim.Optimizer | None,
+    learning_rate: float,
+    iteration: int,
+    checkpoint_path: str,
+):
     logger.info(
         f"Saving model and optimizer state at epoch {iteration} to {checkpoint_path}"
     )
     if hasattr(model, "module"):
+        assert isinstance(model.module, torch.nn.Module)  # type: ignore
         state_dict = model.module.state_dict()
     else:
         state_dict = model.state_dict()
+    assert optimizer is not None
     torch.save(
         {
             "model": state_dict,
@@ -79,13 +92,13 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path)
 
 
 def summarize(
-    writer,
-    global_step,
-    scalars={},
-    histograms={},
-    images={},
-    audios={},
-    audio_sampling_rate=22050,
+    writer: object,
+    global_step: int,
+    scalars: dict[str, float] = {},
+    histograms: dict[str, object] = {},
+    images: dict[str, object] = {},
+    audios: dict[str, object] = {},
+    audio_sampling_rate: int = 22050,
 ):
     for k, v in scalars.items():
         writer.add_scalar(k, v, global_step)
@@ -148,7 +161,7 @@ def load_filepaths_and_text(filename: str, split: str = "|") -> list[list[str]]:
     return [line.strip().split(split) for line in lines]
 
 
-def get_hparams(init=True):
+def get_hparams():
     """
     todo:
       结尾七人组：
@@ -320,3 +333,6 @@ class HParams:
     data: HParamsData
     model: HParamsModel
     train: HParamsTrain
+
+    model_dir: Path
+    experiment_dir: Path
