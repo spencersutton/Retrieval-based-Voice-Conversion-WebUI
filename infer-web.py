@@ -245,25 +245,24 @@ def _extract_f0_feature(
             # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
             done = [False]
             threading.Thread(target=_if_done, args=(done, p)).start()
-        else:
-            if gpus_rmvpe_str != "-":
-                gpus_rmvpe = gpus_rmvpe_str.split("-")
-                leng = len(gpus_rmvpe)
-                ps = []
-                for idx, n_g in enumerate(gpus_rmvpe):
-                    cmd = f'"{_config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {leng} {idx} {n_g} "{_now_dir}/logs/{exp_dir}" {_config.is_half} '
-                    _logger.info("Execute: " + cmd)
-                    p = Popen(cmd, shell=True, cwd=_now_dir)
-                    ps.append(p)
-                # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
-                done = [False]
-                threading.Thread(target=_if_done_multi, args=(done, ps)).start()
-            else:
-                cmd = f'"{_config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe_dml.py "{_now_dir}/logs/{exp_dir}"'
+        elif gpus_rmvpe_str != "-":
+            gpus_rmvpe = gpus_rmvpe_str.split("-")
+            leng = len(gpus_rmvpe)
+            ps = []
+            for idx, n_g in enumerate(gpus_rmvpe):
+                cmd = f'"{_config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {leng} {idx} {n_g} "{_now_dir}/logs/{exp_dir}" {_config.is_half} '
                 _logger.info("Execute: " + cmd)
                 p = Popen(cmd, shell=True, cwd=_now_dir)
-                p.wait()
-                done = [True]
+                ps.append(p)
+            # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
+            done = [False]
+            threading.Thread(target=_if_done_multi, args=(done, ps)).start()
+        else:
+            cmd = f'"{_config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe_dml.py "{_now_dir}/logs/{exp_dir}"'
+            _logger.info("Execute: " + cmd)
+            p = Popen(cmd, shell=True, cwd=_now_dir)
+            p.wait()
+            done = [True]
         log_file = _now_dir / "logs" / exp_dir / "extract_f0_feature.log"
         while True:
             yield log_file.read_text()

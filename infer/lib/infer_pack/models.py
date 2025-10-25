@@ -1064,7 +1064,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
     def forward(
         self, y: torch.Tensor, y_hat: torch.Tensor
     ) -> tuple[list, list, list, list]:
-        y_d_rs = []  #
+        y_d_rs = []
         y_d_gs = []
         fmap_rs = []
         fmap_gs = []

@@ -70,7 +70,7 @@ if not os.access(_model_path, os.F_OK):
     printt(
         f"Error: Extracting is shut down because {_model_path} does not exist, you may download it from https://huggingface.co/lj1995/VoiceConversionWebUI/tree/main"
     )
-    exit(0)
+    sys.exit(0)
 with safe_globals([Dictionary]):
     models, saved_cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(
         [_model_path],

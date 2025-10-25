@@ -67,7 +67,7 @@ class VC:
             "__type__": "update",
         }
 
-        if sid == "" or sid == []:
+        if sid in ("", []):
             if (
                 self.hubert_model is not None
             ):  # 考虑到轮询, 需要加个判断看是否 sid 是由有模型切换到无模型的

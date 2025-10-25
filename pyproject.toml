@@ -35,25 +35,28 @@ fairseq = { git = "https://github.com/yamada-sexta/fairseq.git" }
 
 [tool.ruff.lint]
 extend-select = [
-    "I",
-    "UP",
-    "PTH",
-    "TC",
-    "NPY",
-    "RUF",
-    "FURB",
+    "C4",
+    "COM",
+    "ERA",
     "F",
-    "PERF",
-    "N",
     "FLY",
-    "TID",
-    "PIE",
+    "FURB",
+    "I",
     "ICN",
     "ISC",
-    "ERA",
-    "C4",
+    "N",
+    "NPY",
+    "PERF",
+    "PIE",
+    "PTH",
+    "Q",
+    "RUF",
+    "TC",
+    "TID",
+    "UP",
+    "PL",
 ]
-ignore = ["E741"]
+ignore = ["E741", "COM812"]
 
 [tool.pyright]
 typeCheckingMode = "strict"

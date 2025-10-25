@@ -35,11 +35,11 @@ def load_checkpoint(
     for k, v in state_dict.items():  # 模型需要的shape
         try:
             new_state_dict[k] = saved_state_dict[k]
-            if saved_state_dict[k].shape != state_dict[k].shape:
+            if saved_state_dict[k].shape != v.shape:
                 logger.warning(
                     "shape-%s-mismatch|need-%s|get-%s",
                     k,
-                    state_dict[k].shape,
+                    v.shape,
                     saved_state_dict[k].shape,
                 )
                 raise KeyError

@@ -4,11 +4,11 @@ from io import BytesIO
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from librosa.filters import mel
 from librosa.util import pad_center
 from scipy.signal import get_window
+from torch import nn
 
 from infer.lib import jit
 
@@ -257,7 +257,7 @@ class _ResEncoderBlock(nn.Module):
             return x
 
 
-class _Intermediate(nn.Module):  #
+class _Intermediate(nn.Module):
     def __init__(
         self, in_channels, out_channels, n_inters, n_blocks, momentum=0.01
     ) -> None:
