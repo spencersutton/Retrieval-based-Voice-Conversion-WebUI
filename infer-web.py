@@ -502,26 +502,33 @@ def _click_train(
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
 
 
-def _train_index(exp_dir1: str):
+def _train_index(exp_dir1: str) -> Generator[str]:
     _logger.info("Start training index for %s", exp_dir1)
 
     exp_dir = f"logs/{exp_dir1}"
     os.makedirs(exp_dir, exist_ok=True)
-    feature_dir = f"{exp_dir}/3_feature256" if False else f"{exp_dir}/3_feature768"
+    feature_dir = f"{exp_dir}/3_feature768"
+
     if not os.path.exists(feature_dir):
         return "请先进行特征提取!"
+
     listdir_res = list(os.listdir(feature_dir))
     if len(listdir_res) == 0:
         return "请先进行特征提取！"
+
+    # Load and concatenate all feature files
     infos: list[str] = []
     npys: list[np.ndarray] = []
     for name in sorted(listdir_res):
-        phone = np.load(f"{feature_dir}/{name}")
-        npys.append(phone)
+        npys.append(np.load(f"{feature_dir}/{name}"))
+
     big_npy = np.concatenate(npys, 0)
+
+    # Shuffle and optionally compress features
     big_npy_idx = np.arange(big_npy.shape[0])
     np.random.shuffle(big_npy_idx)
     big_npy = big_npy[big_npy_idx]
+
     if big_npy.shape[0] > 2e5:
         infos.append(f"Trying doing kmeans {big_npy.shape[0]} shape to 10k centers.")
         yield "\n".join(infos)
@@ -538,46 +545,50 @@ def _train_index(exp_dir1: str):
                 .cluster_centers_
             )
         except Exception:
-            info = traceback.format_exc()
-            _logger.info(info)
-            infos.append(info)
+            infos.append(traceback.format_exc())
+            _logger.info(infos[-1])
             yield "\n".join(infos)
 
     np.save(f"{exp_dir}/total_fea.npy", big_npy)
+
+    # Build FAISS index
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
     infos.append(f"{big_npy.shape},{n_ivf}")
     yield "\n".join(infos)
-    index = faiss.index_factory(256 if False else 768, f"IVF{n_ivf},Flat")
-    infos.append("training")
-    yield "\n".join(infos)
-    index_ivf = faiss.extract_index_ivf(index)  #
+
+    index = faiss.index_factory(768, f"IVF{n_ivf},Flat")
+    index_ivf = faiss.extract_index_ivf(index)
     index_ivf.nprobe = 1
     index.train(big_npy)
-    faiss.write_index(
-        index,
-        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index",
+
+    # Save training index
+    trained_index_path = (
+        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
     )
+    faiss.write_index(index, trained_index_path)
+
+    # Add vectors and save final index
     infos.append("adding")
     yield "\n".join(infos)
-    batch_size_add = 8192
-    for i in range(0, big_npy.shape[0], batch_size_add):
-        index.add(big_npy[i : i + batch_size_add])
-    faiss.write_index(
-        index,
-        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index",
+
+    for i in range(0, big_npy.shape[0], 8192):
+        index.add(big_npy[i : i + 8192])
+
+    added_index_path = (
+        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
     )
-    infos.append(
-        f"成功构建索引 added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
-    )
-    try:
-        link = os.link if platform.system() == "Windows" else os.symlink
-        link(
-            f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index",
-            f"{_outside_index_root}/{exp_dir1}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index",
-        )
-        infos.append(f"链接索引到外部-{_outside_index_root}")
-    except Exception:
-        infos.append(f"链接索引到外部-{_outside_index_root}失败")
+    faiss.write_index(index, added_index_path)
+    infos.append(f"成功构建索引 {os.path.basename(added_index_path)}")
+
+    # Link to external index root if configured
+    if _outside_index_root:
+        try:
+            link_fn = os.link if platform.system() == "Windows" else os.symlink
+            external_path = f"{_outside_index_root}/{exp_dir1}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
+            link_fn(added_index_path, external_path)
+            infos.append(f"链接索引到外部-{_outside_index_root}")
+        except Exception:
+            infos.append(f"链接索引到外部-{_outside_index_root}失败")
 
     yield "\n".join(infos)
 
