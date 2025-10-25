@@ -99,6 +99,7 @@ class _PreProcess:
                         tmp_audio = audio[start:]
                         idx1 += 1
                         break
+                assert tmp_audio is not None
                 self.norm_write(tmp_audio, idx0, idx1)
             _println(f"{path}\t-> Success")
         except Exception:
