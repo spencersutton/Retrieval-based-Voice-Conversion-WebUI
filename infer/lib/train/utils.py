@@ -213,9 +213,6 @@ def get_hparams():
         help="save the extracted model in weights directory when saving checkpoints",
     )
     parser.add_argument(
-        "-v", "--version", type=str, required=True, help="model version"
-    )
-    parser.add_argument(
         "-f0",
         "--if_f0",
         type=int,
