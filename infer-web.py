@@ -8,6 +8,7 @@ import threading
 import traceback
 import warnings
 from collections.abc import Generator
+from pathlib import Path
 from random import shuffle
 from subprocess import Popen
 from time import sleep
@@ -31,7 +32,7 @@ from infer.modules.vc.modules import VC
 
 load_dotenv()
 
-_now_dir = os.getcwd()
+_now_dir = Path.cwd()
 
 logging.getLogger("numba").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -39,14 +40,20 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 _logger = logging.getLogger(__name__)
 
-_tmp = os.path.join(_now_dir, "TEMP")
+_tmp = _now_dir / "TEMP"
 shutil.rmtree(_tmp, ignore_errors=True)
-shutil.rmtree(f"{_now_dir}/runtime/Lib/site-packages/infer_pack", ignore_errors=True)
-shutil.rmtree(f"{_now_dir}/runtime/Lib/site-packages/uvr5_pack", ignore_errors=True)
-os.makedirs(_tmp, exist_ok=True)
-os.makedirs(os.path.join(_now_dir, "logs"), exist_ok=True)
-os.makedirs(os.path.join(_now_dir, "assets/weights"), exist_ok=True)
-os.environ["TEMP"] = _tmp
+shutil.rmtree(
+    _now_dir / "runtime" / "Lib" / "site-packages" / "infer_pack",
+    ignore_errors=True,
+)
+shutil.rmtree(
+    _now_dir / "runtime" / "Lib" / "site-packages" / "uvr5_pack",
+    ignore_errors=True,
+)
+_tmp.mkdir(exist_ok=True)
+(_now_dir / "logs").mkdir(exist_ok=True)
+(_now_dir / "assets" / "weights").mkdir(exist_ok=True)
+os.environ["TEMP"] = str(_tmp)
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
@@ -657,14 +664,17 @@ def _train1key(
     yield get_info_str(_i18n("全流程结束！"))
 
 
-def _change_info_(ckpt_path: str):
-    if not os.path.exists(ckpt_path.replace(os.path.basename(ckpt_path), "train.log")):
+def _change_info_(ckpt_path_str: str):
+    ckpt_path = Path(ckpt_path_str)
+    train_log_path = ckpt_path.parent / "train.log"
+    if not train_log_path.exists():
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
     try:
-        with open(ckpt_path.replace(os.path.basename(ckpt_path), "train.log")) as f:
-            info = eval(f.read().strip("\n").split("\n")[0].split("\t")[-1])
-            sr, f0 = info["sample_rate"], info["if_f0"]
-            return sr, str(f0)
+        info = eval(
+            train_log_path.read_text().strip("\n").split("\n")[0].split("\t")[-1]
+        )
+        sr, f0 = info["sample_rate"], info["if_f0"]
+        return sr, str(f0)
     except Exception:
         traceback.print_exc()
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
