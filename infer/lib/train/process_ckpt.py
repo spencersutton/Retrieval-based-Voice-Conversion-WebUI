@@ -1,17 +1,25 @@
-import os
 import traceback
 from collections import OrderedDict
+from pathlib import Path
 
 import torch
 
 from i18n.i18n import I18nAuto
+from infer.lib.train.utils import HParams
 
 i18n = I18nAuto()
 
 
-def savee(ckpt, sr, if_f0, name, epoch, hps) -> str:
+def savee(
+    ckpt: dict[str, torch.Tensor],
+    sr: int,
+    if_f0: bool,
+    name: str,
+    epoch: int,
+    hps: HParams,
+) -> str:
     try:
-        opt = OrderedDict()
+        opt: OrderedDict[str, object] = OrderedDict()
         opt["weight"] = {}
         for key in ckpt.keys():
             if "enc_q" in key:
@@ -58,12 +66,12 @@ def show_info(path: str) -> str:
         return traceback.format_exc()
 
 
-def extract_small_model(path: str, name: str, sr: str, if_f0: object, info: str) -> str:
+def extract_small_model(path: str, name: str, sr: str, if_f0: str, info: str) -> str:
     try:
         ckpt = torch.load(path, map_location="cpu")
         if "model" in ckpt:
             ckpt = ckpt["model"]
-        opt = OrderedDict()
+        opt: OrderedDict[str, object] = OrderedDict()
         opt["weight"] = {}
         for key in ckpt.keys():
             if "enc_q" in key:
@@ -148,7 +156,7 @@ def change_info(path: str, info: str, name: str) -> str:
         ckpt = torch.load(path, map_location="cpu")
         ckpt["info"] = info
         if name == "":
-            name = os.path.basename(path)
+            name = Path(path).name
         torch.save(ckpt, f"assets/weights/{name}")
         return "Success."
     except Exception:
@@ -160,9 +168,9 @@ def merge(
 ) -> str:
     try:
 
-        def extract(ckpt):
+        def extract(ckpt: dict[str, dict[str, object]]) -> OrderedDict[str, object]:
             a = ckpt["model"]
-            opt = OrderedDict()
+            opt: OrderedDict[str, object] = OrderedDict()
             opt["weight"] = {}
             for key in a.keys():
                 if "enc_q" in key:
@@ -183,7 +191,7 @@ def merge(
             ckpt2 = ckpt2["weight"]
         if sorted(list(ckpt1.keys())) != sorted(list(ckpt2.keys())):
             return "Fail to merge the models. The model architectures are not the same."
-        opt = OrderedDict()
+        opt: OrderedDict[str, object] = OrderedDict()
         opt["weight"] = {}
         for key in ckpt1.keys():
             if key == "emb_g.weight" and ckpt1[key].shape != ckpt2[key].shape:

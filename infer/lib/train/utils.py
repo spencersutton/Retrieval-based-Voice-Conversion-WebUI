@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -264,33 +265,58 @@ def get_logger(model_dir: str, filename: str = "train.log") -> logging.Logger:
     return logger
 
 
+@dataclass
+class HParamsData:
+    training_files: str
+    validation_files: str
+    text_cleaners: list[str]
+    sampling_rate: int
+    filter_length: int
+    hop_length: int
+    win_length: int
+    n_mel_channels: int
+    mel_fmin: int
+    mel_fmax: int
+
+
+@dataclass
+class HParamsTrain:
+    batch_size: int
+    learning_rate: float
+    weight_decay: float
+    segment_size: int
+    n_iter: int
+    betas: list[float]
+    eps: float
+    fp16_run: bool
+    grad_clip_thresh: float
+    acc_steps: int
+    lr_decay: float
+    warmup_steps: int
+    lr_schedule: str
+
+
+@dataclass
+class HParamsModel:
+    inter_channels: int
+    hidden_channels: int
+    filter_channels: int
+    n_heads: int
+    n_layers: int
+    kernel_size: int
+    p_dropout: float
+    resblock: str
+    resblock_kernel_sizes: list[int]
+    resblock_dilation_sizes: list[list[int]]
+    upsample_rates: list[int]
+    upsample_initial_channel: int
+    upsample_kernel_sizes: list[int]
+    spk_embed_dim: int
+    gin_channels: int
+
+
+@dataclass
 class HParams:
-    def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            if type(v) == dict:
-                v = HParams(**v)
-            self[k] = v
-
-    def keys(self):
-        return self.__dict__.keys()
-
-    def items(self):
-        return self.__dict__.items()
-
-    def values(self):
-        return self.__dict__.values()
-
-    def __len__(self):
-        return len(self.__dict__)
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __setitem__(self, key, value):
-        return setattr(self, key, value)
-
-    def __contains__(self, key):
-        return key in self.__dict__
-
-    def __repr__(self):
-        return self.__dict__.__repr__()
+    data: HParamsData
+    model: HParamsModel
+    train: HParamsTrain
