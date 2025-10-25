@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+from dataclasses import asdict
 from pathlib import Path
 from random import randint, shuffle
 from time import sleep
@@ -139,7 +140,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         net_g = RVC_Model_f0(
             hps.data.filter_length // 2 + 1,
             hps.train.segment_size // hps.data.hop_length,
-            **hps.model,
+            **asdict(hps.model),
             is_half=hps.train.fp16_run,
             sr=hps.sample_rate,
         )
@@ -147,7 +148,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         net_g = RVC_Model_nof0(
             hps.data.filter_length // 2 + 1,
             hps.train.segment_size // hps.data.hop_length,
-            **hps.model,
+            **asdict(hps.model),
             is_half=hps.train.fp16_run,
         )
     if torch.cuda.is_available():
