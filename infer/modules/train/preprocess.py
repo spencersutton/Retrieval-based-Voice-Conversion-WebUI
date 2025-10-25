@@ -85,7 +85,7 @@ class _PreProcess:
             audio = signal.lfilter(self.bh, self.ah, audio)
 
             idx1 = 0
-            for audio in self.slicer.slice(audio):  # type: ignore
+            for audio in self.slicer.slice(audio):
                 i = 0
                 tmp_audio = None
                 while 1:

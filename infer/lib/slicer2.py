@@ -71,8 +71,7 @@ class Slicer:
                 begin * self.hop_size : min(waveform.shape[0], end * self.hop_size)
             ]
 
-    # @timeit
-    def slice(self, waveform):
+    def slice(self, waveform: np.ndarray) -> list[np.ndarray]:
         if len(waveform.shape) > 1:
             samples = waveform.mean(axis=0)
         else:
