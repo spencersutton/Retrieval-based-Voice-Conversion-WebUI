@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+from pathlib import Path
 from random import randint, shuffle
 from time import sleep
 from time import time as ttime
@@ -36,7 +37,6 @@ from infer.lib.train.losses import (
 )
 from infer.lib.train.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 from infer.lib.train.process_ckpt import savee
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -99,14 +99,16 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         writer_eval = SummaryWriter(log_dir=str(model_dir_path / "eval"))
 
         dist.init_process_group(
-        backend="gloo", init_method="env://", world_size=n_gpus, rank=rank
+            backend="gloo", init_method="env://", world_size=n_gpus, rank=rank
         )
         torch.manual_seed(hps.train.seed)
         if torch.cuda.is_available():
-        torch.cuda.set_device(rank)
+            torch.cuda.set_device(rank)
 
         if hps.if_f0 == 1:
-        train_dataset = TextAudioLoaderMultiNSFsid(hps.data.training_files, hps.data)
+            train_dataset = TextAudioLoaderMultiNSFsid(
+                hps.data.training_files, hps.data
+            )
     else:
         train_dataset = TextAudioLoader(hps.data.training_files, hps.data)
     train_sampler = DistributedBucketSampler(
