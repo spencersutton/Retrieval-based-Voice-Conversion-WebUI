@@ -412,7 +412,7 @@ class SourceModuleHnNSF(torch.nn.Module):
         self.l_tanh = torch.nn.Tanh()
 
     def forward(self, x, upp=None) -> tuple[OptimizedModule, None, None]:
-        sine_wavs, uv, _ = self.l_sin_gen(x, upp)
+        sine_wavs, _uv, _ = self.l_sin_gen(x, upp)
         if self.is_half:
             sine_wavs = sine_wavs.half()
         sine_merge = self.l_tanh(self.l_linear(sine_wavs))
@@ -492,7 +492,7 @@ class GeneratorNSF(torch.nn.Module):
         self.upp = np.prod(upsample_rates)
 
     def forward(self, x, f0, g=None):
-        har_source, noi_source, uv = self.m_source(f0, self.upp)
+        har_source, _noi_source, _uv = self.m_source(f0, self.upp)
         har_source = har_source.transpose(1, 2)
         x = self.conv_pre(x)
         if g is not None:

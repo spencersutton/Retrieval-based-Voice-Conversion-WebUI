@@ -278,9 +278,9 @@ def train_and_evaluate(
 ) -> None:
     net_g, net_d = nets
     optim_g, optim_d = optims
-    train_loader, eval_loader = loaders
+    train_loader, _eval_loader = loaders
     if writers is not None:
-        writer, writer_eval = writers
+        _writer, _writer_eval = writers
 
     train_loader.batch_sampler.set_epoch(epoch)
     global global_step
@@ -415,9 +415,9 @@ def train_and_evaluate(
                 (
                     y_hat,
                     ids_slice,
-                    x_mask,
+                    _x_mask,
                     z_mask,
-                    (z, z_p, m_p, logs_p, m_q, logs_q),
+                    (_z, z_p, m_p, logs_p, _m_q, logs_q),
                 ) = net_g(phone, phone_lengths, spec, spec_lengths, sid)
             mel = spec_to_mel_torch(
                 spec,
@@ -450,7 +450,7 @@ def train_and_evaluate(
             # Discriminator
             y_d_hat_r, y_d_hat_g, _, _ = net_d(wave, y_hat.detach())
             with autocast(enabled=False):
-                loss_disc, losses_disc_r, losses_disc_g = discriminator_loss(
+                loss_disc, _losses_disc_r, _losses_disc_g = discriminator_loss(
                     y_d_hat_r, y_d_hat_g
                 )
         optim_d.zero_grad()
@@ -465,7 +465,7 @@ def train_and_evaluate(
                 loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
                 loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
                 loss_fm = feature_loss(fmap_r, fmap_g)
-                loss_gen, losses_gen = generator_loss(y_d_hat_g)
+                loss_gen, _losses_gen = generator_loss(y_d_hat_g)
                 loss_gen_all = loss_gen + loss_fm + loss_mel + loss_kl
         optim_g.zero_grad()
         scaler.scale(loss_gen_all).backward()

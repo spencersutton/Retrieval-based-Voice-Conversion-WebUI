@@ -142,7 +142,7 @@ def plot_spectrogram_to_numpy(spectrogram):
 
     fig.canvas.draw()
     data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    data = data.reshape((*fig.canvas.get_width_height()[::-1], 3))
     plt.close()
     return data
 

@@ -155,7 +155,7 @@ def compute_mask_indices(
             lengths = torch.randint(mask_other, mask_length * 2 + 1, size=[num_mask])
         elif mask_type == "normal":
             lengths = torch.normal(mask_length, mask_other, size=[num_mask])
-            lengths = [max(1, int(round(x))) for x in lengths]
+            lengths = [max(1, round(x)) for x in lengths]
         else:
             raise Exception("unknown mask selection " + mask_type)
 
@@ -215,7 +215,7 @@ def compute_mask_indices(
                 random.sample([i for i in range(mask_idc)], min_len)
             )
         if mask_dropout > 0:
-            num_holes = int(round(len(mask_idc) * mask_dropout))
+            num_holes = round(len(mask_idc) * mask_dropout)
             mask_idc = torch.asarray(
                 random.sample([i for i in range(mask_idc)], len(mask_idc) - num_holes)
             )

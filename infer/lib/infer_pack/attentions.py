@@ -286,7 +286,7 @@ class FFN(nn.Module):
         filter_channels,
         kernel_size,
         p_dropout=0.0,
-        activation: str = None,
+        activation: str | None = None,
         causal=False,
     ) -> None:
         super().__init__()
