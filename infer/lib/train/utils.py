@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from scipy.io.wav_file import read  # type: ignore
+from scipy.io.wavfile import read  # type: ignore
 
 MATPLOTLIB_FLAG = False
 
