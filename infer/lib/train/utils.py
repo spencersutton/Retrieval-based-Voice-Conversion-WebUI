@@ -124,9 +124,9 @@ def latest_checkpoint_path(dir_path_str: str, regex: str = "G_*.pth") -> str:
 def plot_spectrogram_to_numpy(spectrogram):
     global MATPLOTLIB_FLAG
     if not MATPLOTLIB_FLAG:
-        import matplotlib
+        import matplotlib as mpl
 
-        matplotlib.use("Agg")
+        mpl.use("Agg")
         MATPLOTLIB_FLAG = True
         mpl_logger = logging.getLogger("matplotlib")
         mpl_logger.setLevel(logging.WARNING)

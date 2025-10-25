@@ -112,8 +112,6 @@ def save(ckpt: dict, save_path: str) -> None:
         pickle.dump(ckpt, f)
 
 
-
-
 def rmvpe_jit_export(
     model_path: str,
     mode: str = "script",

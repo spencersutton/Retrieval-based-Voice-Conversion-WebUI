@@ -34,7 +34,22 @@ faiss = { git = "https://github.com/spencersutton/faiss.git" }
 fairseq = { git = "https://github.com/yamada-sexta/fairseq.git" }
 
 [tool.ruff.lint]
-extend-select = ["I", "UP", "PTH", "TC", "NPY", "RUF"]
+extend-select = [
+    "I",
+    "UP",
+    "PTH",
+    "TC",
+    "NPY",
+    "RUF",
+    "FURB",
+    "F",
+    "PERF",
+    "N",
+    "FLY",
+    "TID",
+    "PIE",
+    "ICN",
+]
 ignore = ["E741"]
 
 [tool.pyright]
