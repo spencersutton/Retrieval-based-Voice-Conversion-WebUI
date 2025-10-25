@@ -27,7 +27,7 @@ class TextEncoder(nn.Module):
         p_dropout,
         f0=True,
     ):
-        super(TextEncoder, self).__init__()
+        super().__init__()
         self.out_channels = out_channels
         self.hidden_channels = hidden_channels
         self.filter_channels = filter_channels
@@ -88,7 +88,7 @@ class ResidualCouplingBlock(nn.Module):
         n_flows=4,
         gin_channels=0,
     ):
-        super(ResidualCouplingBlock, self).__init__()
+        super().__init__()
         self.channels = channels
         self.hidden_channels = hidden_channels
         self.kernel_size = kernel_size
@@ -154,7 +154,7 @@ class PosteriorEncoder(nn.Module):
         n_layers,
         gin_channels=0,
     ):
-        super(PosteriorEncoder, self).__init__()
+        super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.hidden_channels = hidden_channels
@@ -211,7 +211,7 @@ class Generator(torch.nn.Module):
         upsample_kernel_sizes,
         gin_channels=0,
     ):
-        super(Generator, self).__init__()
+        super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_rates)
         self.conv_pre = Conv1d(
@@ -332,7 +332,7 @@ class SineGen(torch.nn.Module):
         voiced_threshold=0,
         flag_for_pulse=False,
     ):
-        super(SineGen, self).__init__()
+        super().__init__()
         self.sine_amp = sine_amp
         self.noise_std = noise_std
         self.harmonic_num = harmonic_num
@@ -413,7 +413,7 @@ class SourceModuleHnNSF(torch.nn.Module):
         voiced_threshod=0,
         is_half=True,
     ):
-        super(SourceModuleHnNSF, self).__init__()
+        super().__init__()
 
         self.sine_amp = sine_amp
         self.noise_std = add_noise_std
@@ -449,7 +449,7 @@ class GeneratorNSF(torch.nn.Module):
         sr,
         is_half=False,
     ):
-        super(GeneratorNSF, self).__init__()
+        super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_rates)
 
@@ -612,7 +612,7 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
         sr,
         **kwargs,
     ):
-        super(SynthesizerTrnMs256NSFsid, self).__init__()
+        super().__init__()
         if isinstance(sr, str):
             sr = sr2sr[sr]
         self.spec_channels = spec_channels
@@ -785,7 +785,7 @@ class SynthesizerTrnMs768NSFsid(SynthesizerTrnMs256NSFsid):
         sr,
         **kwargs,
     ):
-        super(SynthesizerTrnMs768NSFsid, self).__init__(
+        super().__init__(
             spec_channels,
             segment_size,
             inter_channels,
@@ -842,7 +842,7 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
         sr=None,
         **kwargs,
     ):
-        super(SynthesizerTrnMs256NSFsid_nono, self).__init__()
+        super().__init__()
         self.spec_channels = spec_channels
         self.inter_channels = inter_channels
         self.hidden_channels = hidden_channels
@@ -999,7 +999,7 @@ class SynthesizerTrnMs768NSFsid_nono(SynthesizerTrnMs256NSFsid_nono):
         sr=None,
         **kwargs,
     ):
-        super(SynthesizerTrnMs768NSFsid_nono, self).__init__(
+        super().__init__(
             spec_channels,
             segment_size,
             inter_channels,
@@ -1036,7 +1036,7 @@ class SynthesizerTrnMs768NSFsid_nono(SynthesizerTrnMs256NSFsid_nono):
 
 class MultiPeriodDiscriminator(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
-        super(MultiPeriodDiscriminator, self).__init__()
+        super().__init__()
         periods = [2, 3, 5, 7, 11, 17]
 
         discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
@@ -1064,7 +1064,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 
 class MultiPeriodDiscriminatorV2(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
-        super(MultiPeriodDiscriminatorV2, self).__init__()
+        super().__init__()
 
         periods = [2, 3, 5, 7, 11, 17, 23, 37]
 
@@ -1093,7 +1093,7 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
 
 class DiscriminatorS(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
-        super(DiscriminatorS, self).__init__()
+        super().__init__()
         norm_f = weight_norm if not use_spectral_norm else spectral_norm
         self.convs = nn.ModuleList(
             [
@@ -1123,7 +1123,7 @@ class DiscriminatorS(torch.nn.Module):
 
 class DiscriminatorP(torch.nn.Module):
     def __init__(self, period, kernel_size=5, stride=3, use_spectral_norm=False):
-        super(DiscriminatorP, self).__init__()
+        super().__init__()
         self.period = period
         self.use_spectral_norm = use_spectral_norm
         norm_f = weight_norm if not use_spectral_norm else spectral_norm

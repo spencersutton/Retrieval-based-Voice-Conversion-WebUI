@@ -34,7 +34,7 @@ class _STFT(torch.nn.Module):
             window {str} -- Type of window to use (options are bartlett, hann, hamming, blackman, blackmanharris)
                 (default: {'hann'})
         """
-        super(_STFT, self).__init__()
+        super().__init__()
         self.filter_length = filter_length
         self.hop_length = hop_length
         self.win_length = win_length if win_length else filter_length
@@ -147,7 +147,7 @@ class _STFT(torch.nn.Module):
 
 class _BiGRU(nn.Module):
     def __init__(self, input_features, hidden_features, num_layers):
-        super(_BiGRU, self).__init__()
+        super().__init__()
         self.gru = nn.GRU(
             input_features,
             hidden_features,
@@ -162,7 +162,7 @@ class _BiGRU(nn.Module):
 
 class _ConvBlockRes(nn.Module):
     def __init__(self, in_channels, out_channels, momentum=0.01):
-        super(_ConvBlockRes, self).__init__()
+        super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(
                 in_channels=in_channels,
@@ -207,7 +207,7 @@ class _Encoder(nn.Module):
         out_channels=16,
         momentum=0.01,
     ):
-        super(_Encoder, self).__init__()
+        super().__init__()
         self.n_encoders = n_encoders
         self.bn = nn.BatchNorm2d(in_channels, momentum=momentum)
         self.layers = nn.ModuleList()
@@ -238,7 +238,7 @@ class _ResEncoderBlock(nn.Module):
     def __init__(
         self, in_channels, out_channels, kernel_size, n_blocks=1, momentum=0.01
     ):
-        super(_ResEncoderBlock, self).__init__()
+        super().__init__()
         self.n_blocks = n_blocks
         self.conv = nn.ModuleList()
         self.conv.append(_ConvBlockRes(in_channels, out_channels, momentum))
@@ -259,7 +259,7 @@ class _ResEncoderBlock(nn.Module):
 
 class _Intermediate(nn.Module):  #
     def __init__(self, in_channels, out_channels, n_inters, n_blocks, momentum=0.01):
-        super(_Intermediate, self).__init__()
+        super().__init__()
         self.n_inters = n_inters
         self.layers = nn.ModuleList()
         self.layers.append(
@@ -278,7 +278,7 @@ class _Intermediate(nn.Module):  #
 
 class _ResDecoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride, n_blocks=1, momentum=0.01):
-        super(_ResDecoderBlock, self).__init__()
+        super().__init__()
         out_padding = (0, 1) if stride == (1, 2) else (1, 1)
         self.n_blocks = n_blocks
         self.conv1 = nn.Sequential(
@@ -309,7 +309,7 @@ class _ResDecoderBlock(nn.Module):
 
 class _Decoder(nn.Module):
     def __init__(self, in_channels, n_decoders, stride, n_blocks, momentum=0.01):
-        super(_Decoder, self).__init__()
+        super().__init__()
         self.layers = nn.ModuleList()
         self.n_decoders = n_decoders
         for i in range(self.n_decoders):
@@ -335,7 +335,7 @@ class _DeepUnet(nn.Module):
         in_channels=1,
         en_out_channels=16,
     ):
-        super(_DeepUnet, self).__init__()
+        super().__init__()
         self.encoder = _Encoder(
             in_channels, 128, en_de_layers, kernel_size, n_blocks, en_out_channels
         )
@@ -367,7 +367,7 @@ class E2E(nn.Module):
         in_channels=1,
         en_out_channels=16,
     ):
-        super(E2E, self).__init__()
+        super().__init__()
         self.unet = _DeepUnet(
             kernel_size,
             n_blocks,

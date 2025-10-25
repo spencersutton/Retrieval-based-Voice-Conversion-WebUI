@@ -20,7 +20,7 @@ class Encoder(nn.Module):
         window_size=10,
         **kwargs,
     ):
-        super(Encoder, self).__init__()
+        super().__init__()
         self.hidden_channels = hidden_channels
         self.filter_channels = filter_channels
         self.n_heads = n_heads
@@ -87,7 +87,7 @@ class Decoder(nn.Module):
         proximal_init=True,
         **kwargs,
     ):
-        super(Decoder, self).__init__()
+        super().__init__()
         self.hidden_channels = hidden_channels
         self.filter_channels = filter_channels
         self.n_heads = n_heads
@@ -173,7 +173,7 @@ class MultiHeadAttention(nn.Module):
         proximal_bias=False,
         proximal_init=False,
     ):
-        super(MultiHeadAttention, self).__init__()
+        super().__init__()
         assert channels % n_heads == 0
 
         self.channels = channels
@@ -376,7 +376,7 @@ class FFN(nn.Module):
         activation: str = None,
         causal=False,
     ):
-        super(FFN, self).__init__()
+        super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.filter_channels = filter_channels
