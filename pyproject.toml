@@ -40,7 +40,4 @@ typeCheckingMode = "strict"
 reportMissingParameterType = true
 
 [dependency-groups]
-dev = [
-    "cython>=3.1.6",
-    "pyright>=1.1.407",
-]
+dev = ["pyright>=1.1.407"]
