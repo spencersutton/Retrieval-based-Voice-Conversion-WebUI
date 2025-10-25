@@ -33,7 +33,7 @@ def singleton_variable(func: Callable[..., Any]) -> Callable[..., Any]:
 class Config:
     python_cmd: str
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.device = "cuda:0"
         self.is_half = True
         self.use_jit = False
@@ -103,7 +103,7 @@ class Config:
         except Exception:
             return False
 
-    def use_fp32_config(self):
+    def use_fp32_config(self) -> None:
         for config_file in version_config_list:
             self.json_config[config_file]["train"]["fp16_run"] = False
             path = Path("configs/inuse") / config_file

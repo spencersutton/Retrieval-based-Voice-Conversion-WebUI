@@ -34,7 +34,7 @@ faiss = { git = "https://github.com/spencersutton/faiss.git" }
 fairseq = { git = "https://github.com/yamada-sexta/fairseq.git" }
 
 [tool.ruff.lint]
-extend-select = ["I", "UP", "PTH"]
+extend-select = ["I", "UP", "PTH", "TC", "NPY"]
 ignore = ["E741"]
 
 [tool.pyright]
@@ -42,7 +42,4 @@ typeCheckingMode = "strict"
 reportMissingParameterType = true
 
 [dependency-groups]
-dev = [
-    "infer-types>=1.0.0",
-    "pyright>=1.1.407",
-]
+dev = ["infer-types>=1.0.0", "pyright>=1.1.407"]

@@ -339,7 +339,7 @@ def _click_train(
     gpus16: str,
     if_cache_gpu17: bool,
     if_save_every_weights18: bool,
-):
+) -> str:
     # 生成filelist
     exp_dir = Path(_now_dir) / "logs" / exp_dir1
     exp_dir.mkdir(exist_ok=True)

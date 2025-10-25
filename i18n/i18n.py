@@ -10,7 +10,7 @@ def load_language_list(language):
 
 
 class I18nAuto:
-    def __init__(self, language=None):
+    def __init__(self, language=None) -> None:
         if language in ["Auto", None]:
             language = locale.getdefaultlocale()[
                 0
@@ -23,5 +23,5 @@ class I18nAuto:
     def __call__(self, key):
         return self.language_map.get(key, key)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Use Language: {self.language}"
