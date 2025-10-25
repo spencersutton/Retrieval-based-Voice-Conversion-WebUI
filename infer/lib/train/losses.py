@@ -1,7 +1,9 @@
 import torch
 
 
-def feature_loss(fmap_r, fmap_g):
+def feature_loss(
+    fmap_r: list[list[torch.Tensor]], fmap_g: list[list[torch.Tensor]]
+) -> torch.Tensor:
     loss = 0
     for dr, dg in zip(fmap_r, fmap_g):
         for rl, gl in zip(dr, dg):
@@ -9,13 +11,15 @@ def feature_loss(fmap_r, fmap_g):
             gl = gl.float()
             loss += torch.mean(torch.abs(rl - gl))
 
-    return loss * 2
+    return torch.Tensor(loss * 2)
 
 
-def discriminator_loss(disc_real_outputs, disc_generated_outputs):
+def discriminator_loss(
+    disc_real_outputs: list[torch.Tensor], disc_generated_outputs: list[torch.Tensor]
+) -> tuple[torch.Tensor, list[float], list[float]]:
     loss = 0
-    r_losses = []
-    g_losses = []
+    r_losses: list[float] = []
+    g_losses: list[float] = []
     for dr, dg in zip(disc_real_outputs, disc_generated_outputs):
         dr = dr.float()
         dg = dg.float()
@@ -25,22 +29,30 @@ def discriminator_loss(disc_real_outputs, disc_generated_outputs):
         r_losses.append(r_loss.item())
         g_losses.append(g_loss.item())
 
-    return loss, r_losses, g_losses
+    return torch.Tensor(loss), r_losses, g_losses
 
 
-def generator_loss(disc_outputs):
+def generator_loss(
+    disc_outputs: list[torch.Tensor],
+) -> tuple[torch.Tensor, list[torch.Tensor]]:
     loss = 0
-    gen_losses = []
+    gen_losses: list[torch.Tensor] = []
     for dg in disc_outputs:
         dg = dg.float()
         l = torch.mean((1 - dg) ** 2)
         gen_losses.append(l)
         loss += l
 
-    return loss, gen_losses
+    return torch.Tensor(loss), gen_losses
 
 
-def kl_loss(z_p, logs_q, m_p, logs_p, z_mask):
+def kl_loss(
+    z_p: torch.Tensor,
+    logs_q: torch.Tensor,
+    m_p: torch.Tensor,
+    logs_p: torch.Tensor,
+    z_mask: torch.Tensor,
+) -> torch.Tensor:
     """
     z_p, logs_q: [b, h, t_t]
     m_p, logs_p: [b, h, t_t]
