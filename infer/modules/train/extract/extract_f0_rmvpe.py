@@ -18,14 +18,14 @@ is_half = sys.argv[5]
 f = open(f"{exp_dir}/extract_f0_feature.log", "a+")
 
 
-def printt(strr):
+def printt(strr) -> None:
     print(strr)
     f.write(f"{strr}\n")
     f.flush()
 
 
 class FeatureInput:
-    def __init__(self, samplerate=16000, hop_size=160):
+    def __init__(self, samplerate=16000, hop_size=160) -> None:
         self.fs = samplerate
         self.hop = hop_size
 
@@ -65,7 +65,7 @@ class FeatureInput:
         )
         return f0_coarse
 
-    def go(self, paths, f0_method):
+    def go(self, paths, f0_method) -> None:
         if len(paths) == 0:
             printt("no-f0-todo")
         else:

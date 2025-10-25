@@ -52,10 +52,10 @@ global_step = 0
 
 
 class EpochRecorder:
-    def __init__(self):
+    def __init__(self) -> None:
         self.last_time = ttime()
 
-    def record(self):
+    def record(self) -> str:
         now_time = ttime()
         elapsed_time = now_time - self.last_time
         self.last_time = now_time
@@ -64,7 +64,7 @@ class EpochRecorder:
         return f"[{current_time}] | ({elapsed_time_str})"
 
 
-def main():
+def main() -> None:
     n_gpus = torch.cuda.device_count()
 
     if not torch.cuda.is_available() and torch.backends.mps.is_available():

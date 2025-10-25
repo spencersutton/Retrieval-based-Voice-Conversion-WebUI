@@ -26,7 +26,7 @@ class Encoder(nn.Module):
         p_dropout: float = 0.0,
         window_size: int = 10,
         **kwargs: object,
-    ):
+    ) -> None:
         super().__init__()
         self.hidden_channels = hidden_channels
         self.filter_channels = filter_channels
@@ -93,7 +93,7 @@ class MultiHeadAttention(nn.Module):
         block_length: int | None = None,
         proximal_bias: bool = False,
         proximal_init: bool = False,
-    ):
+    ) -> None:
         super().__init__()
         assert channels % n_heads == 0
 
@@ -136,10 +136,7 @@ class MultiHeadAttention(nn.Module):
                 self.conv_k.bias.copy_(self.conv_q.bias)
 
     def forward(
-        self,
-        x: torch.Tensor,
-        c: torch.Tensor,
-        attn_mask: torch.Tensor | None = None
+        self, x: torch.Tensor, c: torch.Tensor, attn_mask: torch.Tensor | None = None
     ):
         q = self.conv_q(x)
         k = self.conv_k(c)
@@ -156,7 +153,7 @@ class MultiHeadAttention(nn.Module):
         key: torch.Tensor,
         value: torch.Tensor,
         mask: torch.Tensor | None = None,
-    ):
+    ) -> tuple:
         # reshape [b, d, t] -> [b, n_h, t, d_k]
         b, d, t_s = key.size()
         t_t = query.size(2)
@@ -307,7 +304,7 @@ class FFN(nn.Module):
         p_dropout: float = 0.0,
         activation: str = None,
         causal: bool = False,
-    ):
+    ) -> None:
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels

@@ -13,7 +13,7 @@ def pad_to_multiple(
     multiple: int,
     dim: int = -1,
     value: int = 0,
-):
+) -> tuple | tuple[None, int]:
     # Inspired from https://github.com/lucidrains/local-attention/blob/master/local_attention/local_attention.py#L41
     if x is None:
         return None, 0
@@ -33,7 +33,7 @@ def extract_features(
     padding_mask: torch.Tensor | None = None,
     tgt_layer: int | None = None,
     min_layer: int = 0,
-):
+) -> tuple:
     if padding_mask is not None:
         x = index_put(x, padding_mask, 0)
 
@@ -230,7 +230,7 @@ def apply_mask(
     x: torch.Tensor,
     padding_mask: torch.Tensor,
     target_list: list[object],
-):
+) -> tuple:
     B, T, C = x.shape
     torch.zeros_like(x)
     if self.mask_prob > 0:

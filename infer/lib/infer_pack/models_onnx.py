@@ -35,7 +35,7 @@ class TextEncoder256(nn.Module):
         kernel_size,
         p_dropout,
         f0=True,
-    ):
+    ) -> None:
         super().__init__()
         self.out_channels = out_channels
         self.hidden_channels = hidden_channels
@@ -53,7 +53,7 @@ class TextEncoder256(nn.Module):
         )
         self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
-    def forward(self, phone, pitch, lengths):
+    def forward(self, phone, pitch, lengths) -> tuple:
         if pitch is None:
             x = self.emb_phone(phone)
         else:
@@ -82,7 +82,7 @@ class TextEncoder768(nn.Module):
         kernel_size,
         p_dropout,
         f0=True,
-    ):
+    ) -> None:
         super().__init__()
         self.out_channels = out_channels
         self.hidden_channels = hidden_channels
@@ -100,7 +100,7 @@ class TextEncoder768(nn.Module):
         )
         self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
-    def forward(self, phone, pitch, lengths):
+    def forward(self, phone, pitch, lengths) -> tuple:
         if pitch is None:
             x = self.emb_phone(phone)
         else:
@@ -128,7 +128,7 @@ class ResidualCouplingBlock(nn.Module):
         n_layers,
         n_flows=4,
         gin_channels=0,
-    ):
+    ) -> None:
         super().__init__()
         self.channels = channels
         self.hidden_channels = hidden_channels
@@ -162,7 +162,7 @@ class ResidualCouplingBlock(nn.Module):
                 x, _ = flow(x, x_mask, g=g, reverse=reverse)
         return x
 
-    def remove_weight_norm(self):
+    def remove_weight_norm(self) -> None:
         for i in range(self.n_flows):
             self.flows[i * 2].remove_weight_norm()
 
@@ -177,7 +177,7 @@ class PosteriorEncoder(nn.Module):
         dilation_rate,
         n_layers,
         gin_channels=0,
-    ):
+    ) -> None:
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -197,7 +197,7 @@ class PosteriorEncoder(nn.Module):
         )
         self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
-    def forward(self, x, x_lengths, g=None):
+    def forward(self, x, x_lengths, g=None) -> tuple:
         x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(
             x.dtype
         )
@@ -208,7 +208,7 @@ class PosteriorEncoder(nn.Module):
         z = (m + torch.randn_like(m) * torch.exp(logs)) * x_mask
         return z, m, logs, x_mask
 
-    def remove_weight_norm(self):
+    def remove_weight_norm(self) -> None:
         self.enc.remove_weight_norm()
 
 
@@ -223,7 +223,7 @@ class Generator(torch.nn.Module):
         upsample_initial_channel,
         upsample_kernel_sizes,
         gin_channels=0,
-    ):
+    ) -> None:
         super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_rates)
@@ -281,7 +281,7 @@ class Generator(torch.nn.Module):
 
         return x
 
-    def remove_weight_norm(self):
+    def remove_weight_norm(self) -> None:
         for l in self.ups:
             remove_weight_norm(l)
         for l in self.resblocks:
@@ -312,7 +312,7 @@ class SineGen(torch.nn.Module):
         noise_std=0.003,
         voiced_threshold=0,
         flag_for_pulse=False,
-    ):
+    ) -> None:
         super().__init__()
         self.sine_amp = sine_amp
         self.noise_std = noise_std
@@ -347,7 +347,7 @@ class SineGen(torch.nn.Module):
         sines = torch.sin(2 * np.pi * rad)
         return sines
 
-    def forward(self, f0: torch.Tensor, upp: int):
+    def forward(self, f0: torch.Tensor, upp: int) -> tuple:
         """sine_tensor, uv = forward(f0)
         input F0: tensor(batchsize=1, length, dim=1)
                   f0 for unvoiced steps should be 0
@@ -365,6 +365,9 @@ class SineGen(torch.nn.Module):
             noise = noise_amp * torch.randn_like(sine_waves)
             sine_waves = sine_waves * uv + noise
         return sine_waves, uv, noise
+
+
+from torch._dynamo.eval_frame import OptimizedModule
 
 
 class SourceModuleHnNSF(torch.nn.Module):
@@ -393,7 +396,7 @@ class SourceModuleHnNSF(torch.nn.Module):
         add_noise_std=0.003,
         voiced_threshod=0,
         is_half=True,
-    ):
+    ) -> None:
         super().__init__()
 
         self.sine_amp = sine_amp
@@ -408,7 +411,7 @@ class SourceModuleHnNSF(torch.nn.Module):
         self.l_linear = torch.nn.Linear(harmonic_num + 1, 1)
         self.l_tanh = torch.nn.Tanh()
 
-    def forward(self, x, upp=None):
+    def forward(self, x, upp=None) -> tuple[OptimizedModule, None, None]:
         sine_wavs, uv, _ = self.l_sin_gen(x, upp)
         if self.is_half:
             sine_wavs = sine_wavs.half()
@@ -429,7 +432,7 @@ class GeneratorNSF(torch.nn.Module):
         gin_channels,
         sr,
         is_half=False,
-    ):
+    ) -> None:
         super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_rates)
@@ -512,7 +515,7 @@ class GeneratorNSF(torch.nn.Module):
         x = torch.tanh(x)
         return x
 
-    def remove_weight_norm(self):
+    def remove_weight_norm(self) -> None:
         for l in self.ups:
             remove_weight_norm(l)
         for l in self.resblocks:
@@ -549,7 +552,7 @@ class SynthesizerTrnMsNSFsidM(nn.Module):
         sr,
         version,
         **kwargs,
-    ):
+    ) -> None:
         super().__init__()
         if type(sr) == str:
             sr = sr2sr[sr]
@@ -610,12 +613,12 @@ class SynthesizerTrnMsNSFsidM(nn.Module):
             f"gin_channels: {gin_channels}, self.spk_embed_dim: {self.spk_embed_dim}"
         )
 
-    def remove_weight_norm(self):
+    def remove_weight_norm(self) -> None:
         self.dec.remove_weight_norm()
         self.flow.remove_weight_norm()
         self.enc_q.remove_weight_norm()
 
-    def construct_spkmixmap(self, n_speaker):
+    def construct_spkmixmap(self, n_speaker) -> None:
         self.speaker_map = torch.zeros((n_speaker, 1, 1, self.gin_channels))
         for i in range(n_speaker):
             self.speaker_map[i] = self.emb_g(torch.LongTensor([[i]]))
@@ -639,7 +642,7 @@ class SynthesizerTrnMsNSFsidM(nn.Module):
 
 
 class MultiPeriodDiscriminator(torch.nn.Module):
-    def __init__(self, use_spectral_norm=False):
+    def __init__(self, use_spectral_norm=False) -> None:
         super().__init__()
         periods = [2, 3, 5, 7, 11, 17]
         # periods = [3, 5, 7, 11, 17, 23, 37]
@@ -650,7 +653,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         ]
         self.discriminators = nn.ModuleList(discs)
 
-    def forward(self, y, y_hat):
+    def forward(self, y, y_hat) -> tuple[list, list, list, list]:
         y_d_rs = []  #
         y_d_gs = []
         fmap_rs = []
@@ -668,7 +671,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 
 
 class MultiPeriodDiscriminatorV2(torch.nn.Module):
-    def __init__(self, use_spectral_norm=False):
+    def __init__(self, use_spectral_norm=False) -> None:
         super().__init__()
 
         periods = [2, 3, 5, 7, 11, 17, 23, 37]
@@ -679,7 +682,7 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
         ]
         self.discriminators = nn.ModuleList(discs)
 
-    def forward(self, y, y_hat):
+    def forward(self, y, y_hat) -> tuple[list, list, list, list]:
         y_d_rs = []  #
         y_d_gs = []
         fmap_rs = []
@@ -697,7 +700,7 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
 
 
 class DiscriminatorS(torch.nn.Module):
-    def __init__(self, use_spectral_norm=False):
+    def __init__(self, use_spectral_norm=False) -> None:
         super().__init__()
         norm_f = weight_norm if not use_spectral_norm else spectral_norm
         self.convs = nn.ModuleList(
@@ -712,7 +715,7 @@ class DiscriminatorS(torch.nn.Module):
         )
         self.conv_post = norm_f(Conv1d(1024, 1, 3, 1, padding=1))
 
-    def forward(self, x):
+    def forward(self, x) -> tuple:
         fmap = []
 
         for l in self.convs:
@@ -727,7 +730,9 @@ class DiscriminatorS(torch.nn.Module):
 
 
 class DiscriminatorP(torch.nn.Module):
-    def __init__(self, period, kernel_size=5, stride=3, use_spectral_norm=False):
+    def __init__(
+        self, period, kernel_size=5, stride=3, use_spectral_norm=False
+    ) -> None:
         super().__init__()
         self.period = period
         self.use_spectral_norm = use_spectral_norm
@@ -783,7 +788,7 @@ class DiscriminatorP(torch.nn.Module):
         )
         self.conv_post = norm_f(Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
 
-    def forward(self, x):
+    def forward(self, x) -> tuple:
         fmap = []
 
         # 1d to 2d

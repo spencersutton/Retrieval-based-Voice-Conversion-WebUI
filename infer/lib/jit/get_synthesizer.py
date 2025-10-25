@@ -1,10 +1,18 @@
 import torch
+from torch.jit._script import RecursiveScriptModule
+
+from infer.lib.infer_pack.models import (
+    SynthesizerTrnMs768NSFsid,
+    SynthesizerTrnMs768NSFsid_nono,
+)
 
 
 def get_synthesizer(
     pth_path: str,
     device: torch.device = torch.device("cpu"),
-):
+) -> tuple[
+    SynthesizerTrnMs768NSFsid | SynthesizerTrnMs768NSFsid_nono, RecursiveScriptModule
+]:
     from infer.lib.infer_pack.models import (
         SynthesizerTrnMs768NSFsid,
         SynthesizerTrnMs768NSFsid_nono,

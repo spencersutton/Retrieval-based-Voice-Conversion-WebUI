@@ -3,7 +3,7 @@ import os
 from fairseq import checkpoint_utils
 
 
-def get_index_path_from_model(sid):
+def get_index_path_from_model(sid: object):
     index_path = os.getenv("index_root") or "assets/index"
     return next(
         (

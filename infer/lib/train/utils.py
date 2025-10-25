@@ -70,7 +70,7 @@ def save_checkpoint(
     learning_rate: float,
     iteration: int,
     checkpoint_path: str,
-):
+) -> None:
     logger.info(
         f"Saving model and optimizer state at epoch {iteration} to {checkpoint_path}"
     )
@@ -99,7 +99,7 @@ def summarize(
     images: dict[str, object] = {},
     audios: dict[str, object] = {},
     audio_sampling_rate: int = 22050,
-):
+) -> None:
     for k, v in scalars.items():
         writer.add_scalar(k, v, global_step)
     for k, v in histograms.items():
@@ -147,7 +147,7 @@ def plot_spectrogram_to_numpy(spectrogram):
     return data
 
 
-def load_wav_to_torch(full_path):
+def load_wav_to_torch(full_path) -> tuple:
     sampling_rate, data = read(full_path)
     return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
@@ -161,7 +161,7 @@ def load_filepaths_and_text(filename: str, split: str = "|") -> list[list[str]]:
     return [line.strip().split(split) for line in lines]
 
 
-def get_hparams():
+def get_hparams() -> HParams:
     """
     todo:
       结尾七人组：

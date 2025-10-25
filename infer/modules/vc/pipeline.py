@@ -22,7 +22,13 @@ input_audio_path2wav = {}
 
 
 @lru_cache
-def cache_harvest_f0(input_audio_path, fs, f0max, f0min, frame_period):
+def cache_harvest_f0(
+    input_audio_path: object,
+    fs: object,
+    f0max: object,
+    f0min: object,
+    frame_period: object,
+):
     audio = input_audio_path2wav[input_audio_path]
     f0, t = pyworld.harvest(
         audio,
@@ -35,7 +41,9 @@ def cache_harvest_f0(input_audio_path, fs, f0max, f0min, frame_period):
     return f0
 
 
-def change_rms(data1, sr1, data2, sr2, rate):  # 1是输入音频，2是输出音频,rate是2的占比
+def change_rms(
+    data1: object, sr1: object, data2: object, sr2: object, rate: object
+) -> object:  # 1是输入音频，2是输出音频,rate是2的占比
     rms1 = librosa.feature.rms(
         y=data1, frame_length=sr1 // 2 * 2, hop_length=sr1 // 2
     )  # 每半秒一个点
@@ -57,7 +65,7 @@ def change_rms(data1, sr1, data2, sr2, rate):  # 1是输入音频，2是输出�
 
 
 class Pipeline:
-    def __init__(self, tgt_sr, config):
+    def __init__(self, tgt_sr: object, config: object) -> None:
         self.x_pad, self.x_query, self.x_center, self.x_max, self.is_half = (
             config.x_pad,
             config.x_query,
@@ -84,7 +92,7 @@ class Pipeline:
         f0_method,
         filter_radius,
         inp_f0=None,
-    ):
+    ) -> tuple:
         global input_audio_path2wav
         time_step = self.window / self.sr * 1000
         f0_min = 50
@@ -290,7 +298,7 @@ class Pipeline:
         version,
         protect,
         f0_file=None,
-    ):
+    ) -> ndarray:
         if file_index != "" and os.path.exists(file_index) and index_rate != 0:
             try:
                 index = faiss.read_index(file_index)

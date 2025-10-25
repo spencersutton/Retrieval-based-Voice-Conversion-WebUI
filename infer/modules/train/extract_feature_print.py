@@ -33,7 +33,7 @@ elif torch.backends.mps.is_available():
 _f = open(f"{_exp_dir}/extract_f0_feature.log", "a+")
 
 
-def printt(strr):
+def printt(strr) -> None:
     print(strr)
     _f.write(f"{strr}\n")
     _f.flush()

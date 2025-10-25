@@ -42,4 +42,7 @@ typeCheckingMode = "strict"
 reportMissingParameterType = true
 
 [dependency-groups]
-dev = ["pyright>=1.1.407"]
+dev = [
+    "infer-types>=1.0.0",
+    "pyright>=1.1.407",
+]

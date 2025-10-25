@@ -16,7 +16,7 @@ exp_dir = sys.argv[1]
 f = open(f"{exp_dir}/extract_f0_feature.log", "a+")
 
 
-def printt(strr):
+def printt(strr) -> None:
     print(strr)
     f.write(f"{strr}\n")
     f.flush()
@@ -27,7 +27,7 @@ f0method = sys.argv[3]
 
 
 class FeatureInput:
-    def __init__(self, samplerate=16000, hop_size=160):
+    def __init__(self, samplerate=16000, hop_size=160) -> None:
         self.fs = samplerate
         self.hop = hop_size
 
@@ -37,7 +37,7 @@ class FeatureInput:
         self.f0_mel_min = 1127 * np.log(1 + self.f0_min / 700)
         self.f0_mel_max = 1127 * np.log(1 + self.f0_max / 700)
 
-    def compute_f0(self, path, f0_method):
+    def compute_f0(self, path, f0_method) -> ndarray:
         x = load_audio(path, self.fs)
         p_len = x.shape[0] // self.hop
         if f0_method == "pm":
@@ -104,7 +104,7 @@ class FeatureInput:
         )
         return f0_coarse
 
-    def go(self, paths, f0_method):
+    def go(self, paths, f0_method) -> None:
         if len(paths) == 0:
             printt("no-f0-todo")
         else:

@@ -5,7 +5,7 @@ import torch
 from infer.lib.infer_pack.models_onnx import SynthesizerTrnMsNSFsidM
 
 
-def export_onnx(ModelPath, ExportedPath):
+def export_onnx(ModelPath, ExportedPath) -> str:
     cpt = torch.load(ModelPath, map_location="cpu")
     cpt["config"][-3] = cpt["weight"]["emb_g.weight"].shape[0]
     vec_channels = 768

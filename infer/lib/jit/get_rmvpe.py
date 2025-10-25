@@ -1,10 +1,12 @@
 import torch
 
+from infer.lib.rmvpe import E2E
+
 
 def get_rmvpe(
     model_path: str = "assets/rmvpe/rmvpe.pt",
     device: torch.device = torch.device("cpu"),
-):
+) -> E2E:
     from infer.lib.rmvpe import E2E
 
     model = E2E(4, 1, (2, 2))

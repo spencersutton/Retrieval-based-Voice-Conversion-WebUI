@@ -4,6 +4,7 @@ from collections import OrderedDict
 from io import BytesIO
 
 import torch
+from torch.jit._script import RecursiveScriptModule
 from tqdm import tqdm
 
 from infer.lib.jit.get_hubert import get_hubert_model
@@ -11,7 +12,7 @@ from infer.lib.jit.get_rmvpe import get_rmvpe
 from infer.lib.jit.get_synthesizer import get_synthesizer
 
 
-def load_inputs(path, device, is_half=False):
+def load_inputs(path, device, is_half=False) -> RecursiveScriptModule:
     parm = torch.load(path, map_location=torch.device("cpu"))
     for key in parm.keys():
         parm[key] = parm[key].to(device)
@@ -24,7 +25,7 @@ def load_inputs(path, device, is_half=False):
 
 def benchmark(
     model, inputs_path, device=torch.device("cpu"), epoch=1000, is_half=False
-):
+) -> None:
     total_ts = 0.0
     bar = tqdm(range(epoch))
     for i in bar:
@@ -33,7 +34,9 @@ def benchmark(
     print(f"num_epoch: {epoch} | avg time(ms): {(total_ts * 1000) / epoch}")
 
 
-def jit_warm_up(model, inputs_path, device=torch.device("cpu"), epoch=5, is_half=False):
+def jit_warm_up(
+    model, inputs_path, device=torch.device("cpu"), epoch=5, is_half=False
+) -> None:
     benchmark(model, inputs_path, device, epoch=epoch, is_half=is_half)
 
 
@@ -44,7 +47,7 @@ def to_jit_model(
     inputs_path: str = None,
     device=torch.device("cpu"),
     is_half=False,
-):
+) -> tuple:
     model = None
     if model_type.lower() == "synthesizer":
         model, _ = get_synthesizer(model_path, device)
@@ -96,14 +99,19 @@ def export(
     return cpt
 
 
-def load(path: str):
+from typing import Any
+
+
+def load(path: str) -> Any:
     with open(path, "rb") as f:
         return pickle.load(f)
 
 
-def save(ckpt: dict, save_path: str):
+def save(ckpt: dict, save_path: str) -> None:
     with open(save_path, "wb") as f:
         pickle.dump(ckpt, f)
+
+
 
 
 def rmvpe_jit_export(
@@ -113,7 +121,7 @@ def rmvpe_jit_export(
     save_path: str = None,
     device=torch.device("cpu"),
     is_half=False,
-):
+) -> OrderedDict:
     if not save_path:
         save_path = model_path.rstrip(".pth")
         save_path += ".half.jit" if is_half else ".jit"
@@ -130,6 +138,9 @@ def rmvpe_jit_export(
     return ckpt
 
 
+from torch.jit._script import RecursiveScriptModule
+
+
 def synthesizer_jit_export(
     model_path: str,
     mode: str = "script",
@@ -137,7 +148,7 @@ def synthesizer_jit_export(
     save_path: str = None,
     device=torch.device("cpu"),
     is_half=False,
-):
+) -> RecursiveScriptModule:
     if not save_path:
         save_path = model_path.rstrip(".pth")
         save_path += ".half.jit" if is_half else ".jit"

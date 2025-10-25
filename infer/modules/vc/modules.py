@@ -21,8 +21,11 @@ from infer.modules.vc.utils import get_index_path_from_model, load_hubert
 logger = logging.getLogger(__name__)
 
 
+from collections.abc import Iterator
+
+
 class VC:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config) -> None:
         self.n_spk = None
         self.tgt_sr = None
         self.net_g = None
@@ -35,7 +38,18 @@ class VC:
 
         self.config = config
 
-    def get_vc(self, sid, *to_return_protect):
+    def get_vc(
+        self, sid, *to_return_protect
+    ) -> (
+        dict
+        | tuple[
+            dict[str, bool | str],
+            dict[str, bool | dict | str],
+            dict[str, bool | dict | str],
+            str,
+            str,
+        ]
+    ):
         logger.info("Get sid: " + sid)
 
         to_return_protect0 = {
@@ -150,7 +164,7 @@ class VC:
         resample_sr: int,
         rms_mix_rate: float,
         protect: float,
-    ):
+    ) -> tuple[str, tuple[None, None]] | tuple[str, tuple] | tuple[str, None]:
         if input_audio_path is None:
             return "You need to upload an audio", None
         f0_up_key = int(f0_up_key)
@@ -234,7 +248,7 @@ class VC:
         rms_mix_rate,
         protect,
         format1,
-    ):
+    ) -> Iterator:
         try:
             dir_path = (
                 dir_path.strip(" ").strip('"').strip("\n").strip('"').strip(" ")

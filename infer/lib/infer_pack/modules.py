@@ -11,7 +11,7 @@ LRELU_SLOPE = 0.1
 
 
 class LayerNorm(nn.Module):
-    def __init__(self, channels, eps=1e-5):
+    def __init__(self, channels, eps=1e-5) -> None:
         super().__init__()
         self.channels = channels
         self.eps = eps
@@ -34,7 +34,7 @@ class WN(torch.nn.Module):
         n_layers,
         gin_channels=0,
         p_dropout=0,
-    ):
+    ) -> None:
         super().__init__()
         assert kernel_size % 2 == 1
         self.hidden_channels = hidden_channels
@@ -108,7 +108,7 @@ class WN(torch.nn.Module):
                 output = output + res_skip_acts
         return output * x_mask
 
-    def remove_weight_norm(self):
+    def remove_weight_norm(self) -> None:
         if self.gin_channels != 0:
             torch.nn.utils.remove_weight_norm(self.cond_layer)
         for l in self.in_layers:
@@ -116,7 +116,7 @@ class WN(torch.nn.Module):
         for l in self.res_skip_layers:
             torch.nn.utils.remove_weight_norm(l)
 
-    def __prepare_scriptable__(self):
+    def __prepare_scriptable__(self) -> WN:
         if self.gin_channels != 0:
             for hook in self.cond_layer._forward_pre_hooks.values():
                 if (
@@ -142,7 +142,7 @@ class WN(torch.nn.Module):
 
 
 class ResBlock1(torch.nn.Module):
-    def __init__(self, channels, kernel_size=3, dilation=(1, 3, 5)):
+    def __init__(self, channels, kernel_size=3, dilation=(1, 3, 5)) -> None:
         super().__init__()
         self.convs1 = nn.ModuleList(
             [
@@ -232,13 +232,13 @@ class ResBlock1(torch.nn.Module):
             x = x * x_mask
         return x
 
-    def remove_weight_norm(self):
+    def remove_weight_norm(self) -> None:
         for l in self.convs1:
             remove_weight_norm(l)
         for l in self.convs2:
             remove_weight_norm(l)
 
-    def __prepare_scriptable__(self):
+    def __prepare_scriptable__(self) -> ResBlock1:
         for l in self.convs1:
             for hook in l._forward_pre_hooks.values():
                 if (
@@ -257,7 +257,7 @@ class ResBlock1(torch.nn.Module):
 
 
 class ResBlock2(torch.nn.Module):
-    def __init__(self, channels, kernel_size=3, dilation=(1, 3)):
+    def __init__(self, channels, kernel_size=3, dilation=(1, 3)) -> None:
         super().__init__()
         self.convs = nn.ModuleList(
             [
@@ -297,11 +297,11 @@ class ResBlock2(torch.nn.Module):
             x = x * x_mask
         return x
 
-    def remove_weight_norm(self):
+    def remove_weight_norm(self) -> None:
         for l in self.convs:
             remove_weight_norm(l)
 
-    def __prepare_scriptable__(self):
+    def __prepare_scriptable__(self) -> ResBlock2:
         for l in self.convs:
             for hook in l._forward_pre_hooks.values():
                 if (
@@ -342,7 +342,7 @@ class ResidualCouplingLayer(nn.Module):
         p_dropout=0,
         gin_channels=0,
         mean_only=False,
-    ):
+    ) -> None:
         assert channels % 2 == 0, "channels should be divisible by 2"
         super().__init__()
         self.channels = channels
@@ -372,7 +372,7 @@ class ResidualCouplingLayer(nn.Module):
         x_mask: torch.Tensor,
         g: torch.Tensor | None = None,
         reverse: bool = False,
-    ):
+    ) -> tuple:
         x0, x1 = torch.split(x, [self.half_channels] * 2, 1)
         h = self.pre(x0) * x_mask
         h = self.enc(h, x_mask, g=g)
@@ -393,10 +393,10 @@ class ResidualCouplingLayer(nn.Module):
             x = torch.cat([x0, x1], 1)
             return x, torch.zeros([1])
 
-    def remove_weight_norm(self):
+    def remove_weight_norm(self) -> None:
         self.enc.remove_weight_norm()
 
-    def __prepare_scriptable__(self):
+    def __prepare_scriptable__(self) -> ResidualCouplingLayer:
         for hook in self.enc._forward_pre_hooks.values():  # type: ignore
             if (
                 hook.__module__ == "torch.nn.utils.weight_norm"

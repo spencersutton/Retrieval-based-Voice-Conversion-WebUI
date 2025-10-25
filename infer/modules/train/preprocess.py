@@ -22,7 +22,7 @@ _per = float(sys.argv[6])
 _f = (_exp_dir / "preprocess.log").open("a+", encoding="utf-8")
 
 
-def _println(strr: str):
+def _println(strr: str) -> None:
     print(strr)
     _f.write(f"{strr}\n")
     _f.flush()
@@ -32,7 +32,7 @@ class _PreProcess:
     bh: np.ndarray
     ah: np.ndarray
 
-    def __init__(self, sample_rate: int, exp_dir: Path, per: float = 3.7):
+    def __init__(self, sample_rate: int, exp_dir: Path, per: float = 3.7) -> None:
         self.slicer = Slicer(
             sample_rate=sample_rate,
             threshold=-42,
@@ -55,7 +55,7 @@ class _PreProcess:
         self.gt_wavs_dir.mkdir(exist_ok=True, parents=True)
         self.wavs16k_dir.mkdir(exist_ok=True, parents=True)
 
-    def norm_write(self, tmp_audio: np.ndarray, idx0: int, idx1: int):
+    def norm_write(self, tmp_audio: np.ndarray, idx0: int, idx1: int) -> None:
         tmp_max = np.abs(tmp_audio).max()
         if tmp_max > 2.5:
             print(f"{idx0}-{idx1}-{tmp_max}-filtered")
@@ -77,7 +77,7 @@ class _PreProcess:
             tmp_audio_16k.astype(np.float32),
         )
 
-    def pipeline(self, path: str, idx0: int):
+    def pipeline(self, path: str, idx0: int) -> None:
         try:
             audio = load_audio(path, self.sr)
             # zero phased digital filter cause pre-ringing noise...
@@ -105,11 +105,11 @@ class _PreProcess:
         except Exception:
             _println(f"{path}\t-> {traceback.format_exc()}")
 
-    def pipeline_mp(self, infos: list[tuple[str, int]]):
+    def pipeline_mp(self, infos: list[tuple[str, int]]) -> None:
         for path, idx0 in infos:
             self.pipeline(path, idx0)
 
-    def pipeline_mp_inp_dir(self, input_root: Path, num_processes: int):
+    def pipeline_mp_inp_dir(self, input_root: Path, num_processes: int) -> None:
         try:
             infos = [
                 (str(path), idx)
@@ -139,7 +139,7 @@ def _preprocess_trainset(
     num_processes: int,
     exp_dir: Path,
     per: float,
-):
+) -> None:
     pp = _PreProcess(sample_rate, exp_dir, per)
     _println("start preprocess")
     pp.pipeline_mp_inp_dir(input_root, num_processes)
