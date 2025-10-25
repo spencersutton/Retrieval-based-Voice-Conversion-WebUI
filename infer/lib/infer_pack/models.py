@@ -56,8 +56,10 @@ class TextEncoder(nn.Module):
         lengths: torch.Tensor,
         skip_head: torch.Tensor | None = None,
     ):
-        assert pitch is not None
-        x = self.emb_phone(phone) + self.emb_pitch(pitch)
+        if pitch is None:
+            x = self.emb_phone(phone)
+        else:
+            x = self.emb_phone(phone) + self.emb_pitch(pitch)
         x = x * math.sqrt(self.hidden_channels)  # [b, t, h]
         x = self.lrelu(x)
         x = torch.transpose(x, 1, -1)  # [b, h, t]
@@ -127,9 +129,7 @@ class ResidualCouplingBlock(nn.Module):
 
     def remove_weight_norm(self):
         for i in range(self.n_flows):
-            flow = self.flows[i * 2]
-            assert isinstance(flow, modules.ResidualCouplingLayer)
-            flow.remove_weight_norm()
+            self.flows[i * 2].remove_weight_norm()  # type: ignore
 
     def __prepare_scriptable__(self):
         for i in range(self.n_flows):
@@ -842,6 +842,8 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
         upsample_kernel_sizes: list[int],
         spk_embed_dim: int,
         gin_channels: int,
+        sr: int | None = None,
+        **kwargs,
     ):
         super().__init__()  # pyright: ignore[reportUnknownMemberType]
         self.spec_channels = spec_channels
