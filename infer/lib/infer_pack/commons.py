@@ -8,7 +8,7 @@ def init_weights(
 ):
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:
-        assert isinstance(m.weight.data.normal_, torch.nn.Module)
+        assert isinstance(m.weight.data, torch.Tensor)
         m.weight.data.normal_(mean, std)
 
 
