@@ -65,6 +65,5 @@ reportMissingParameterType = true
 [dependency-groups]
 dev = [
     "infer-types>=1.0.0",
-    "monkeytype>=23.3.0",
     "pyright>=1.1.407",
 ]
