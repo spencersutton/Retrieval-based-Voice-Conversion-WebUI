@@ -350,15 +350,15 @@ def _click_train(
 
     if if_f0_3:
         names = (
-            set(p.stem for p in gt_wavs_dir.iterdir() if p.is_file())
-            & set(p.stem for p in feature_dir.iterdir() if p.is_file())
-            & set(p.stem for p in f0_dir.iterdir() if p.is_file())
-            & set(p.stem for p in f0nsf_dir.iterdir() if p.is_file())
+            {p.stem for p in gt_wavs_dir.iterdir() if p.is_file()}
+            & {p.stem for p in feature_dir.iterdir() if p.is_file()}
+            & {p.stem for p in f0_dir.iterdir() if p.is_file()}
+            & {p.stem for p in f0nsf_dir.iterdir() if p.is_file()}
         )
     else:
-        names = set(p.stem for p in gt_wavs_dir.iterdir() if p.is_file()) & set(
+        names = {p.stem for p in gt_wavs_dir.iterdir() if p.is_file()} & {
             p.stem for p in feature_dir.iterdir() if p.is_file()
-        )
+        }
 
     opt: list[str] = []
     for name in names:

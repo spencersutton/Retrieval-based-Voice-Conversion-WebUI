@@ -84,7 +84,7 @@ if _is_half:
         _model = _model.half()
 _model.eval()
 
-_todo = sorted(list(os.listdir(_wavPath)))[_i_part::_n_part]
+_todo = sorted(os.listdir(_wavPath))[_i_part::_n_part]
 _n = max(1, len(_todo) // 10)  # 最多打印十条
 if len(_todo) == 0:
     printt("no-feature-todo")

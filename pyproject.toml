@@ -49,6 +49,9 @@ extend-select = [
     "TID",
     "PIE",
     "ICN",
+    "ISC",
+    "ERA",
+    "C4",
 ]
 ignore = ["E741"]
 

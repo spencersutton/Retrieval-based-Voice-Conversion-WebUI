@@ -105,7 +105,7 @@ if __name__ == "__main__":
 
     os.makedirs(opt_root1, exist_ok=True)
     os.makedirs(opt_root2, exist_ok=True)
-    for name in sorted(list(os.listdir(inp_root))):
+    for name in sorted(os.listdir(inp_root)):
         inp_path = f"{inp_root}/{name}"
         if "spec" in inp_path:
             continue
