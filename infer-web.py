@@ -127,7 +127,7 @@ def _lookup_indices(index_root: str | None) -> None:
     if index_root is None:
         return
     global index_paths
-    for root, dirs, files in os.walk(index_root, topdown=False):
+    for root, _dirs, files in os.walk(index_root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
                 index_paths.append("%s/%s" % (root, name))
@@ -143,7 +143,7 @@ def _change_choices() -> tuple[dict[str, object], dict[str, object]]:
         if name.endswith(".pth"):
             names.append(name)
     index_paths_local: list[str] = []
-    for root, dirs, files in os.walk(_index_root, topdown=False):
+    for root, _dirs, files in os.walk(_index_root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
                 index_paths_local.append("%s/%s" % (root, name))
@@ -330,7 +330,7 @@ def _extract_f0_feature(
         yield log
     # 对不同part分别开多进程
     leng = len(gpus)
-    ps: list[Popen] = []
+    ps: list[Popen[bytes]] = []
     for idx, n_g in enumerate(gpus):
         cmd = (
             '"%s" infer/modules/train/extract_feature_print.py %s %s %s %s "%s/logs/%s" %s'
@@ -456,7 +456,7 @@ def _click_train(
         names = set([name.split(".")[0] for name in os.listdir(gt_wavs_dir)]) & set(
             [name.split(".")[0] for name in os.listdir(feature_dir)]
         )
-    opt = []
+    opt: list[str] = []
     for name in names:
         if if_f0_3:
             opt.append(

@@ -5,6 +5,7 @@ import os
 import shutil
 import sys
 from multiprocessing import cpu_count
+from typing import Any, Callable
 
 import torch
 
@@ -18,7 +19,7 @@ version_config_list = [
 ]
 
 
-def singleton_variable(func):
+def singleton_variable(func: Callable[..., Any]) -> Callable[..., Any]:
     def wrapper(*args, **kwargs):
         if not wrapper.instance:
             wrapper.instance = func(*args, **kwargs)
@@ -30,6 +31,8 @@ def singleton_variable(func):
 
 @singleton_variable
 class Config:
+    python_cmd: str
+
     def __init__(self):
         self.device = "cuda:0"
         self.is_half = True
@@ -50,8 +53,8 @@ class Config:
         self.x_pad, self.x_query, self.x_center, self.x_max = self.device_config()
 
     @staticmethod
-    def load_config_json() -> dict:
-        d = {}
+    def load_config_json() -> dict[str, dict[str, object]]:
+        d: dict[str, dict[str, object]] = {}
         for config_file in version_config_list:
             p = f"configs/inuse/{config_file}"
             if not os.path.exists(p):
@@ -61,7 +64,7 @@ class Config:
         return d
 
     @staticmethod
-    def arg_parse() -> tuple:
+    def arg_parse() -> tuple[str, int, bool, bool, bool]:
         exe = sys.executable or "python"
         parser = argparse.ArgumentParser()
         parser.add_argument("--port", type=int, default=7865, help="Listen port")
@@ -110,7 +113,7 @@ class Config:
         self.preprocess_per = 3.0
         logger.info("overwrite preprocess_per to %d" % (self.preprocess_per))
 
-    def device_config(self) -> tuple:
+    def device_config(self) -> tuple[int, int, int, int]:
         if torch.cuda.is_available():
             i_device = int(self.device.split(":")[-1])
             self.gpu_name = torch.cuda.get_device_name(i_device)

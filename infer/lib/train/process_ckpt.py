@@ -9,7 +9,7 @@ from i18n.i18n import I18nAuto
 i18n = I18nAuto()
 
 
-def savee(ckpt, sr, if_f0, name, epoch, hps):
+def savee(ckpt, sr, if_f0, name, epoch, hps) -> str:
     try:
         opt = OrderedDict()
         opt["weight"] = {}
@@ -46,7 +46,7 @@ def savee(ckpt, sr, if_f0, name, epoch, hps):
         return traceback.format_exc()
 
 
-def show_info(path):
+def show_info(path: str) -> str:
     try:
         a = torch.load(path, map_location="cpu")
         return "模型信息:%s\n采样率:%s\n模型是否输入音高引导:%s" % (
@@ -58,7 +58,7 @@ def show_info(path):
         return traceback.format_exc()
 
 
-def extract_small_model(path, name, sr, if_f0, info):
+def extract_small_model(path: str, name: str, sr: str, if_f0: object, info: str) -> str:
     try:
         ckpt = torch.load(path, map_location="cpu")
         if "model" in ckpt:
@@ -143,7 +143,7 @@ def extract_small_model(path, name, sr, if_f0, info):
         return traceback.format_exc()
 
 
-def change_info(path, info, name):
+def change_info(path: str, info: str, name: str) -> str:
     try:
         ckpt = torch.load(path, map_location="cpu")
         ckpt["info"] = info
@@ -155,7 +155,9 @@ def change_info(path, info, name):
         return traceback.format_exc()
 
 
-def merge(path1, path2, alpha1, sr, f0, info, name):
+def merge(
+    path1: str, path2: str, alpha1: object, sr: str, f0: object, info: str, name: str
+) -> str:
     try:
 
         def extract(ckpt):

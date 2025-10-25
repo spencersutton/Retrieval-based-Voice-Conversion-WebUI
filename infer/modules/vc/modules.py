@@ -7,6 +7,7 @@ import numpy as np
 import soundfile as sf
 import torch
 
+from configs.config import Config
 from infer.lib.audio import load_audio, wav2
 from infer.lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid,
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class VC:
-    def __init__(self, config):
+    def __init__(self, config: Config):
         self.n_spk = None
         self.tgt_sr = None
         self.net_g = None
@@ -137,18 +138,18 @@ class VC:
 
     def vc_single(
         self,
-        sid,
-        input_audio_path,
-        f0_up_key,
-        f0_file,
-        f0_method,
-        file_index,
-        file_index2,
-        index_rate,
-        filter_radius,
-        resample_sr,
-        rms_mix_rate,
-        protect,
+        sid: int,
+        input_audio_path: str | None,
+        f0_up_key: int,
+        f0_file: str,
+        f0_method: str,
+        file_index: str,
+        file_index2: str,
+        index_rate: float,
+        filter_radius: int,
+        resample_sr: int,
+        rms_mix_rate: float,
+        protect: float,
     ):
         if input_audio_path is None:
             return "You need to upload an audio", None
