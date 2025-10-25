@@ -294,7 +294,7 @@ class Pipeline:
         version,
         protect,
         f0_file=None,
-    ) -> ndarray:
+    ) -> np.ndarray:
         if file_index != "" and os.path.exists(file_index) and index_rate != 0:
             try:
                 index = faiss.read_index(file_index)

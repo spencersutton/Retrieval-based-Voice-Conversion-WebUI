@@ -1,3 +1,5 @@
+from typing import Self
+
 import torch
 from torch import nn
 from torch.nn import Conv1d
@@ -116,7 +118,7 @@ class WN(torch.nn.Module):
         for l in self.res_skip_layers:
             torch.nn.utils.remove_weight_norm(l)
 
-    def __prepare_scriptable__(self) -> WN:
+    def __prepare_scriptable__(self) -> Self:
         if self.gin_channels != 0:
             for hook in self.cond_layer._forward_pre_hooks.values():
                 if (
@@ -238,7 +240,7 @@ class ResBlock1(torch.nn.Module):
         for l in self.convs2:
             remove_weight_norm(l)
 
-    def __prepare_scriptable__(self) -> ResBlock1:
+    def __prepare_scriptable__(self) -> Self:
         for l in self.convs1:
             for hook in l._forward_pre_hooks.values():
                 if (
@@ -301,7 +303,7 @@ class ResBlock2(torch.nn.Module):
         for l in self.convs:
             remove_weight_norm(l)
 
-    def __prepare_scriptable__(self) -> ResBlock2:
+    def __prepare_scriptable__(self) -> Self:
         for l in self.convs:
             for hook in l._forward_pre_hooks.values():
                 if (
@@ -396,7 +398,7 @@ class ResidualCouplingLayer(nn.Module):
     def remove_weight_norm(self) -> None:
         self.enc.remove_weight_norm()
 
-    def __prepare_scriptable__(self) -> ResidualCouplingLayer:
+    def __prepare_scriptable__(self) -> Self:
         for hook in self.enc._forward_pre_hooks.values():  # type: ignore
             if (
                 hook.__module__ == "torch.nn.utils.weight_norm"

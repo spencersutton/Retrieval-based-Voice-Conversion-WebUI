@@ -161,6 +161,94 @@ def load_filepaths_and_text(filename: str, split: str = "|") -> list[list[str]]:
     return [line.strip().split(split) for line in lines]
 
 
+def get_logger(model_dir: str, filename: str = "train.log") -> logging.Logger:
+    global logger
+    model_dir_path = Path(model_dir)
+    logger = logging.getLogger(model_dir_path.name)
+    logger.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter("%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
+    model_dir_path.mkdir(parents=True, exist_ok=True)
+    log_file = model_dir_path / filename
+    handler = logging.FileHandler(str(log_file))
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    return logger
+
+
+@dataclass
+class HParamsData:
+    filter_length: int
+    hop_length: int
+    max_wav_value: float
+    mel_fmax: int
+    mel_fmin: int
+    n_mel_channels: int
+    sampling_rate: int
+    win_length: int
+    training_files: str | None = None
+
+
+@dataclass
+class HParamsTrain:
+    batch_size: int
+    betas: list[float]
+    c_kl: float
+    c_mel: float
+    epochs: int
+    eps: float
+    fp16_run: bool
+    init_lr_ratio: int
+    learning_rate: float
+    log_interval: int
+    lr_decay: float
+    seed: int
+    segment_size: int
+    warmup_epochs: int
+
+
+@dataclass
+class HParamsModel:
+    filter_channels: int
+    gin_channels: int
+    hidden_channels: int
+    inter_channels: int
+    kernel_size: int
+    n_heads: int
+    n_layers: int
+    p_dropout: float
+    resblock_dilation_sizes: list[list[int]]
+    resblock_kernel_sizes: list[int]
+    resblock: str
+    spk_embed_dim: int
+    upsample_initial_channel: int
+    upsample_kernel_sizes: list[int]
+    upsample_rates: list[int]
+    use_spectral_norm: bool
+
+
+@dataclass
+class HParams:
+    data: HParamsData
+    model: HParamsModel
+    train: HParamsTrain
+
+    model_dir: Path = Path()
+    experiment_dir: Path = Path()
+    save_every_epoch: bool = False
+    name: str = ""
+    total_epoch: int = 0
+    pretrainG: str = ""
+    pretrainD: str = ""
+    gpus: str = ""
+    sample_rate: str = ""
+    if_f0: int = 0
+    if_latest: int = 0
+    save_every_weights: str = "0"
+    if_cache_data_in_gpu: int = 0
+
+
 def get_hparams() -> HParams:
     """
     todo:
@@ -259,91 +347,3 @@ def get_hparams() -> HParams:
     hparams.if_cache_data_in_gpu = args.if_cache_data_in_gpu
     hparams.data.training_files = f"{experiment_dir}/filelist.txt"
     return hparams
-
-
-def get_logger(model_dir: str, filename: str = "train.log") -> logging.Logger:
-    global logger
-    model_dir_path = Path(model_dir)
-    logger = logging.getLogger(model_dir_path.name)
-    logger.setLevel(logging.DEBUG)
-
-    formatter = logging.Formatter("%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
-    model_dir_path.mkdir(parents=True, exist_ok=True)
-    log_file = model_dir_path / filename
-    handler = logging.FileHandler(str(log_file))
-    handler.setLevel(logging.DEBUG)
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger
-
-
-@dataclass
-class HParamsData:
-    filter_length: int
-    hop_length: int
-    max_wav_value: float
-    mel_fmax: int
-    mel_fmin: int
-    n_mel_channels: int
-    sampling_rate: int
-    win_length: int
-    training_files: str | None = None
-
-
-@dataclass
-class HParamsTrain:
-    batch_size: int
-    betas: list[float]
-    c_kl: float
-    c_mel: float
-    epochs: int
-    eps: float
-    fp16_run: bool
-    init_lr_ratio: int
-    learning_rate: float
-    log_interval: int
-    lr_decay: float
-    seed: int
-    segment_size: int
-    warmup_epochs: int
-
-
-@dataclass
-class HParamsModel:
-    filter_channels: int
-    gin_channels: int
-    hidden_channels: int
-    inter_channels: int
-    kernel_size: int
-    n_heads: int
-    n_layers: int
-    p_dropout: float
-    resblock_dilation_sizes: list[list[int]]
-    resblock_kernel_sizes: list[int]
-    resblock: str
-    spk_embed_dim: int
-    upsample_initial_channel: int
-    upsample_kernel_sizes: list[int]
-    upsample_rates: list[int]
-    use_spectral_norm: bool
-
-
-@dataclass
-class HParams:
-    data: HParamsData
-    model: HParamsModel
-    train: HParamsTrain
-
-    model_dir: Path = Path()
-    experiment_dir: Path = Path()
-    save_every_epoch: bool = False
-    name: str = ""
-    total_epoch: int = 0
-    pretrainG: str = ""
-    pretrainD: str = ""
-    gpus: str = ""
-    sample_rate: str = ""
-    if_f0: int = 0
-    if_latest: int = 0
-    save_every_weights: str = "0"
-    if_cache_data_in_gpu: int = 0

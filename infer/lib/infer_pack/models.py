@@ -1,5 +1,6 @@
 import logging
 import math
+from typing import Self
 
 import numpy as np
 import torch
@@ -131,7 +132,7 @@ class ResidualCouplingBlock(nn.Module):
         for i in range(self.n_flows):
             self.flows[i * 2].remove_weight_norm()  # type: ignore
 
-    def __prepare_scriptable__(self) -> ResidualCouplingBlock:
+    def __prepare_scriptable__(self) -> Self:
         for i in range(self.n_flows):
             flow = self.flows[i * 2]
             for hook in flow._forward_pre_hooks.values():  # type: ignore
@@ -193,7 +194,7 @@ class PosteriorEncoder(nn.Module):
     def remove_weight_norm(self) -> None:
         self.enc.remove_weight_norm()
 
-    def __prepare_scriptable__(self) -> PosteriorEncoder:
+    def __prepare_scriptable__(self) -> Self:
         for hook in self.enc._forward_pre_hooks.values():  # type: ignore
             if (
                 hook.__module__ == "torch.nn.utils.weight_norm"
@@ -282,7 +283,7 @@ class Generator(torch.nn.Module):
 
         return x
 
-    def __prepare_scriptable__(self) -> Generator:
+    def __prepare_scriptable__(self) -> Self:
         for l in self.ups:
             for hook in l._forward_pre_hooks.values():  # type: ignore
                 # The hook we want to remove is an instance of WeightNorm class, so
@@ -568,7 +569,7 @@ class GeneratorNSF(torch.nn.Module):
         for l in self.resblocks:
             l.remove_weight_norm()  # type: ignore
 
-    def __prepare_scriptable__(self) -> GeneratorNSF:
+    def __prepare_scriptable__(self) -> Self:
         for l in self.ups:
             for hook in l._forward_pre_hooks.values():  # type: ignore
                 # The hook we want to remove is an instance of WeightNorm class, so
@@ -688,7 +689,7 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
         if hasattr(self, "enc_q"):
             self.enc_q.remove_weight_norm()
 
-    def __prepare_scriptable__(self) -> SynthesizerTrnMs256NSFsid:
+    def __prepare_scriptable__(self) -> Self:
         for hook in self.dec._forward_pre_hooks.values():  # type: ignore
             # The hook we want to remove is an instance of WeightNorm class, so
             # normally we would do `if isinstance(...)` but this class is not accessible
@@ -915,7 +916,7 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
         if hasattr(self, "enc_q"):
             self.enc_q.remove_weight_norm()
 
-    def __prepare_scriptable__(self) -> SynthesizerTrnMs256NSFsid_nono:
+    def __prepare_scriptable__(self) -> Self:
         for hook in self.dec._forward_pre_hooks.values():  # type: ignore
             # The hook we want to remove is an instance of WeightNorm class, so
             # normally we would do `if isinstance(...)` but this class is not accessible
