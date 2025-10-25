@@ -29,6 +29,9 @@ def _println(strr: str):
 
 
 class _PreProcess:
+    bh: np.ndarray
+    ah: np.ndarray
+
     def __init__(self, sample_rate: int, exp_dir: Path, per: float = 3.7):
         self.slicer = Slicer(
             sample_rate=sample_rate,
@@ -52,7 +55,7 @@ class _PreProcess:
         self.gt_wavs_dir.mkdir(exist_ok=True, parents=True)
         self.wavs16k_dir.mkdir(exist_ok=True, parents=True)
 
-    def norm_write(self, tmp_audio, idx0, idx1):
+    def norm_write(self, tmp_audio: np.ndarray, idx0: int, idx1: int):
         tmp_max = np.abs(tmp_audio).max()
         if tmp_max > 2.5:
             print(f"{idx0}-{idx1}-{tmp_max}-filtered")
@@ -60,16 +63,18 @@ class _PreProcess:
         tmp_audio = (tmp_audio / tmp_max * (self.max * self.alpha)) + (
             1 - self.alpha
         ) * tmp_audio
+        gt_wav_path = self.gt_wavs_dir / f"{idx0}_{idx1}.wav"
         wavfile.write(
-            f"{self.gt_wavs_dir}/{idx0}_{idx1}.wav",
+            str(gt_wav_path),
             self.sr,
             tmp_audio.astype(np.float32),
         )
-        tmp_audio = librosa.resample(tmp_audio, orig_sr=self.sr, target_sr=16000)
+        tmp_audio_16k = librosa.resample(tmp_audio, orig_sr=self.sr, target_sr=16000)
+        wav16k_path = self.wavs16k_dir / f"{idx0}_{idx1}.wav"
         wavfile.write(
-            f"{self.wavs16k_dir}/{idx0}_{idx1}.wav",
+            str(wav16k_path),
             16000,
-            tmp_audio.astype(np.float32),
+            tmp_audio_16k.astype(np.float32),
         )
 
     def pipeline(self, path: str, idx0: int):
@@ -80,7 +85,7 @@ class _PreProcess:
             audio = signal.lfilter(self.bh, self.ah, audio)
 
             idx1 = 0
-            for audio in self.slicer.slice(audio):
+            for audio in self.slicer.slice(audio):  # type: ignore
                 i = 0
                 tmp_audio = None
                 while 1:
@@ -99,7 +104,7 @@ class _PreProcess:
         except Exception:
             _println(f"{path}\t-> {traceback.format_exc()}")
 
-    def pipeline_mp(self, infos):
+    def pipeline_mp(self, infos: list[tuple[str, int]]):
         for path, idx0 in infos:
             self.pipeline(path, idx0)
 
@@ -113,15 +118,16 @@ class _PreProcess:
                 for i in range(num_processes):
                     self.pipeline_mp(infos[i::num_processes])
             else:
-                ps = []
-                for i in range(num_processes):
-                    p = multiprocessing.Process(
+                ps = [
+                    multiprocessing.Process(
                         target=self.pipeline_mp, args=(infos[i::num_processes],)
                     )
-                    ps.append(p)
+                    for i in range(num_processes)
+                ]
+                for p in ps:
                     p.start()
-                for i in range(num_processes):
-                    ps[i].join()
+                for p in ps:
+                    p.join()
         except Exception:
             _println(f"Fail. {traceback.format_exc()}")
 
