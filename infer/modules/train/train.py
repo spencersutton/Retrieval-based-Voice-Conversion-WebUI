@@ -17,9 +17,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from infer.lib.infer_pack import commons
-from infer.lib.infer_pack.models import (
-    MultiPeriodDiscriminatorV2 as MultiPeriodDiscriminator,
-)
+from infer.lib.infer_pack.models import MultiPeriodDiscriminator
 from infer.lib.infer_pack.models import SynthesizerTrnMs768NSFsid as RVC_Model_f0
 from infer.lib.infer_pack.models import SynthesizerTrnMs768NSFsid_nono as RVC_Model_nof0
 from infer.lib.train import utils
