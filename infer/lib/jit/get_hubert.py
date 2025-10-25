@@ -8,7 +8,12 @@ from fairseq.checkpoint_utils import load_model_ensemble_and_task
 from fairseq.utils import index_put
 
 
-def pad_to_multiple(x, multiple, dim=-1, value=0):
+def pad_to_multiple(
+    x: torch.Tensor | None,
+    multiple: int,
+    dim: int = -1,
+    value: int = 0,
+):
     # Inspired from https://github.com/lucidrains/local-attention/blob/master/local_attention/local_attention.py#L41
     if x is None:
         return None, 0
@@ -23,11 +28,11 @@ def pad_to_multiple(x, multiple, dim=-1, value=0):
 
 
 def extract_features(
-    self,
-    x,
-    padding_mask=None,
-    tgt_layer=None,
-    min_layer=0,
+    self: object,
+    x: torch.Tensor,
+    padding_mask: torch.Tensor | None = None,
+    tgt_layer: int | None = None,
+    min_layer: int = 0,
 ):
     if padding_mask is not None:
         x = index_put(x, padding_mask, 0)
@@ -220,7 +225,12 @@ def compute_mask_indices(
     return mask
 
 
-def apply_mask(self, x, padding_mask, target_list):
+def apply_mask(
+    self: object,
+    x: torch.Tensor,
+    padding_mask: torch.Tensor,
+    target_list: list[object],
+):
     B, T, C = x.shape
     torch.zeros_like(x)
     if self.mask_prob > 0:
@@ -260,8 +270,9 @@ def apply_mask(self, x, padding_mask, target_list):
 
 
 def get_hubert_model(
-    model_path="assets/hubert/hubert_base.pt", device=torch.device("cpu")
-):
+    model_path: str = "assets/hubert/hubert_base.pt",
+    device: torch.device = torch.device("cpu"),
+) -> object:
     models, _, _ = load_model_ensemble_and_task(
         [model_path],
         suffix="",
@@ -269,16 +280,18 @@ def get_hubert_model(
     hubert_model = models[0]
     hubert_model = hubert_model.to(device)
 
-    def _apply_mask(x, padding_mask, target_list):
+    def _apply_mask(
+        x: torch.Tensor, padding_mask: torch.Tensor, target_list: list[object]
+    ):
         return apply_mask(hubert_model, x, padding_mask, target_list)
 
     hubert_model.apply_mask = _apply_mask
 
     def _extract_features(
-        x,
-        padding_mask=None,
-        tgt_layer=None,
-        min_layer=0,
+        x: torch.Tensor,
+        padding_mask: torch.Tensor | None = None,
+        tgt_layer: int | None = None,
+        min_layer: int = 0,
     ):
         return extract_features(
             hubert_model.encoder,
@@ -293,7 +306,7 @@ def get_hubert_model(
     hubert_model._forward = hubert_model.forward
 
     def hubert_extract_features(
-        self,
+        self: object,
         source: torch.Tensor,
         padding_mask: torch.Tensor | None = None,
         mask: bool = False,
@@ -323,7 +336,9 @@ def get_hubert_model(
 
     hubert_model.extract_features = _hubert_extract_features
 
-    def infer(source, padding_mask, output_layer: torch.Tensor):
+    def infer(
+        source: torch.Tensor, padding_mask: torch.Tensor, output_layer: torch.Tensor
+    ):
         output_layer = output_layer.item()
         logits = hubert_model.extract_features(
             source=source, padding_mask=padding_mask, output_layer=output_layer
