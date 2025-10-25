@@ -6,6 +6,10 @@ from io import BytesIO
 import torch
 from tqdm import tqdm
 
+from infer.lib.jit.get_hubert import get_hubert_model
+from infer.lib.jit.get_rmvpe import get_rmvpe
+from infer.lib.jit.get_synthesizer import get_synthesizer
+
 
 def load_inputs(path, device, is_half=False):
     parm = torch.load(path, map_location=torch.device("cpu"))
@@ -43,17 +47,11 @@ def to_jit_model(
 ):
     model = None
     if model_type.lower() == "synthesizer":
-        from .get_synthesizer import get_synthesizer
-
         model, _ = get_synthesizer(model_path, device)
         model.forward = model.infer
     elif model_type.lower() == "rmvpe":
-        from .get_rmvpe import get_rmvpe
-
         model = get_rmvpe(model_path, device)
     elif model_type.lower() == "hubert":
-        from .get_hubert import get_hubert_model
-
         model = get_hubert_model(model_path, device)
         model.forward = model.infer
     else:
@@ -121,7 +119,6 @@ def rmvpe_jit_export(
         save_path += ".half.jit" if is_half else ".jit"
     if "cuda" in str(device) and ":" not in str(device):
         device = torch.device("cuda:0")
-    from .get_rmvpe import get_rmvpe
 
     model = get_rmvpe(model_path, device)
     inputs = None
@@ -146,7 +143,6 @@ def synthesizer_jit_export(
         save_path += ".half.jit" if is_half else ".jit"
     if "cuda" in str(device) and ":" not in str(device):
         device = torch.device("cuda:0")
-    from .get_synthesizer import get_synthesizer
 
     model, cpt = get_synthesizer(model_path, device)
     assert isinstance(cpt, dict)
