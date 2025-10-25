@@ -1,11 +1,10 @@
 import argparse
 import json
 import logging
-import os
-import shutil
 import sys
 from collections.abc import Callable
 from multiprocessing import cpu_count
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -57,11 +56,12 @@ class Config:
     def load_config_json() -> dict[str, dict[str, object]]:
         d: dict[str, dict[str, object]] = {}
         for config_file in version_config_list:
-            p = f"configs/inuse/{config_file}"
-            if not os.path.exists(p):
-                shutil.copy(f"configs/{config_file}", p)
-            with open(f"configs/inuse/{config_file}") as f:
-                d[config_file] = json.load(f)
+            src = Path("configs") / config_file
+            dst = Path("configs/inuse") / config_file
+            if not dst.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+            d[config_file] = json.loads(dst.read_text(encoding="utf-8"))
         return d
 
     @staticmethod
@@ -106,13 +106,12 @@ class Config:
     def use_fp32_config(self):
         for config_file in version_config_list:
             self.json_config[config_file]["train"]["fp16_run"] = False
-            with open(f"configs/inuse/{config_file}") as f:
-                strr = f.read().replace("true", "false")
-            with open(f"configs/inuse/{config_file}", "w") as f:
-                f.write(strr)
-            logger.info("overwrite " + config_file)
+            path = Path("configs/inuse") / config_file
+            strr = path.read_text(encoding="utf-8").replace("true", "false")
+            path.write_text(strr, encoding="utf-8")
+            logger.info(f"overwrite {config_file}")
         self.preprocess_per = 3.0
-        logger.info("overwrite preprocess_per to %d" % (self.preprocess_per))
+        logger.info(f"overwrite preprocess_per to {self.preprocess_per}")
 
     def device_config(self) -> tuple[int, int, int, int]:
         if torch.cuda.is_available():

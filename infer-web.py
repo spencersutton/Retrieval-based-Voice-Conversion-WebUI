@@ -452,22 +452,22 @@ def _click_train(
 def _train_index(exp_dir1: str) -> Generator[str]:
     _logger.info("Start training index for %s", exp_dir1)
 
-    exp_dir = f"logs/{exp_dir1}"
-    os.makedirs(exp_dir, exist_ok=True)
-    feature_dir = f"{exp_dir}/3_feature768"
+    exp_dir = Path("logs") / exp_dir1
+    exp_dir.mkdir(parents=True, exist_ok=True)
+    feature_dir = exp_dir / "3_feature768"
 
-    if not os.path.exists(feature_dir):
+    if not feature_dir.exists():
         return "请先进行特征提取!"
 
-    listdir_res = list(os.listdir(feature_dir))
+    listdir_res = sorted([p for p in feature_dir.iterdir() if p.is_file()])
     if len(listdir_res) == 0:
-        return "请先进行特征提取！"
+        return "请先进行特征提取"
 
     # Load and concatenate all feature files
     infos: list[str] = []
     npys: list[np.ndarray] = []
-    for name in sorted(listdir_res):
-        npys.append(np.load(f"{feature_dir}/{name}"))
+    for path in listdir_res:
+        npys.append(np.load(str(path)))
 
     big_npy = np.concatenate(npys, 0)
 
@@ -496,7 +496,7 @@ def _train_index(exp_dir1: str) -> Generator[str]:
             _logger.info(infos[-1])
             yield "\n".join(infos)
 
-    np.save(f"{exp_dir}/total_fea.npy", big_npy)
+    np.save(str(exp_dir / "total_fea.npy"), big_npy)
 
     # Build FAISS index
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
@@ -510,9 +510,9 @@ def _train_index(exp_dir1: str) -> Generator[str]:
 
     # Save training index
     trained_index_path = (
-        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
+        exp_dir / f"trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
     )
-    faiss.write_index(index, trained_index_path)
+    faiss.write_index(index, str(trained_index_path))
 
     # Add vectors and save final index
     infos.append("adding")
@@ -522,17 +522,20 @@ def _train_index(exp_dir1: str) -> Generator[str]:
         index.add(big_npy[i : i + 8192])
 
     added_index_path = (
-        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
+        exp_dir / f"added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
     )
-    faiss.write_index(index, added_index_path)
-    infos.append(f"成功构建索引 {os.path.basename(added_index_path)}")
+    faiss.write_index(index, str(added_index_path))
+    infos.append(f"成功构建索引 {added_index_path.name}")
 
     # Link to external index root if configured
     if _outside_index_root:
         try:
             link_fn = os.link if platform.system() == "Windows" else os.symlink
-            external_path = f"{_outside_index_root}/{exp_dir1}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
-            link_fn(added_index_path, external_path)
+            external_path = (
+                Path(_outside_index_root)
+                / f"{exp_dir1}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
+            )
+            link_fn(str(added_index_path), str(external_path))
             infos.append(f"链接索引到外部-{_outside_index_root}")
         except Exception:
             infos.append(f"链接索引到外部-{_outside_index_root}失败")
@@ -1306,12 +1309,12 @@ with gr.Blocks(title="RVC WebUI") as app:
         tab_faq = _i18n("常见问题解答")
         with gr.TabItem(tab_faq):
             try:
-                if tab_faq == "常见问题解答":
-                    with open("docs/cn/faq.md", encoding="utf8") as f:
-                        info = f.read()
-                else:
-                    with open("docs/en/faq_en.md", encoding="utf8") as f:
-                        info = f.read()
+                faq_path = (
+                    Path("docs/cn/faq.md")
+                    if tab_faq == "常见问题解答"
+                    else Path("docs/en/faq_en.md")
+                )
+                info = faq_path.read_text(encoding="utf8")
                 gr.Markdown(value=info)
             except Exception:
                 gr.Markdown(traceback.format_exc())
