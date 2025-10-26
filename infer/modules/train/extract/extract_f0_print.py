@@ -1,8 +1,8 @@
 import logging
-import os
 import sys
 import traceback
 from multiprocessing import Process
+from pathlib import Path
 
 import numpy as np
 import parselmouth
@@ -12,11 +12,11 @@ from infer.lib.audio import load_audio
 
 logging.getLogger("numba").setLevel(logging.WARNING)
 
-exp_dir = sys.argv[1]
-f = open(f"{exp_dir}/extract_f0_feature.log", "a+")
+exp_dir = Path(sys.argv[1])
+f = (exp_dir / "extract_f0_feature.log").open("a+")
 
 
-def printt(strr) -> None:
+def printt(strr: str) -> None:
     print(strr)
     f.write(f"{strr}\n")
     f.flush()
@@ -27,8 +27,8 @@ f0method = sys.argv[3]
 
 
 class FeatureInput:
-    def __init__(self, samplerate=16000, hop_size=160) -> None:
-        self.fs = samplerate
+    def __init__(self, sample_rate: int = 16000, hop_size: int = 160) -> None:
+        self.fs = sample_rate
         self.hop = hop_size
 
         self.f0_bin = 256
@@ -37,7 +37,7 @@ class FeatureInput:
         self.f0_mel_min = 1127 * np.log(1 + self.f0_min / 700)
         self.f0_mel_max = 1127 * np.log(1 + self.f0_max / 700)
 
-    def compute_f0(self, path, f0_method) -> ndarray:
+    def compute_f0(self, path: Path, f0_method: str) -> np.ndarray:
         x = load_audio(path, self.fs)
         p_len = x.shape[0] // self.hop
         if f0_method == "pm":
@@ -88,7 +88,7 @@ class FeatureInput:
             f0 = self.model_rmvpe.infer_from_audio(x, thred=0.03)
         return f0
 
-    def coarse_f0(self, f0):
+    def coarse_f0(self, f0: np.ndarray) -> np.ndarray:
         f0_mel = 1127 * np.log(1 + f0 / 700)
         f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - self.f0_mel_min) * (
             self.f0_bin - 2
@@ -104,18 +104,19 @@ class FeatureInput:
         )
         return f0_coarse
 
-    def go(self, paths, f0_method) -> None:
+    def go(self, paths: list[tuple[Path, Path, Path]], f0_method: str) -> None:
         if len(paths) == 0:
             printt("no-f0-todo")
         else:
             printt(f"todo-f0-{len(paths)}")
-            n = max(len(paths) // 5, 1)  # 每个进程最多打印5条
+            n = max(len(paths) // 5, 1)  # Each process prints at most 5 messages
             for idx, (inp_path, opt_path1, opt_path2) in enumerate(paths):
                 try:
                     if idx % n == 0:
                         printt(f"f0ing,now-{idx},all-{len(paths)},-{inp_path}")
-                    if os.path.exists(opt_path1 + ".npy") and os.path.exists(
-                        opt_path2 + ".npy"
+                    if (
+                        opt_path1.with_suffix(".npy").exists()
+                        and opt_path2.with_suffix(".npy").exists()
                     ):
                         continue
                     featur_pit = self.compute_f0(inp_path, f0_method)
@@ -137,20 +138,20 @@ class FeatureInput:
 if __name__ == "__main__":
     printt(" ".join(sys.argv))
     featureInput = FeatureInput()
-    paths = []
-    inp_root = f"{exp_dir}/1_16k_wavs"
-    opt_root1 = f"{exp_dir}/2a_f0"
-    opt_root2 = f"{exp_dir}/2b-f0nsf"
+    paths: list[tuple[Path, Path, Path]] = []
+    inp_root = exp_dir / "1_16k_wavs"
+    opt_root1 = exp_dir / "2a_f0"
+    opt_root2 = exp_dir / "2b-f0nsf"
 
-    os.makedirs(opt_root1, exist_ok=True)
-    os.makedirs(opt_root2, exist_ok=True)
-    for name in sorted(os.listdir(inp_root)):
-        inp_path = f"{inp_root}/{name}"
-        if "spec" in inp_path:
+    opt_root1.mkdir(parents=True, exist_ok=True)
+    opt_root2.mkdir(parents=True, exist_ok=True)
+    for inp_path_obj in sorted(inp_root.iterdir()):
+        name = inp_path_obj.name
+        if "spec" in name:
             continue
-        opt_path1 = f"{opt_root1}/{name}"
-        opt_path2 = f"{opt_root2}/{name}"
-        paths.append([inp_path, opt_path1, opt_path2])
+        opt_path1 = opt_root1 / name
+        opt_path2 = opt_root2 / name
+        paths.append((inp_path_obj, opt_path1, opt_path2))
 
     ps = []
     for i in range(n_p):
