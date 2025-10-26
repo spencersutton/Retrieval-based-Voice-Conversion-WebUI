@@ -38,9 +38,23 @@ class Config:
         self.is_half = True
         self.use_jit = False
         self.n_cpu = 0
-        self.json_config = self.load_config_json()
         self.gpu_mem = None
+        self.instead = ""
+        self.preprocess_per = 3.7
 
+        # Load config JSON files
+        self.json_config: dict[str, dict[str, object]] = {}
+        for config_file in version_config_list:
+            src = Path("configs") / config_file
+            dst = Path("configs/inuse") / config_file
+            if not dst.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_text(src.read_text())
+
+            with dst.open("r") as f:
+                self.json_config[config_file] = json.load(f)
+
+        # Parse command-line arguments
         exe = sys.executable or "python"
         parser = argparse.ArgumentParser()
         parser.add_argument("--port", type=int, default=7865, help="Listen port")
@@ -62,25 +76,8 @@ class Config:
         self.noparallel = args.noparallel
         self.noautoopen = args.noautoopen
 
-        self.instead = ""
-        self.preprocess_per = 3.7
+        # Device configuration
         self.x_pad, self.x_query, self.x_center, self.x_max = self.device_config()
-
-    @staticmethod
-    def load_config_json() -> dict[str, dict[str, object]]:
-        configs: dict[str, dict[str, object]] = {}
-        for config_file in version_config_list:
-            src = Path("configs") / config_file
-            dst = Path("configs/inuse") / config_file
-
-            if not dst.exists():
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                dst.write_text(src.read_text())
-
-            with dst.open("r") as f:
-                configs[config_file] = json.load(f)
-
-        return configs
 
     # has_mps is only available in nightly pytorch (for now) and MasOS 12.3+.
     # check `getattr` and try it for compatibility
