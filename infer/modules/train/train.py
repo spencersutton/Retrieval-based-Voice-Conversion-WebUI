@@ -63,6 +63,24 @@ def latest_checkpoint_path(dir_path: Path, pattern: str = "G_*.pth") -> Path:
     return latest
 
 
+def get_model_state_dict(
+    model: torch.nn.parallel.DistributedDataParallel,
+) -> dict[str, torch.Tensor]:
+    """Extract state dict from model, handling DDP wrapper."""
+    return model.module.state_dict() if hasattr(model, "module") else model.state_dict()
+
+
+def load_model_state_dict(
+    model: torch.nn.parallel.DistributedDataParallel,
+    state_dict: dict[str, torch.Tensor],
+) -> None:
+    """Load state dict into model, handling DDP wrapper."""
+    if hasattr(model, "module"):
+        model.module.load_state_dict(state_dict, strict=False)
+    else:
+        model.load_state_dict(state_dict, strict=False)
+
+
 def load_checkpoint(
     checkpoint_path: Path,
     model: torch.nn.parallel.DistributedDataParallel,
@@ -73,10 +91,7 @@ def load_checkpoint(
     checkpoint_dict = torch.load(str(checkpoint_path), map_location="cpu")
 
     saved_state_dict = checkpoint_dict["model"]
-    # Get the current model's state dict
-    state_dict = (
-        model.module.state_dict() if hasattr(model, "module") else model.state_dict()
-    )
+    state_dict = get_model_state_dict(model)
     new_state_dict: dict[str, torch.Tensor] = {}
 
     for k, v in state_dict.items():
@@ -91,15 +106,10 @@ def load_checkpoint(
                 )
                 raise KeyError
         except Exception:
-            # Missing in checkpoint, use model's own random value
             logger.info("%s is not in the checkpoint", k)
             new_state_dict[k] = v
 
-    # Load the new state dict into the model
-    if hasattr(model, "module"):
-        model.module.load_state_dict(new_state_dict, strict=False)
-    else:
-        model.load_state_dict(new_state_dict, strict=False)
+    load_model_state_dict(model, new_state_dict)
     logger.info("Loaded model weights")
 
     iteration = checkpoint_dict["iteration"]
@@ -123,11 +133,8 @@ def save_checkpoint(
     logger.info(
         f"Saving model and optimizer state at epoch {iteration} to {checkpoint_path}"
     )
-    state_dict = (
-        model.module.state_dict() if hasattr(model, "module") else model.state_dict()
-    )
     checkpoint = {
-        "model": state_dict,
+        "model": get_model_state_dict(model),
         "iteration": iteration,
         "optimizer": optimizer.state_dict(),
         "learning_rate": learning_rate,
@@ -309,12 +316,12 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         global_step = 0
         if hps.pretrainG:
             ckpt = torch.load(hps.pretrainG, map_location="cpu")["model"]
-            (net_g.module if hasattr(net_g, "module") else net_g).load_state_dict(ckpt)
+            load_model_state_dict(net_g, ckpt)
             if rank == 0:
                 logger.info(f"Loaded pretrained G: {hps.pretrainG}")
         if hps.pretrainD:
             ckpt = torch.load(hps.pretrainD, map_location="cpu")["model"]
-            (net_d.module if hasattr(net_d, "module") else net_d).load_state_dict(ckpt)
+            load_model_state_dict(net_d, ckpt)
             if rank == 0:
                 logger.info(f"Loaded pretrained D: {hps.pretrainD}")
 
@@ -327,57 +334,23 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         net_g.train()
         net_d.train()
 
-        # Prepare data iterator
-        def cache_batch(info: tuple[object, ...]) -> tuple[object, ...]:
-            if hps.if_f0:
-                (
-                    phone,
-                    phone_lengths,
-                    pitch,
-                    pitchf,
-                    spec,
-                    spec_lengths,
-                    wave,
-                    wave_lengths,
-                    sid,
-                ) = info
-                batch = (
-                    phone,
-                    phone_lengths,
-                    pitch,
-                    pitchf,
-                    spec,
-                    spec_lengths,
-                    wave,
-                    wave_lengths,
-                    sid,
-                )
-            else:
-                phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
-                batch = (
-                    phone,
-                    phone_lengths,
-                    spec,
-                    spec_lengths,
-                    wave,
-                    wave_lengths,
-                    sid,
-                )
-            if torch.cuda.is_available():
-                batch = tuple(
-                    x.cuda(rank, non_blocking=True)
-                    if isinstance(x, torch.Tensor)
-                    else x
-                    for x in batch
-                )
-            return batch
+        # Prepare data iterator with caching support
+        def move_batch_to_device(batch: tuple[object, ...]) -> tuple[object, ...]:
+            """Move batch tensors to GPU if available."""
+            if not torch.cuda.is_available():
+                return batch
+            return tuple(
+                x.cuda(rank, non_blocking=True) if isinstance(x, torch.Tensor) else x
+                for x in batch
+            )
 
-        if hps.if_cache_data_in_gpu and not cache:
-            for batch_idx, info in enumerate(train_loader):  # type: ignore
-                cache.append((batch_idx, cache_batch(info)))
-            random.shuffle(cache)
-            data_iterator = cache
-        elif hps.if_cache_data_in_gpu:
+        if hps.if_cache_data_in_gpu:
+            if not cache:
+                # Build cache on first epoch
+                cache = [
+                    (batch_idx, move_batch_to_device(info))
+                    for batch_idx, info in enumerate(train_loader)  # type: ignore
+                ]
             random.shuffle(cache)
             data_iterator = cache
         else:
@@ -386,6 +359,8 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         epoch_recorder = EpochRecorder()
 
         for batch_idx, info in data_iterator:  # type: ignore
+            # Unpack batch data
+            pitch = pitchf = None  # Initialize for type checking
             if hps.if_f0:
                 (
                     phone,
@@ -400,18 +375,32 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                 ) = info
             else:
                 phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
-            if not hps.if_cache_data_in_gpu and torch.cuda.is_available():
-                phone = phone.cuda(rank, non_blocking=True)
-                phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
+
+            # Move to device if not cached
+            if not hps.if_cache_data_in_gpu:
+                batch = move_batch_to_device(info)
                 if hps.if_f0:
-                    assert pitch is not None and pitchf is not None
-                    pitch = pitch.cuda(rank, non_blocking=True)
-                    pitchf = pitchf.cuda(rank, non_blocking=True)
-                sid = sid.cuda(rank, non_blocking=True)
-                spec = spec.cuda(rank, non_blocking=True)
-                spec_lengths = spec_lengths.cuda(rank, non_blocking=True)
-                wave = wave.cuda(rank, non_blocking=True)
-                wave_lengths = wave_lengths.cuda(rank, non_blocking=True)
+                    (
+                        phone,
+                        phone_lengths,
+                        pitch,
+                        pitchf,
+                        spec,
+                        spec_lengths,
+                        wave,
+                        wave_lengths,
+                        sid,
+                    ) = batch
+                else:
+                    (
+                        phone,
+                        phone_lengths,
+                        spec,
+                        spec_lengths,
+                        wave,
+                        wave_lengths,
+                        sid,
+                    ) = batch
 
             # Forward pass
             with torch.autocast(device_type=DEVICE_TYPE, enabled=hps.train.fp16_run):
@@ -439,6 +428,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                         z_mask,
                         (_z, z_p, m_p, logs_p, _m_q, logs_q),
                     ) = net_g(phone, phone_lengths, spec, spec_lengths, sid)
+
                 mel = spec_to_mel_torch(
                     spec,
                     hps.data.filter_length,
@@ -495,7 +485,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
 
             global_step += 1
 
-        # Save checkpoints (inlined)
+        # Save checkpoints
         if epoch % hps.save_every_epoch == 0 and rank == 0:
             ckpt_suffix = global_step if hps.if_latest == 0 else 2333333
             save_checkpoint(
@@ -513,13 +503,8 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                 hps.model_dir / f"D_{ckpt_suffix}.pth",
             )
             if hps.save_every_weights == "1":
-                ckpt = (
-                    net_g.module.state_dict()
-                    if hasattr(net_g, "module")
-                    else net_g.state_dict()
-                )
                 status = save_weights(
-                    ckpt,
+                    get_model_state_dict(net_g),
                     hps.sample_rate,
                     hps.if_f0,
                     f"{hps.name}_e{epoch}_s{global_step}",
@@ -530,15 +515,17 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
 
         if rank == 0:
             logger.info(f"====> Epoch: {epoch} {epoch_recorder.record()}")
+
+        # Training complete
         if epoch >= hps.total_epoch and rank == 0:
             logger.info("Training is done. The program is closed.")
-            ckpt = (
-                net_g.module.state_dict()
-                if hasattr(net_g, "module")
-                else net_g.state_dict()
-            )
             status = save_weights(
-                ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps
+                get_model_state_dict(net_g),
+                hps.sample_rate,
+                hps.if_f0,
+                hps.name,
+                epoch,
+                hps,
             )
             logger.info(f"saving final ckpt: {status}")
             sleep(1)
