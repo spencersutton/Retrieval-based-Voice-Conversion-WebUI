@@ -238,243 +238,226 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
 
     # Training loop
     for epoch in range(epoch_str, hps.train.epochs + 1):
-        train_and_evaluate(
-            rank,
-            epoch,
-            hps,
-            [net_g, net_d],
-            [optim_g, optim_d],
-            scaler,
-            [train_loader, None],
-            logger if rank == 0 else None,
-            cache,
-        )
+        train_loader.batch_sampler.set_epoch(epoch)  # type: ignore
+        net_g.train()
+        net_d.train()
 
-
-def train_and_evaluate(
-    rank: int,
-    epoch: int,
-    hps: utils.HParams,
-    nets: list[torch.nn.parallel.DistributedDataParallel],
-    optims: list[torch.optim.Optimizer],
-    scaler: torch.GradScaler,
-    loaders: list[DataLoader[object] | None],
-    logger: logging.Logger | None,
-    cache: list[object],
-) -> None:
-    net_g, net_d = nets
-    optim_g, optim_d = optims
-    train_loader, _ = loaders
-    pitch: torch.Tensor | None = None
-    pitchf: torch.Tensor | None = None
-    global global_step
-
-    logger = logger or logging.getLogger("RVC")
-    if not logger.hasHandlers():
-        logger.addHandler(logging.NullHandler())
-
-    train_loader.batch_sampler.set_epoch(epoch)  # type: ignore
-    net_g.train()
-    net_d.train()
-
-    # Prepare data iterator
-    def cache_batch(info: tuple[object, ...]) -> tuple[object, ...]:
-        if hps.if_f0:
-            (
-                phone,
-                phone_lengths,
-                pitch,
-                pitchf,
-                spec,
-                spec_lengths,
-                wave,
-                wave_lengths,
-                sid,
-            ) = info
-            batch = (
-                phone,
-                phone_lengths,
-                pitch,
-                pitchf,
-                spec,
-                spec_lengths,
-                wave,
-                wave_lengths,
-                sid,
-            )
-        else:
-            phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
-            batch = (phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid)
-        if torch.cuda.is_available():
-            batch = tuple(
-                x.cuda(rank, non_blocking=True) if isinstance(x, torch.Tensor) else x
-                for x in batch
-            )
-        return batch
-
-    if hps.if_cache_data_in_gpu and not cache:
-        for batch_idx, info in enumerate(train_loader):  # type: ignore
-            cache.append((batch_idx, cache_batch(info)))
-        random.shuffle(cache)
-        data_iterator = cache
-    elif hps.if_cache_data_in_gpu:
-        random.shuffle(cache)
-        data_iterator = cache
-    else:
-        data_iterator = enumerate(train_loader)  # type: ignore
-
-    epoch_recorder = EpochRecorder()
-
-    for batch_idx, info in data_iterator:  # type: ignore
-        if hps.if_f0:
-            (
-                phone,
-                phone_lengths,
-                pitch,
-                pitchf,
-                spec,
-                spec_lengths,
-                wave,
-                wave_lengths,
-                sid,
-            ) = info
-        else:
-            phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
-        if not hps.if_cache_data_in_gpu and torch.cuda.is_available():
-            phone = phone.cuda(rank, non_blocking=True)
-            phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
-            if hps.if_f0:
-                assert pitch is not None and pitchf is not None
-                pitch = pitch.cuda(rank, non_blocking=True)
-                pitchf = pitchf.cuda(rank, non_blocking=True)
-            sid = sid.cuda(rank, non_blocking=True)
-            spec = spec.cuda(rank, non_blocking=True)
-            spec_lengths = spec_lengths.cuda(rank, non_blocking=True)
-            wave = wave.cuda(rank, non_blocking=True)
-            wave_lengths = wave_lengths.cuda(rank, non_blocking=True)
-
-        # Forward pass
-        with torch.autocast(device_type=DEVICE_TYPE, enabled=hps.train.fp16_run):
+        # Prepare data iterator
+        def cache_batch(info: tuple[object, ...]) -> tuple[object, ...]:
             if hps.if_f0:
                 (
-                    y_hat,
-                    ids_slice,
-                    _x_mask,
-                    z_mask,
-                    (_z, z_p, m_p, logs_p, _m_q, logs_q),
-                ) = net_g(phone, phone_lengths, pitch, pitchf, spec, spec_lengths, sid)
+                    phone,
+                    phone_lengths,
+                    pitch,
+                    pitchf,
+                    spec,
+                    spec_lengths,
+                    wave,
+                    wave_lengths,
+                    sid,
+                ) = info
+                batch = (
+                    phone,
+                    phone_lengths,
+                    pitch,
+                    pitchf,
+                    spec,
+                    spec_lengths,
+                    wave,
+                    wave_lengths,
+                    sid,
+                )
             else:
+                phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
+                batch = (
+                    phone,
+                    phone_lengths,
+                    spec,
+                    spec_lengths,
+                    wave,
+                    wave_lengths,
+                    sid,
+                )
+            if torch.cuda.is_available():
+                batch = tuple(
+                    x.cuda(rank, non_blocking=True)
+                    if isinstance(x, torch.Tensor)
+                    else x
+                    for x in batch
+                )
+            return batch
+
+        if hps.if_cache_data_in_gpu and not cache:
+            for batch_idx, info in enumerate(train_loader):  # type: ignore
+                cache.append((batch_idx, cache_batch(info)))
+            random.shuffle(cache)
+            data_iterator = cache
+        elif hps.if_cache_data_in_gpu:
+            random.shuffle(cache)
+            data_iterator = cache
+        else:
+            data_iterator = enumerate(train_loader)  # type: ignore
+
+        epoch_recorder = EpochRecorder()
+
+        for batch_idx, info in data_iterator:  # type: ignore
+            if hps.if_f0:
                 (
-                    y_hat,
-                    ids_slice,
-                    _x_mask,
-                    z_mask,
-                    (_z, z_p, m_p, logs_p, _m_q, logs_q),
-                ) = net_g(phone, phone_lengths, spec, spec_lengths, sid)
-            mel = spec_to_mel_torch(
-                spec,
-                hps.data.filter_length,
-                hps.data.n_mel_channels,
-                hps.data.sampling_rate,
-                hps.data.mel_fmin,
-                hps.data.mel_fmax,
-            )
-            y_mel = commons.slice_segments(
-                mel, ids_slice, hps.train.segment_size // hps.data.hop_length
-            )
-            with torch.autocast(device_type=DEVICE_TYPE, enabled=False):
-                y_hat_mel = mel_spectrogram_torch(
-                    y_hat.float().squeeze(1),
+                    phone,
+                    phone_lengths,
+                    pitch,
+                    pitchf,
+                    spec,
+                    spec_lengths,
+                    wave,
+                    wave_lengths,
+                    sid,
+                ) = info
+            else:
+                phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
+            if not hps.if_cache_data_in_gpu and torch.cuda.is_available():
+                phone = phone.cuda(rank, non_blocking=True)
+                phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
+                if hps.if_f0:
+                    assert pitch is not None and pitchf is not None
+                    pitch = pitch.cuda(rank, non_blocking=True)
+                    pitchf = pitchf.cuda(rank, non_blocking=True)
+                sid = sid.cuda(rank, non_blocking=True)
+                spec = spec.cuda(rank, non_blocking=True)
+                spec_lengths = spec_lengths.cuda(rank, non_blocking=True)
+                wave = wave.cuda(rank, non_blocking=True)
+                wave_lengths = wave_lengths.cuda(rank, non_blocking=True)
+
+            # Forward pass
+            with torch.autocast(device_type=DEVICE_TYPE, enabled=hps.train.fp16_run):
+                if hps.if_f0:
+                    (
+                        y_hat,
+                        ids_slice,
+                        _x_mask,
+                        z_mask,
+                        (_z, z_p, m_p, logs_p, _m_q, logs_q),
+                    ) = net_g(
+                        phone,
+                        phone_lengths,
+                        pitch,
+                        pitchf,
+                        spec,
+                        spec_lengths,
+                        sid,
+                    )
+                else:
+                    (
+                        y_hat,
+                        ids_slice,
+                        _x_mask,
+                        z_mask,
+                        (_z, z_p, m_p, logs_p, _m_q, logs_q),
+                    ) = net_g(phone, phone_lengths, spec, spec_lengths, sid)
+                mel = spec_to_mel_torch(
+                    spec,
                     hps.data.filter_length,
                     hps.data.n_mel_channels,
                     hps.data.sampling_rate,
-                    hps.data.hop_length,
-                    hps.data.win_length,
                     hps.data.mel_fmin,
                     hps.data.mel_fmax,
                 )
-            if hps.train.fp16_run:
-                y_hat_mel = y_hat_mel.half()
-            wave = commons.slice_segments(
-                wave, ids_slice * hps.data.hop_length, hps.train.segment_size
+                y_mel = commons.slice_segments(
+                    mel, ids_slice, hps.train.segment_size // hps.data.hop_length
+                )
+                with torch.autocast(device_type=DEVICE_TYPE, enabled=False):
+                    y_hat_mel = mel_spectrogram_torch(
+                        y_hat.float().squeeze(1),
+                        hps.data.filter_length,
+                        hps.data.n_mel_channels,
+                        hps.data.sampling_rate,
+                        hps.data.hop_length,
+                        hps.data.win_length,
+                        hps.data.mel_fmin,
+                        hps.data.mel_fmax,
+                    )
+                if hps.train.fp16_run:
+                    y_hat_mel = y_hat_mel.half()
+                wave = commons.slice_segments(
+                    wave, ids_slice * hps.data.hop_length, hps.train.segment_size
+                )
+
+                # Discriminator
+                y_d_hat_r, y_d_hat_g, _, _ = net_d(wave, y_hat.detach())
+                with torch.autocast(device_type=DEVICE_TYPE, enabled=False):
+                    loss_disc, _, _ = discriminator_loss(y_d_hat_r, y_d_hat_g)
+
+            optim_d.zero_grad()
+            scaler.scale(loss_disc).backward()
+            scaler.unscale_(optim_d)
+            scaler.step(optim_d)
+
+            # Generator
+            with torch.autocast(device_type=DEVICE_TYPE, enabled=hps.train.fp16_run):
+                y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(wave, y_hat)
+                with torch.autocast(device_type=DEVICE_TYPE, enabled=False):
+                    loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
+                    loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
+                    loss_fm = feature_loss(fmap_r, fmap_g)
+                    loss_gen, _ = generator_loss(y_d_hat_g)
+                    loss_gen_all = loss_gen + loss_fm + loss_mel + loss_kl
+
+            optim_g.zero_grad()
+            scaler.scale(loss_gen_all).backward()
+            scaler.unscale_(optim_g)
+            scaler.step(optim_g)
+            scaler.update()
+
+            global_step += 1
+
+        # Save checkpoints (inlined)
+        if epoch % hps.save_every_epoch == 0 and rank == 0:
+            ckpt_suffix = global_step if hps.if_latest == 0 else 2333333
+            utils.save_checkpoint(
+                net_g,
+                optim_g,
+                hps.train.learning_rate,
+                epoch,
+                hps.model_dir / f"G_{ckpt_suffix}.pth",
             )
+            utils.save_checkpoint(
+                net_d,
+                optim_d,
+                hps.train.learning_rate,
+                epoch,
+                hps.model_dir / f"D_{ckpt_suffix}.pth",
+            )
+            if hps.save_every_weights == "1":
+                ckpt = (
+                    net_g.module.state_dict()
+                    if hasattr(net_g, "module")
+                    else net_g.state_dict()
+                )
+                checkpoint_filepath = save_checkpoint(
+                    ckpt,
+                    hps.sample_rate,
+                    hps.if_f0,
+                    f"{hps.name}_e{epoch}_s{global_step}",
+                    epoch,
+                    hps,
+                )
+                logger.info(f"saving ckpt {hps.name}_e{epoch}:{checkpoint_filepath}")
 
-            # Discriminator
-            y_d_hat_r, y_d_hat_g, _, _ = net_d(wave, y_hat.detach())
-            with torch.autocast(device_type=DEVICE_TYPE, enabled=False):
-                loss_disc, _, _ = discriminator_loss(y_d_hat_r, y_d_hat_g)
-
-        optim_d.zero_grad()
-        scaler.scale(loss_disc).backward()
-        scaler.unscale_(optim_d)
-        scaler.step(optim_d)
-
-        # Generator
-        with torch.autocast(device_type=DEVICE_TYPE, enabled=hps.train.fp16_run):
-            y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(wave, y_hat)
-            with torch.autocast(device_type=DEVICE_TYPE, enabled=False):
-                loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
-                loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
-                loss_fm = feature_loss(fmap_r, fmap_g)
-                loss_gen, _ = generator_loss(y_d_hat_g)
-                loss_gen_all = loss_gen + loss_fm + loss_mel + loss_kl
-
-        optim_g.zero_grad()
-        scaler.scale(loss_gen_all).backward()
-        scaler.unscale_(optim_g)
-        scaler.step(optim_g)
-        scaler.update()
-
-        global_step += 1
-
-    # Save checkpoints (inlined)
-    if epoch % hps.save_every_epoch == 0 and rank == 0:
-        ckpt_suffix = global_step if hps.if_latest == 0 else 2333333
-        utils.save_checkpoint(
-            net_g,
-            optim_g,
-            hps.train.learning_rate,
-            epoch,
-            hps.model_dir / f"G_{ckpt_suffix}.pth",
-        )
-        utils.save_checkpoint(
-            net_d,
-            optim_d,
-            hps.train.learning_rate,
-            epoch,
-            hps.model_dir / f"D_{ckpt_suffix}.pth",
-        )
-        if hps.save_every_weights == "1":
+        if rank == 0:
+            logger.info(f"====> Epoch: {epoch} {epoch_recorder.record()}")
+        if epoch >= hps.total_epoch and rank == 0:
+            logger.info("Training is done. The program is closed.")
             ckpt = (
                 net_g.module.state_dict()
                 if hasattr(net_g, "module")
                 else net_g.state_dict()
             )
             checkpoint_filepath = save_checkpoint(
-                ckpt,
-                hps.sample_rate,
-                hps.if_f0,
-                f"{hps.name}_e{epoch}_s{global_step}",
-                epoch,
-                hps,
+                ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps
             )
-            logger.info(f"saving ckpt {hps.name}_e{epoch}:{checkpoint_filepath}")
-
-    if rank == 0:
-        logger.info(f"====> Epoch: {epoch} {epoch_recorder.record()}")
-    if epoch >= hps.total_epoch and rank == 0:
-        logger.info("Training is done. The program is closed.")
-        ckpt = (
-            net_g.module.state_dict()
-            if hasattr(net_g, "module")
-            else net_g.state_dict()
-        )
-        checkpoint_filepath = save_checkpoint(
-            ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps
-        )
-        logger.info(f"saving final ckpt:{checkpoint_filepath}")
-        sleep(1)
-        os._exit(2333333)
+            logger.info(f"saving final ckpt:{checkpoint_filepath}")
+            sleep(1)
+            os._exit(2333333)
 
 
 if __name__ == "__main__":
