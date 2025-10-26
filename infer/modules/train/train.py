@@ -55,11 +55,11 @@ class EpochRecorder:
 
     def record(self) -> str:
         now_time = ttime()
-        elapsed_time = now_time - self.last_time
+        elapsed = now_time - self.last_time
         self.last_time = now_time
-        elapsed_time_str = str(datetime.timedelta(seconds=elapsed_time))
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        return f"[{current_time}] | ({elapsed_time_str})"
+        elapsed_str = str(datetime.timedelta(seconds=elapsed))
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return f"[{timestamp}] | ({elapsed_str})"
 
 
 def main() -> None:
