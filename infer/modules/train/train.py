@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+import traceback
 from dataclasses import asdict
 from pathlib import Path
 from random import randint, shuffle
@@ -33,7 +34,6 @@ from infer.lib.train.losses import (
     kl_loss,
 )
 from infer.lib.train.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
-from infer.lib.train.process_ckpt import savee
 
 # Initialize these as None; they will be set when training is actually started
 hps: utils.HParams | None = None
@@ -47,6 +47,49 @@ DEVICE_TYPE = (
     if torch.backends.mps.is_available()
     else "cpu"
 )
+
+
+def savee(
+    ckpt: dict[str, torch.Tensor],
+    sr: int,
+    if_f0: bool,
+    name: str,
+    epoch: int,
+    hps: utils.HParams,
+) -> str:
+    try:
+        weights = {k: v.half() for k, v in ckpt.items() if "enc_q" not in k}
+        config = [
+            hps.data.filter_length // 2 + 1,
+            32,
+            hps.model.inter_channels,
+            hps.model.hidden_channels,
+            hps.model.filter_channels,
+            hps.model.n_heads,
+            hps.model.n_layers,
+            hps.model.kernel_size,
+            hps.model.p_dropout,
+            hps.model.resblock,
+            hps.model.resblock_kernel_sizes,
+            hps.model.resblock_dilation_sizes,
+            hps.model.upsample_rates,
+            hps.model.upsample_initial_channel,
+            hps.model.upsample_kernel_sizes,
+            hps.model.spk_embed_dim,
+            hps.model.gin_channels,
+            hps.data.sampling_rate,
+        ]
+        opt = {
+            "weight": weights,
+            "config": config,
+            "info": f"{epoch}epoch",
+            "sr": sr,
+            "f0": if_f0,
+        }
+        torch.save(opt, Path("assets/weights") / f"{name}.pth")
+        return "Success."
+    except Exception:
+        return traceback.format_exc()
 
 
 class EpochRecorder:
