@@ -10,7 +10,7 @@ import torch.utils.data
 from scipy.io import wavfile
 
 from infer.lib.train.mel_processing import spectrogram_torch
-from infer.lib.train.utils import HParamsData
+from infer.lib.train.params import HParamsData
 
 logger = logging.getLogger(__name__)
 

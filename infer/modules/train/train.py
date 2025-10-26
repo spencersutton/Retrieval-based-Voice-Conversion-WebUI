@@ -22,7 +22,7 @@ from infer.lib.infer_pack import commons
 from infer.lib.infer_pack.models import MultiPeriodDiscriminator
 from infer.lib.infer_pack.models import SynthesizerTrnMs768NSFsid as RVC_Model_f0
 from infer.lib.infer_pack.models import SynthesizerTrnMs768NSFsid_nono as RVC_Model_nof0
-from infer.lib.train import utils
+from infer.lib.train import params
 from infer.lib.train.data_utils import (
     DistributedBucketSampler,
     TextAudioCollate,
@@ -39,7 +39,7 @@ from infer.lib.train.losses import (
 from infer.lib.train.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 
 # Initialize these as None; they will be set when training is actually started
-hps: utils.HParams | None = None
+hps: params.HParams | None = None
 n_gpus: int = 0
 global_step = 0
 
@@ -55,7 +55,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def get_hparams() -> utils.HParams:
+def get_hparams() -> params.HParams:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-se",
@@ -118,10 +118,10 @@ def get_hparams() -> utils.HParams:
     config_save_path = experiment_dir / "config.json"
     config = json.loads(config_save_path.read_text(encoding="utf-8"))
 
-    hparams = utils.HParams(**config)
-    hparams.train = utils.HParamsTrain(**config["train"])
-    hparams.model = utils.HParamsModel(**config["model"])
-    hparams.data = utils.HParamsData(**config["data"])
+    hparams = params.HParams(**config)
+    hparams.train = params.HParamsTrain(**config["train"])
+    hparams.model = params.HParamsModel(**config["model"])
+    hparams.data = params.HParamsData(**config["data"])
     hparams.model_dir = hparams.experiment_dir = experiment_dir
     hparams.save_every_epoch = args.save_every_epoch
     hparams.name = name
@@ -250,7 +250,7 @@ def save_weights(
     if_f0: bool,
     name: str,
     epoch: int,
-    hps: utils.HParams,
+    hps: params.HParams,
 ) -> str:
     try:
         weights = {k: v.half() for k, v in ckpt.items() if "enc_q" not in k}
@@ -329,7 +329,7 @@ def main() -> None:
         proc.join()
 
 
-def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> None:
+def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> None:
     global global_step
 
     # Distributed setup
