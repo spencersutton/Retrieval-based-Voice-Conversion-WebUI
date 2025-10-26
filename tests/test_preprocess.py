@@ -141,12 +141,12 @@ class TestNormWrite:
 
         # Read and verify original sample rate
         gt_path = tmp_path / "0_gt_wavs" / "0_0.wav"
-        sr_gt, data_gt = wavfile.read(gt_path)
+        sr_gt, _data_gt = wavfile.read(gt_path)
         assert sr_gt == TEST_SAMPLE_RATE
 
         # Read and verify 16k sample rate
         wav16k_path = tmp_path / "1_16k_wavs" / "0_0.wav"
-        sr_16k, data_16k = wavfile.read(wav16k_path)
+        sr_16k, _data_16k = wavfile.read(wav16k_path)
         assert sr_16k == 16000
 
     def test_norm_write_filters_loud_audio(self, tmp_path: Path) -> None:
@@ -178,7 +178,7 @@ class TestNormWrite:
         pp.norm_write(test_audio, 0, 0)
 
         gt_path = tmp_path / "0_gt_wavs" / "0_0.wav"
-        sr, data = wavfile.read(gt_path)
+        _sr, data = wavfile.read(gt_path)
         data_float = data.astype(np.float32)
 
         # Check that processed audio exists and has data
@@ -399,7 +399,6 @@ class TestAudioProcessing:
         duration = 1.0
         samples = int(TEST_SAMPLE_RATE * duration)
         freq_low = 20
-        freq_high = 200
 
         # Create sine wave at low frequency
         t = np.arange(samples) / TEST_SAMPLE_RATE
