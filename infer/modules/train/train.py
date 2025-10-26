@@ -1,10 +1,10 @@
 import datetime
 import logging
 import os
+import random
 import traceback
 from dataclasses import asdict
 from pathlib import Path
-from random import randint, shuffle
 from time import sleep
 from time import time as ttime
 
@@ -119,7 +119,7 @@ def main() -> None:
 
     # Set up distributed training environment
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = str(randint(20000, 55555))
+    os.environ["MASTER_PORT"] = str(random.randint(20000, 55555))
 
     logger = utils.get_logger(hps.model_dir)
 
@@ -265,12 +265,12 @@ def train_and_evaluate(
     net_g, net_d = nets
     optim_g, optim_d = optims
     train_loader, _ = loaders
-    pitch = None
-    pitchf = None
+    pitch: torch.Tensor | None = None
+    pitchf: torch.Tensor | None = None
     global global_step
 
-    if logger is None:
-        logger = logging.getLogger("RVC")
+    logger = logger or logging.getLogger("RVC")
+    if not logger.hasHandlers():
         logger.addHandler(logging.NullHandler())
 
     train_loader.batch_sampler.set_epoch(epoch)  # type: ignore
@@ -278,71 +278,50 @@ def train_and_evaluate(
     net_d.train()
 
     # Prepare data iterator
-    if hps.if_cache_data_in_gpu:
-        if not cache:
-            for batch_idx, info in enumerate(train_loader):  # type: ignore
-                if hps.if_f0:
-                    (
-                        phone,
-                        phone_lengths,
-                        pitch,
-                        pitchf,
-                        spec,
-                        spec_lengths,
-                        wave,
-                        wave_lengths,
-                        sid,
-                    ) = info
-                else:
-                    (
-                        phone,
-                        phone_lengths,
-                        spec,
-                        spec_lengths,
-                        wave,
-                        wave_lengths,
-                        sid,
-                    ) = info
-                if torch.cuda.is_available():
-                    phone = phone.cuda(rank, non_blocking=True)
-                    phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
-                    if hps.if_f0:
-                        assert pitch is not None and pitchf is not None
-                        pitch = pitch.cuda(rank, non_blocking=True)
-                        pitchf = pitchf.cuda(rank, non_blocking=True)
-                    sid = sid.cuda(rank, non_blocking=True)
-                    spec = spec.cuda(rank, non_blocking=True)
-                    spec_lengths = spec_lengths.cuda(rank, non_blocking=True)
-                    wave = wave.cuda(rank, non_blocking=True)
-                    wave_lengths = wave_lengths.cuda(rank, non_blocking=True)
-                cached_data = (
-                    (
-                        phone,
-                        phone_lengths,
-                        pitch,
-                        pitchf,
-                        spec,
-                        spec_lengths,
-                        wave,
-                        wave_lengths,
-                        sid,
-                    )
-                    if hps.if_f0
-                    else (
-                        phone,
-                        phone_lengths,
-                        spec,
-                        spec_lengths,
-                        wave,
-                        wave_lengths,
-                        sid,
-                    )
-                )
-                cache.append((batch_idx, cached_data))
-        shuffle(cache)
+    def cache_batch(info: tuple[object, ...]) -> tuple[object, ...]:
+        if hps.if_f0:
+            (
+                phone,
+                phone_lengths,
+                pitch,
+                pitchf,
+                spec,
+                spec_lengths,
+                wave,
+                wave_lengths,
+                sid,
+            ) = info
+            batch = (
+                phone,
+                phone_lengths,
+                pitch,
+                pitchf,
+                spec,
+                spec_lengths,
+                wave,
+                wave_lengths,
+                sid,
+            )
+        else:
+            phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
+            batch = (phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid)
+        if torch.cuda.is_available():
+            batch = tuple(
+                x.cuda(rank, non_blocking=True) if isinstance(x, torch.Tensor) else x
+                for x in batch
+            )
+        return batch
+
+    if hps.if_cache_data_in_gpu and not cache:
+        for batch_idx, info in enumerate(train_loader):  # type: ignore
+            cache.append((batch_idx, cache_batch(info)))
+        random.shuffle(cache)
+        data_iterator = cache
+    elif hps.if_cache_data_in_gpu:
+        random.shuffle(cache)
         data_iterator = cache
     else:
-        data_iterator = enumerate(train_loader)
+        data_iterator = enumerate(train_loader)  # type: ignore
 
     epoch_recorder = EpochRecorder()
 
@@ -372,7 +351,9 @@ def train_and_evaluate(
             spec = spec.cuda(rank, non_blocking=True)
             spec_lengths = spec_lengths.cuda(rank, non_blocking=True)
             wave = wave.cuda(rank, non_blocking=True)
+            wave_lengths = wave_lengths.cuda(rank, non_blocking=True)
 
+        # Forward pass
         with torch.autocast(device_type=DEVICE_TYPE, enabled=hps.train.fp16_run):
             if hps.if_f0:
                 (
@@ -422,11 +403,13 @@ def train_and_evaluate(
             y_d_hat_r, y_d_hat_g, _, _ = net_d(wave, y_hat.detach())
             with torch.autocast(device_type=DEVICE_TYPE, enabled=False):
                 loss_disc, _, _ = discriminator_loss(y_d_hat_r, y_d_hat_g)
+
         optim_d.zero_grad()
         scaler.scale(loss_disc).backward()
         scaler.unscale_(optim_d)
         scaler.step(optim_d)
 
+        # Generator
         with torch.autocast(device_type=DEVICE_TYPE, enabled=hps.train.fp16_run):
             y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(wave, y_hat)
             with torch.autocast(device_type=DEVICE_TYPE, enabled=False):
@@ -435,6 +418,7 @@ def train_and_evaluate(
                 loss_fm = feature_loss(fmap_r, fmap_g)
                 loss_gen, _ = generator_loss(y_d_hat_g)
                 loss_gen_all = loss_gen + loss_fm + loss_mel + loss_kl
+
         optim_g.zero_grad()
         scaler.scale(loss_gen_all).backward()
         scaler.unscale_(optim_g)
@@ -444,21 +428,20 @@ def train_and_evaluate(
         global_step += 1
 
     # Save checkpoints
-    if epoch % hps.save_every_epoch == 0 and rank == 0:
-        ckpt_suffix = global_step if hps.if_latest == 0 else 2333333
+    def save_ckpt(suffix: int):
         utils.save_checkpoint(
             net_g,
             optim_g,
             hps.train.learning_rate,
             epoch,
-            hps.model_dir / f"G_{ckpt_suffix}.pth",
+            hps.model_dir / f"G_{suffix}.pth",
         )
         utils.save_checkpoint(
             net_d,
             optim_d,
             hps.train.learning_rate,
             epoch,
-            hps.model_dir / f"D_{ckpt_suffix}.pth",
+            hps.model_dir / f"D_{suffix}.pth",
         )
         if hps.save_every_weights == "1":
             ckpt = (
@@ -470,11 +453,15 @@ def train_and_evaluate(
                 ckpt,
                 hps.sample_rate,
                 hps.if_f0,
-                hps.name + f"_e{epoch}_s{global_step}",
+                f"{hps.name}_e{epoch}_s{global_step}",
                 epoch,
                 hps,
             )
             logger.info(f"saving ckpt {hps.name}_e{epoch}:{checkpoint_filepath}")
+
+    if epoch % hps.save_every_epoch == 0 and rank == 0:
+        ckpt_suffix = global_step if hps.if_latest == 0 else 2333333
+        save_ckpt(ckpt_suffix)
 
     if rank == 0:
         logger.info(f"====> Epoch: {epoch} {epoch_recorder.record()}")
