@@ -268,7 +268,7 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
         rank=rank,
         shuffle=True,
     )
-    train_loader = DataLoader(
+    train_loader: DataLoader[tuple] = DataLoader(
         train_dataset,
         num_workers=4,
         shuffle=False,
@@ -365,9 +365,8 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
 
         epoch_recorder = EpochRecorder()
 
-        for info in data_iterator:  # type: ignore
+        for info in data_iterator:
             # Unpack batch data
-            pitch = pitchf = None  # Initialize for type checking
             if hps.if_f0:
                 (
                     phone,
@@ -377,11 +376,11 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
                     spec,
                     spec_lengths,
                     wave,
-                    wave_lengths,
+                    _,
                     sid,
                 ) = info
             else:
-                phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
+                phone, phone_lengths, spec, spec_lengths, wave, _, sid = info
 
             # Move to device if not cached
             if not hps.if_cache_data_in_gpu:
@@ -395,19 +394,11 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
                         spec,
                         spec_lengths,
                         wave,
-                        wave_lengths,
+                        _,
                         sid,
                     ) = batch
                 else:
-                    (
-                        phone,
-                        phone_lengths,
-                        spec,
-                        spec_lengths,
-                        wave,
-                        wave_lengths,
-                        sid,
-                    ) = batch
+                    (phone, phone_lengths, spec, spec_lengths, wave, _, sid) = batch
 
             # Forward pass
             with torch.autocast(device_type=DEVICE_TYPE, enabled=hps.train.fp16_run):
