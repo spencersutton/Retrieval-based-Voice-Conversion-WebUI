@@ -297,9 +297,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
     # Resume or load pretrained
     try:
         model_dir = Path(hps.model_dir)
-        epoch_str = load_checkpoint(
-            latest_checkpoint_path(model_dir, "D_*.pth"), net_d, optim_d
-        )
+        load_checkpoint(latest_checkpoint_path(model_dir, "D_*.pth"), net_d, optim_d)
         epoch_str = load_checkpoint(
             latest_checkpoint_path(model_dir, "G_*.pth"), net_g, optim_g
         )
