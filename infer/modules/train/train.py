@@ -39,16 +39,21 @@ from infer.lib.train.process_ckpt import savee
 
 logger = logging.getLogger(__name__)
 
-
-hps = utils.get_hparams()
-os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
-n_gpus = len(hps.gpus.split("-"))
-
-torch.backends.cudnn.deterministic = False
-torch.backends.cudnn.benchmark = False
-
-
+# Initialize these as None; they will be set when training is actually started
+hps: object | None = None
+n_gpus: int = 0
 global_step = 0
+
+
+# Only initialize when run as main script, not when imported
+if __name__ == "__main__":
+    """Initialize training parameters from command-line arguments."""
+    hps = utils.get_hparams()
+    os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
+    n_gpus = len(hps.gpus.split("-"))
+
+    torch.backends.cudnn.deterministic = False
+    torch.backends.cudnn.benchmark = False
 
 
 class EpochRecorder:
