@@ -1,6 +1,7 @@
 import multiprocessing
 import sys
 import traceback
+from io import TextIOWrapper
 from pathlib import Path
 
 import librosa
@@ -11,19 +12,31 @@ from scipy.io import wavfile
 from infer.lib.audio import load_audio
 from infer.lib.slicer2 import Slicer
 
-print(*sys.argv[1:])
-_input_root = Path(sys.argv[1])
-_sample_rate = int(sys.argv[2])
-_num_processes = int(sys.argv[3])
-_exp_dir = Path(sys.argv[4])
-_no_parallel = sys.argv[5] == "True"
-_per = float(sys.argv[6])
+_input_root: Path | None = None
+_sample_rate: int | None = None
+_num_processes: int | None = None
+_exp_dir: Path | None = None
+_no_parallel: bool = False
+_per: float | None = None
+_f: TextIOWrapper | None = None
 
-_f = (_exp_dir / "preprocess.log").open("a+", encoding="utf-8")
+
+if __file__ == "__main__":
+    """Initialize global variables from command-line arguments."""
+    if _exp_dir is None and len(sys.argv) > 1:
+        print(*sys.argv[1:])
+        _input_root = Path(sys.argv[1])
+        _sample_rate = int(sys.argv[2])
+        _num_processes = int(sys.argv[3])
+        _exp_dir = Path(sys.argv[4])
+        _no_parallel = sys.argv[5] == "True"
+        _per = float(sys.argv[6])
+        _f = (_exp_dir / "preprocess.log").open("a+", encoding="utf-8")
 
 
 def _println(strr: str) -> None:
     print(strr)
+    assert _f is not None
     _f.write(f"{strr}\n")
     _f.flush()
 
