@@ -8,7 +8,11 @@ import torch
 import torch.utils.data
 
 from infer.lib.train.mel_processing import spectrogram_torch
-from infer.lib.train.utils import load_filepaths_and_text, load_wav_to_torch
+from infer.lib.train.utils import (
+    HParamsData,
+    load_filepaths_and_text,
+    load_wav_to_torch,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +24,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
     3) computes spectrograms from audio files.
     """
 
-    def __init__(self, audiopaths_and_text: Path, hparams: object) -> None:
+    def __init__(self, audiopaths_and_text: Path, hparams: HParamsData) -> None:
         self.audiopaths_and_text = load_filepaths_and_text(audiopaths_and_text)
         self.max_wav_value = hparams.max_wav_value
         self.sampling_rate = hparams.sampling_rate
