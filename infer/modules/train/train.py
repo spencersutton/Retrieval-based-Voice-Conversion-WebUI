@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 import random
+import sys
 import traceback
 from dataclasses import asdict
 from pathlib import Path
@@ -48,8 +49,87 @@ DEVICE_TYPE = (
     else "cpu"
 )
 
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+
+def load_checkpoint(
+    checkpoint_path: str,
+    model: torch.nn.parallel.DistributedDataParallel,
+    optimizer: torch.optim.Optimizer | None = None,
+    load_opt: int = 1,
+) -> tuple[torch.nn.Module, torch.optim.Optimizer | None, float, int]:
+    checkpoint_file = Path(checkpoint_path)
+    assert checkpoint_file.is_file()
+    checkpoint_dict = torch.load(str(checkpoint_file), map_location="cpu")
+
+    saved_state_dict = checkpoint_dict["model"]
+    # Get the current model's state dict
+    state_dict = (
+        model.module.state_dict() if hasattr(model, "module") else model.state_dict()
+    )
+    new_state_dict: dict[str, torch.Tensor] = {}
+
+    for k, v in state_dict.items():
+        try:
+            new_state_dict[k] = saved_state_dict[k]
+            if saved_state_dict[k].shape != v.shape:
+                logger.warning(
+                    "Shape mismatch for %s: expected %s, got %s",
+                    k,
+                    v.shape,
+                    saved_state_dict[k].shape,
+                )
+                raise KeyError
+        except Exception:
+            # Missing in checkpoint, use model's own random value
+            logger.info("%s is not in the checkpoint", k)
+            new_state_dict[k] = v
+
+    # Load the new state dict into the model
+    if hasattr(model, "module"):
+        model.module.load_state_dict(new_state_dict, strict=False)
+    else:
+        model.load_state_dict(new_state_dict, strict=False)
+    logger.info("Loaded model weights")
+
+    iteration = checkpoint_dict["iteration"]
+    learning_rate = checkpoint_dict["learning_rate"]
+
+    # If loading optimizer state fails or optimizer is None, reinitialize it.
+    # If empty, may affect LR scheduler updates, so catch at the outermost train file.
+    if optimizer is not None and load_opt == 1:
+        optimizer.load_state_dict(checkpoint_dict["optimizer"])
+
+    logger.info(f"Loaded checkpoint '{checkpoint_path}' (epoch {iteration})")
+    return model, optimizer, learning_rate, iteration
+
 
 def save_checkpoint(
+    model: torch.nn.parallel.DistributedDataParallel,
+    optimizer: torch.optim.Optimizer | None,
+    learning_rate: float,
+    iteration: int,
+    checkpoint_path: Path,
+) -> None:
+    logger.info(
+        f"Saving model and optimizer state at epoch {iteration} to {checkpoint_path}"
+    )
+    state_dict = (
+        model.module.state_dict() if hasattr(model, "module") else model.state_dict()
+    )
+    if optimizer is None:
+        raise ValueError("Optimizer must not be None when saving checkpoint.")
+    checkpoint = {
+        "model": state_dict,
+        "iteration": iteration,
+        "optimizer": optimizer.state_dict(),
+        "learning_rate": learning_rate,
+    }
+    torch.save(checkpoint, checkpoint_path)
+
+
+def store_model_checkpoint(
     ckpt: dict[str, torch.Tensor],
     sr: int,
     if_f0: bool,
@@ -210,10 +290,10 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
 
     # Resume or load pretrained
     try:
-        _, _, _, epoch_str = utils.load_checkpoint(
+        _, _, _, epoch_str = load_checkpoint(
             utils.latest_checkpoint_path(hps.model_dir, "D_*.pth"), net_d, optim_d
         )
-        _, _, _, epoch_str = utils.load_checkpoint(
+        _, _, _, epoch_str = load_checkpoint(
             utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g
         )
         global_step = (epoch_str - 1) * len(train_loader)
@@ -413,14 +493,14 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         # Save checkpoints (inlined)
         if epoch % hps.save_every_epoch == 0 and rank == 0:
             ckpt_suffix = global_step if hps.if_latest == 0 else 2333333
-            utils.save_checkpoint(
+            save_checkpoint(
                 net_g,
                 optim_g,
                 hps.train.learning_rate,
                 epoch,
                 hps.model_dir / f"G_{ckpt_suffix}.pth",
             )
-            utils.save_checkpoint(
+            save_checkpoint(
                 net_d,
                 optim_d,
                 hps.train.learning_rate,
@@ -433,7 +513,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                     if hasattr(net_g, "module")
                     else net_g.state_dict()
                 )
-                checkpoint_filepath = save_checkpoint(
+                checkpoint_filepath = store_model_checkpoint(
                     ckpt,
                     hps.sample_rate,
                     hps.if_f0,
@@ -452,7 +532,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                 if hasattr(net_g, "module")
                 else net_g.state_dict()
             )
-            checkpoint_filepath = save_checkpoint(
+            checkpoint_filepath = store_model_checkpoint(
                 ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps
             )
             logger.info(f"saving final ckpt:{checkpoint_filepath}")
