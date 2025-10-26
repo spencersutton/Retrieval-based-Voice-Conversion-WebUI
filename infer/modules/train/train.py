@@ -10,7 +10,6 @@ from time import time as ttime
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-from torch.cuda.amp import GradScaler, autocast
 from torch.nn import functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
@@ -232,7 +231,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         optim_d, gamma=hps.train.lr_decay, last_epoch=epoch_str - 2
     )
 
-    scaler = GradScaler(enabled=hps.train.fp16_run)
+    scaler = torch.GradScaler(enabled=hps.train.fp16_run)
 
     cache: list[object] = []
     for epoch in range(epoch_str, hps.train.epochs + 1):
@@ -275,7 +274,7 @@ def train_and_evaluate(
     nets: list[object],
     optims: list[object],
     schedulers: list[object],
-    scaler: GradScaler,
+    scaler: torch.GradScaler,
     loaders: list[object],
     logger: logging.Logger | None,
     writers: list[object] | None,

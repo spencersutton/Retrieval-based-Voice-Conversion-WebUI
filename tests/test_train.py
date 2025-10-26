@@ -20,7 +20,6 @@ from typing import Any
 import pytest
 import torch
 from torch import nn
-from torch.cuda.amp import GradScaler
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -359,7 +358,7 @@ class TestGradScalerFunctionality:
 
     def test_grad_scaler_scaling(self) -> None:
         """Test that scaler can scale losses."""
-        scaler = GradScaler(enabled=False)
+        scaler = torch.GradScaler(enabled=False)
         loss = torch.tensor(1.0, requires_grad=True)
 
         # This should work without errors
