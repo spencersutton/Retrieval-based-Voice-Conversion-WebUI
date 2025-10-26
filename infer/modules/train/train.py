@@ -94,7 +94,7 @@ def main() -> None:
 def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> None:
     global global_step
 
-    # Initialize distributed training
+    # Distributed setup
     dist.init_process_group(
         backend="gloo", init_method="env://", world_size=n_gpus, rank=rank
     )
@@ -102,22 +102,22 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
     if torch.cuda.is_available():
         torch.cuda.set_device(rank)
 
-    # Dataset selection
+    # Dataset and collate function
     assert hps.data.training_files is not None
+    training_path = Path(hps.data.training_files)
     if hps.if_f0:
-        train_dataset = TextAudioLoaderMultiNSFsid(
-            Path(hps.data.training_files), hps.data
-        )
+        train_dataset = TextAudioLoaderMultiNSFsid(training_path, hps.data)
         collate_fn = TextAudioCollateMultiNSFsid()
     else:
-        train_dataset = TextAudioLoader(hps.data.training_files, hps.data)
+        train_dataset = TextAudioLoader(training_path, hps.data)
         collate_fn = TextAudioCollate()
 
     # Sampler and DataLoader
+    bucket_sizes = [100, 200, 300, 400, 500, 600, 700, 800, 900]
     train_sampler = DistributedBucketSampler(
         train_dataset,
         hps.train.batch_size * n_gpus,
-        [100, 200, 300, 400, 500, 600, 700, 800, 900],
+        bucket_sizes,
         num_replicas=n_gpus,
         rank=rank,
         shuffle=True,
@@ -134,13 +134,13 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
     )
 
     # Model initialization
-    model_args = dict(
-        in_channels=hps.data.filter_length // 2 + 1,
-        segment_size=hps.train.segment_size // hps.data.hop_length,
-        is_half=hps.train.fp16_run,
-        spec_channels=hps.data.filter_length // 2 + 1,
+    model_args = {
+        "in_channels": hps.data.filter_length // 2 + 1,
+        "segment_size": hps.train.segment_size // hps.data.hop_length,
+        "is_half": hps.train.fp16_run,
+        "spec_channels": hps.data.filter_length // 2 + 1,
         **asdict(hps.model),
-    )
+    }
     if hps.if_f0:
         model_args["sr"] = hps.sample_rate
         net_g = RVC_Model_f0(**model_args)
@@ -148,28 +148,22 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         net_g = RVC_Model_nof0(**model_args)
     net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm)
 
+    # Move models to device and wrap with DDP
     if torch.cuda.is_available():
-        net_g = net_g.cuda(rank)
-        net_d = net_d.cuda(rank)
-        net_g = DDP(net_g, device_ids=[rank])
-        net_d = DDP(net_d, device_ids=[rank])
+        net_g = DDP(net_g.cuda(rank), device_ids=[rank])
+        net_d = DDP(net_d.cuda(rank), device_ids=[rank])
     else:
         net_g = DDP(net_g)
         net_d = DDP(net_d)
 
     # Optimizers
-    optim_g = torch.optim.AdamW(
-        net_g.parameters(),
-        hps.train.learning_rate,
-        betas=hps.train.betas,
-        eps=hps.train.eps,
-    )
-    optim_d = torch.optim.AdamW(
-        net_d.parameters(),
-        hps.train.learning_rate,
-        betas=hps.train.betas,
-        eps=hps.train.eps,
-    )
+    optim_params = {
+        "lr": hps.train.learning_rate,
+        "betas": hps.train.betas,
+        "eps": hps.train.eps,
+    }
+    optim_g = torch.optim.AdamW(net_g.parameters(), **optim_params)
+    optim_d = torch.optim.AdamW(net_d.parameters(), **optim_params)
 
     # Resume or load pretrained
     try:
@@ -187,18 +181,12 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         global_step = 0
         if hps.pretrainG:
             ckpt = torch.load(hps.pretrainG, map_location="cpu")["model"]
-            if hasattr(net_g, "module"):
-                net_g.module.load_state_dict(ckpt)
-            else:
-                net_g.load_state_dict(ckpt)
+            (net_g.module if hasattr(net_g, "module") else net_g).load_state_dict(ckpt)
             if rank == 0:
                 logger.info(f"Loaded pretrained G: {hps.pretrainG}")
         if hps.pretrainD:
             ckpt = torch.load(hps.pretrainD, map_location="cpu")["model"]
-            if hasattr(net_d, "module"):
-                net_d.module.load_state_dict(ckpt)
-            else:
-                net_d.load_state_dict(ckpt)
+            (net_d.module if hasattr(net_d, "module") else net_d).load_state_dict(ckpt)
             if rank == 0:
                 logger.info(f"Loaded pretrained D: {hps.pretrainD}")
 
