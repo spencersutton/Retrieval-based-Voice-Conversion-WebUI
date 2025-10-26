@@ -111,16 +111,14 @@ class Config:
 
     def use_fp32_config(self) -> None:
         for config_file in CONFIG_FILES:
-            # Set fp16_run to False in config
+            # Update in-memory config
             self.json_config[config_file]["train"]["fp16_run"] = False
 
             # Update config file on disk
             path = Path("configs/inuse") / config_file
-            config_text = path.read_text()
-            updated_text = config_text.replace("true", "false")
-            path.write_text(updated_text)
+            path.write_text(path.read_text().replace("true", "false"))
 
-            logger.info(f"Overwrote {config_file} to use fp32")
+            logger.info(f"Set {config_file} to use fp32")
 
         self.preprocess_per = 3.0
-        logger.info(f"Set preprocess_per to {self.preprocess_per}")
+        logger.info(f"preprocess_per set to {self.preprocess_per}")
