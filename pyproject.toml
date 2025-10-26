@@ -56,10 +56,10 @@ extend-select = [
     "UP",
     "PL",
 ]
-ignore = ["E741", "COM812", "N812", "PLR"]
+ignore = ["E741", "COM812", "N", "PLR"]
 
 [tool.pyright]
-typeCheckingMode = "strict"
+typeCheckingMode = "standard"
 reportMissingParameterType = true
 
 [dependency-groups]

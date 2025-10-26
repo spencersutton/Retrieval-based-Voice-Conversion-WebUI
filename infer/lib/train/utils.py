@@ -90,8 +90,7 @@ def save_checkpoint(
     )
 
 
-def latest_checkpoint_path(dir_path_str: str, regex: str = "G_*.pth") -> str:
-    dir_path = Path(dir_path_str)
+def latest_checkpoint_path(dir_path: Path, regex: str = "G_*.pth") -> str:
     f_list = sorted(
         dir_path.glob(regex),
         key=lambda f: int("".join(filter(str.isdigit, f.name))),
@@ -146,7 +145,7 @@ class HParamsData:
 @dataclass
 class HParamsTrain:
     batch_size: int
-    betas: list[float]
+    betas: tuple[float, float]
     c_kl: float
     c_mel: float
     epochs: int
@@ -195,8 +194,8 @@ class HParams:
     pretrainG: str = ""
     pretrainD: str = ""
     gpus: str = ""
-    sample_rate: str = ""
-    if_f0: int = 0
+    sample_rate: int = 0
+    if_f0: bool = False
     if_latest: int = 0
     save_every_weights: str = "0"
     if_cache_data_in_gpu: int = 0
