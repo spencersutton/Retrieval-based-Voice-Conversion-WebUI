@@ -13,10 +13,10 @@ from torch.nn.utils import remove_weight_norm, spectral_norm, weight_norm
 from infer.lib.infer_pack import attentions, commons, modules
 from infer.lib.infer_pack.commons import get_padding, init_weights
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
-class TextEncoder(nn.Module):
+class _TextEncoder(nn.Module):
     def __init__(
         self,
         in_channels: int,
@@ -79,7 +79,7 @@ class TextEncoder(nn.Module):
         return m, logs, x_mask
 
 
-class ResidualCouplingBlock(nn.Module):
+class _ResidualCouplingBlock(nn.Module):
     def __init__(
         self,
         channels: int,
@@ -146,7 +146,7 @@ class ResidualCouplingBlock(nn.Module):
         return self
 
 
-class PosteriorEncoder(nn.Module):
+class _PosteriorEncoder(nn.Module):
     def __init__(
         self,
         in_channels: int,
@@ -205,7 +205,7 @@ class PosteriorEncoder(nn.Module):
         return self
 
 
-class Generator(torch.nn.Module):
+class _Generator(torch.nn.Module):
     def __init__(
         self,
         initial_channel: int,
@@ -313,7 +313,7 @@ class Generator(torch.nn.Module):
             l.remove_weight_norm()  # type: ignore
 
 
-class SineGen(torch.nn.Module):
+class _SineGen(torch.nn.Module):
     """Definition of sine generator
     SineGen(samp_rate, harmonic_num = 0,
             sine_amp = 0.1, noise_std = 0.003,
@@ -392,7 +392,7 @@ class SineGen(torch.nn.Module):
         return sine_waves, uv, noise
 
 
-class SourceModuleHnNSF(torch.nn.Module):
+class _SourceModuleHnNSF(torch.nn.Module):
     """SourceModule for hn-nsf
     SourceModule(sampling_rate, harmonic_num=0, sine_amp=0.1,
                  add_noise_std=0.003, voiced_threshod=0)
@@ -425,7 +425,7 @@ class SourceModuleHnNSF(torch.nn.Module):
         self.noise_std = add_noise_std
         self.is_half = is_half
         # to produce sine waveforms
-        self.l_sin_gen = SineGen(
+        self.l_sin_gen = _SineGen(
             sampling_rate, harmonic_num, sine_amp, add_noise_std, voiced_threshod
         )
 
@@ -443,7 +443,7 @@ class SourceModuleHnNSF(torch.nn.Module):
         return sine_merge, None, None  # noise, uv
 
 
-class GeneratorNSF(torch.nn.Module):
+class _GeneratorNSF(torch.nn.Module):
     def __init__(
         self,
         initial_channel: int,
@@ -462,7 +462,7 @@ class GeneratorNSF(torch.nn.Module):
         self.num_upsamples = len(upsample_rates)
 
         self.f0_upsamp = torch.nn.Upsample(scale_factor=math.prod(upsample_rates))
-        self.m_source = SourceModuleHnNSF(
+        self.m_source = _SourceModuleHnNSF(
             sampling_rate=sr, harmonic_num=0, is_half=is_half
         )
         self.noise_convs = nn.ModuleList()
@@ -589,14 +589,14 @@ class GeneratorNSF(torch.nn.Module):
         return self
 
 
-sr2sr = {
+_sr2sr = {
     "32k": 32000,
     "40k": 40000,
     "48k": 48000,
 }
 
 
-class SynthesizerTrnMs256NSFsid(nn.Module):
+class _SynthesizerTrnMs256NSFsid(nn.Module):
     def __init__(
         self,
         spec_channels: int,
@@ -621,7 +621,7 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
     ) -> None:
         super().__init__()  # pyright: ignore[reportUnknownMemberType]
         if isinstance(sr, str):
-            sr = sr2sr[sr]
+            sr = _sr2sr[sr]
         self.spec_channels = spec_channels
         self.inter_channels = inter_channels
         self.hidden_channels = hidden_channels
@@ -639,7 +639,7 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
         self.segment_size = segment_size
         self.gin_channels = gin_channels
         self.spk_embed_dim = spk_embed_dim
-        self.enc_p = TextEncoder(
+        self.enc_p = _TextEncoder(
             256,
             inter_channels,
             hidden_channels,
@@ -661,7 +661,7 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
             sr=sr,
             is_half=kwargs["is_half"],
         )
-        self.enc_q = PosteriorEncoder(
+        self.enc_q = _PosteriorEncoder(
             spec_channels,
             inter_channels,
             hidden_channels,
@@ -670,11 +670,11 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
             16,
             gin_channels=gin_channels,
         )
-        self.flow = ResidualCouplingBlock(
+        self.flow = _ResidualCouplingBlock(
             inter_channels, hidden_channels, 5, 1, 3, gin_channels=gin_channels
         )
         self.emb_g = nn.Embedding(self.spk_embed_dim, gin_channels)
-        logger.debug(
+        _logger.debug(
             "gin_channels: "
             + str(gin_channels)
             + ", self.spk_embed_dim: "
@@ -769,7 +769,7 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
         return o, x_mask, (z, z_p, m_p, logs_p)
 
 
-class SynthesizerTrnMs768NSFsid(SynthesizerTrnMs256NSFsid):
+class SynthesizerTrnMs768NSFsid(_SynthesizerTrnMs256NSFsid):
     def __init__(
         self,
         spec_channels: int,
@@ -814,7 +814,7 @@ class SynthesizerTrnMs768NSFsid(SynthesizerTrnMs256NSFsid):
             **kwargs,
         )
         del self.enc_p
-        self.enc_p = TextEncoder(
+        self.enc_p = _TextEncoder(
             768,
             inter_channels,
             hidden_channels,
@@ -826,7 +826,7 @@ class SynthesizerTrnMs768NSFsid(SynthesizerTrnMs256NSFsid):
         )
 
 
-class SynthesizerTrnMs256NSFsid_nono(nn.Module):
+class _SynthesizerTrnMs256NSFsid_nono(nn.Module):
     def __init__(
         self,
         spec_channels: int,
@@ -867,7 +867,7 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
         self.segment_size = segment_size
         self.gin_channels = gin_channels
         self.spk_embed_dim = spk_embed_dim
-        self.enc_p = TextEncoder(
+        self.enc_p = _TextEncoder(
             256,
             inter_channels,
             hidden_channels,
@@ -878,7 +878,7 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
             float(p_dropout),
             f0=False,
         )
-        self.dec = Generator(
+        self.dec = _Generator(
             inter_channels,
             resblock,
             resblock_kernel_sizes,
@@ -888,7 +888,7 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
             upsample_kernel_sizes,
             gin_channels=gin_channels,
         )
-        self.enc_q = PosteriorEncoder(
+        self.enc_q = _PosteriorEncoder(
             spec_channels,
             inter_channels,
             hidden_channels,
@@ -897,11 +897,11 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
             16,
             gin_channels=gin_channels,
         )
-        self.flow = ResidualCouplingBlock(
+        self.flow = _ResidualCouplingBlock(
             inter_channels, hidden_channels, 5, 1, 3, gin_channels=gin_channels
         )
         self.emb_g = nn.Embedding(self.spk_embed_dim, gin_channels)
-        logger.debug(
+        _logger.debug(
             "gin_channels: "
             + str(gin_channels)
             + ", self.spk_embed_dim: "
@@ -990,7 +990,7 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
         return o, x_mask, (z, z_p, m_p, logs_p)
 
 
-class SynthesizerTrnMs768NSFsid_nono(SynthesizerTrnMs256NSFsid_nono):
+class SynthesizerTrnMs768NSFsid_nono(_SynthesizerTrnMs256NSFsid_nono):
     def __init__(
         self,
         spec_channels: int,
@@ -1035,7 +1035,7 @@ class SynthesizerTrnMs768NSFsid_nono(SynthesizerTrnMs256NSFsid_nono):
             **kwargs,
         )
         del self.enc_p
-        self.enc_p = TextEncoder(
+        self.enc_p = _TextEncoder(
             768,
             inter_channels,
             hidden_channels,
@@ -1054,9 +1054,9 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 
         periods = [2, 3, 5, 7, 11, 17, 23, 37]
 
-        discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
+        discs = [_DiscriminatorS(use_spectral_norm=use_spectral_norm)]
         discs = discs + [
-            DiscriminatorP(i, use_spectral_norm=use_spectral_norm) for i in periods
+            _DiscriminatorP(i, use_spectral_norm=use_spectral_norm) for i in periods
         ]
         self.discriminators = nn.ModuleList(discs)
 
@@ -1079,7 +1079,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
 
 
-class DiscriminatorS(torch.nn.Module):
+class _DiscriminatorS(torch.nn.Module):
     def __init__(self, use_spectral_norm: bool = False) -> None:
         super().__init__()  # pyright: ignore[reportUnknownMemberType]
         norm_f = weight_norm if not use_spectral_norm else spectral_norm
@@ -1109,7 +1109,7 @@ class DiscriminatorS(torch.nn.Module):
         return x, fmap
 
 
-class DiscriminatorP(torch.nn.Module):
+class _DiscriminatorP(torch.nn.Module):
     def __init__(
         self,
         period: int,
