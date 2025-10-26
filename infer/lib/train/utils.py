@@ -100,19 +100,19 @@ class HParams:
     model: HParamsModel
     train: HParamsTrain
 
-    model_dir: Path = Path()
     experiment_dir: Path = Path()
-    save_every_epoch: bool = False
-    name: str = ""
-    total_epoch: int = 0
-    pretrainG: str = ""
-    pretrainD: str = ""
     gpus: str = ""
-    sample_rate: int = 0
+    if_cache_data_in_gpu: int = 0
     if_f0: bool = False
     if_latest: int = 0
+    model_dir: Path = Path()
+    name: str = ""
+    pretrainD: str = ""
+    pretrainG: str = ""
+    sample_rate: int = 0
+    save_every_epoch: bool = False
     save_every_weights: str = "0"
-    if_cache_data_in_gpu: int = 0
+    total_epoch: int = 0
 
 
 def get_hparams() -> HParams:
