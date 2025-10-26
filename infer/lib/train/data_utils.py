@@ -1,6 +1,7 @@
 import logging
 import os
 import traceback
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -19,7 +20,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
     3) computes spectrograms from audio files.
     """
 
-    def __init__(self, audiopaths_and_text: str, hparams: object) -> None:
+    def __init__(self, audiopaths_and_text: Path, hparams: object) -> None:
         self.audiopaths_and_text = load_filepaths_and_text(audiopaths_and_text)
         self.max_wav_value = hparams.max_wav_value
         self.sampling_rate = hparams.sampling_rate

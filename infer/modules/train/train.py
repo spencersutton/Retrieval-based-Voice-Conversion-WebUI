@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 from dataclasses import asdict
+from pathlib import Path
 from random import randint, shuffle
 from time import sleep
 from time import time as ttime
@@ -99,7 +100,9 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
     # Dataset selection
     assert hps.data.training_files is not None
     if hps.if_f0:
-        train_dataset = TextAudioLoaderMultiNSFsid(hps.data.training_files, hps.data)
+        train_dataset = TextAudioLoaderMultiNSFsid(
+            Path(hps.data.training_files), hps.data
+        )
         collate_fn = TextAudioCollateMultiNSFsid()
     else:
         train_dataset = TextAudioLoader(hps.data.training_files, hps.data)
@@ -129,8 +132,9 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
     model_args = dict(
         in_channels=hps.data.filter_length // 2 + 1,
         segment_size=hps.train.segment_size // hps.data.hop_length,
-        **asdict(hps.model),
         is_half=hps.train.fp16_run,
+        spec_channels=hps.data.filter_length // 2 + 1,
+        **asdict(hps.model),
     )
     if hps.if_f0:
         model_args["sr"] = hps.sample_rate
