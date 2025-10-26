@@ -40,13 +40,28 @@ class Config:
         self.n_cpu = 0
         self.json_config = self.load_config_json()
         self.gpu_mem = None
-        (
-            self.python_cmd,
-            self.listen_port,
-            self.iscolab,
-            self.noparallel,
-            self.noautoopen,
-        ) = self.arg_parse()
+
+        exe = sys.executable or "python"
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--port", type=int, default=7865, help="Listen port")
+        parser.add_argument("--pycmd", type=str, default=exe, help="Python command")
+        parser.add_argument("--colab", action="store_true", help="Launch in colab")
+        parser.add_argument(
+            "--noparallel", action="store_true", help="Disable parallel processing"
+        )
+        parser.add_argument(
+            "--noautoopen",
+            action="store_true",
+            help="Do not open in browser automatically",
+        )
+        args = parser.parse_args()
+
+        self.python_cmd = args.pycmd
+        self.listen_port = args.port if 0 <= args.port <= 65535 else 7865
+        self.iscolab = args.colab
+        self.noparallel = args.noparallel
+        self.noautoopen = args.noautoopen
+
         self.instead = ""
         self.preprocess_per = 3.7
         self.x_pad, self.x_query, self.x_center, self.x_max = self.device_config()
@@ -66,33 +81,6 @@ class Config:
                 configs[config_file] = json.load(f)
 
         return configs
-
-    @staticmethod
-    def arg_parse() -> tuple[str, int, bool, bool, bool]:
-        exe = sys.executable or "python"
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--port", type=int, default=7865, help="Listen port")
-        parser.add_argument("--pycmd", type=str, default=exe, help="Python command")
-        parser.add_argument("--colab", action="store_true", help="Launch in colab")
-        parser.add_argument(
-            "--noparallel", action="store_true", help="Disable parallel processing"
-        )
-        parser.add_argument(
-            "--noautoopen",
-            action="store_true",
-            help="Do not open in browser automatically",
-        )
-        cmd_opts = parser.parse_args()
-
-        cmd_opts.port = cmd_opts.port if 0 <= cmd_opts.port <= 65535 else 7865
-
-        return (
-            cmd_opts.pycmd,
-            cmd_opts.port,
-            cmd_opts.colab,
-            cmd_opts.noparallel,
-            cmd_opts.noautoopen,
-        )
 
     # has_mps is only available in nightly pytorch (for now) and MasOS 12.3+.
     # check `getattr` and try it for compatibility
