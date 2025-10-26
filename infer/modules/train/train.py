@@ -139,22 +139,6 @@ def get_hparams() -> params.HParams:
     return hparams
 
 
-def get_logger(model_dir: Path, filename: Path = Path("train.log")) -> logging.Logger:
-    model_dir.mkdir(parents=True, exist_ok=True)
-    log_file = model_dir / filename
-
-    logger = logging.getLogger(model_dir.name)
-    logger.setLevel(logging.DEBUG)
-
-    formatter = logging.Formatter("%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
-    handler = logging.FileHandler(log_file)
-    handler.setLevel(logging.DEBUG)
-    handler.setFormatter(formatter)
-
-    logger.addHandler(handler)
-    return logger
-
-
 def latest_checkpoint_path(dir_path: Path, pattern: str = "G_*.pth") -> Path:
     files = sorted(
         dir_path.glob(pattern),
@@ -316,7 +300,15 @@ def main() -> None:
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = str(random.randint(20000, 55555))
 
-    logger = get_logger(hps.model_dir)
+    hps.model_dir.mkdir(parents=True, exist_ok=True)
+
+    file_handler = logging.FileHandler(hps.model_dir / "train.log")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
+    )
+
+    logger.addHandler(file_handler)
 
     # Launch training processes
     processes = [
