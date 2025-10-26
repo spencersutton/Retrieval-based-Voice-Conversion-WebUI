@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import av
 import av.audio.frame
 import numpy as np
@@ -26,7 +28,7 @@ def wav2(i: str, o: str, format: str) -> None:
     inp.close()
 
 
-def load_audio(file: str, sr: int) -> np.ndarray:
+def load_audio(file: Path, sr: int) -> np.ndarray:
     try:
         with av.open(file, "r") as container:
             stream = next(s for s in container.streams if s.type == "audio")
