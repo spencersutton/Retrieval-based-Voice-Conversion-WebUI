@@ -485,8 +485,10 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
     n_gpus = len(hps.gpus.split("-"))
 
+    # Disable deterministic and benchmark for cuDNN
     torch.backends.cudnn.deterministic = False
     torch.backends.cudnn.benchmark = False
 
-    torch.multiprocessing.set_start_method("spawn")
+    # Use 'spawn' method for multiprocessing
+    mp.set_start_method("spawn")
     main()
