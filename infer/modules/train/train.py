@@ -49,7 +49,7 @@ DEVICE_TYPE = (
 )
 
 
-def savee(
+def save_checkpoint(
     ckpt: dict[str, torch.Tensor],
     sr: int,
     if_f0: bool,
@@ -427,21 +427,22 @@ def train_and_evaluate(
 
         global_step += 1
 
-    # Save checkpoints
-    def save_ckpt(suffix: int):
+    # Save checkpoints (inlined)
+    if epoch % hps.save_every_epoch == 0 and rank == 0:
+        ckpt_suffix = global_step if hps.if_latest == 0 else 2333333
         utils.save_checkpoint(
             net_g,
             optim_g,
             hps.train.learning_rate,
             epoch,
-            hps.model_dir / f"G_{suffix}.pth",
+            hps.model_dir / f"G_{ckpt_suffix}.pth",
         )
         utils.save_checkpoint(
             net_d,
             optim_d,
             hps.train.learning_rate,
             epoch,
-            hps.model_dir / f"D_{suffix}.pth",
+            hps.model_dir / f"D_{ckpt_suffix}.pth",
         )
         if hps.save_every_weights == "1":
             ckpt = (
@@ -449,7 +450,7 @@ def train_and_evaluate(
                 if hasattr(net_g, "module")
                 else net_g.state_dict()
             )
-            checkpoint_filepath = savee(
+            checkpoint_filepath = save_checkpoint(
                 ckpt,
                 hps.sample_rate,
                 hps.if_f0,
@@ -458,10 +459,6 @@ def train_and_evaluate(
                 hps,
             )
             logger.info(f"saving ckpt {hps.name}_e{epoch}:{checkpoint_filepath}")
-
-    if epoch % hps.save_every_epoch == 0 and rank == 0:
-        ckpt_suffix = global_step if hps.if_latest == 0 else 2333333
-        save_ckpt(ckpt_suffix)
 
     if rank == 0:
         logger.info(f"====> Epoch: {epoch} {epoch_recorder.record()}")
@@ -472,7 +469,7 @@ def train_and_evaluate(
             if hasattr(net_g, "module")
             else net_g.state_dict()
         )
-        checkpoint_filepath = savee(
+        checkpoint_filepath = save_checkpoint(
             ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps
         )
         logger.info(f"saving final ckpt:{checkpoint_filepath}")
