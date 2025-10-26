@@ -87,41 +87,34 @@ def main() -> None:
 
 def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> None:
     global global_step
-    train_dataset = None
-    if rank == 0:
-        logger.info(hps)
 
-        dist.init_process_group(
-            backend="gloo", init_method="env://", world_size=n_gpus, rank=rank
-        )
-        torch.manual_seed(hps.train.seed)  # pyright: ignore[reportUnknownMemberType]
-        if torch.cuda.is_available():
-            torch.cuda.set_device(rank)
+    # Initialize distributed training
+    dist.init_process_group(
+        backend="gloo", init_method="env://", world_size=n_gpus, rank=rank
+    )
+    torch.manual_seed(hps.train.seed)
+    if torch.cuda.is_available():
+        torch.cuda.set_device(rank)
 
-        if hps.if_f0 == 1:
-            assert hps.data.training_files is not None
-            train_dataset = TextAudioLoaderMultiNSFsid(
-                hps.data.training_files, hps.data
-            )
+    # Dataset selection
+    assert hps.data.training_files is not None
+    if hps.if_f0 == 1:
+        train_dataset = TextAudioLoaderMultiNSFsid(hps.data.training_files, hps.data)
+        collate_fn = TextAudioCollateMultiNSFsid()
     else:
-        assert hps.data.training_files is not None
         train_dataset = TextAudioLoader(hps.data.training_files, hps.data)
+        collate_fn = TextAudioCollate()
+
+    # Sampler and DataLoader
     train_sampler = DistributedBucketSampler(
         train_dataset,
         hps.train.batch_size * n_gpus,
-        [100, 200, 300, 400, 500, 600, 700, 800, 900],  # 16s
+        [100, 200, 300, 400, 500, 600, 700, 800, 900],
         num_replicas=n_gpus,
         rank=rank,
         shuffle=True,
     )
-    # It is possible that dataloader's workers are out of shared memory. Please try to raise your shared memory limit.
-    # num_workers=8 -> num_workers=4
-    if hps.if_f0 == 1:
-        collate_fn = TextAudioCollateMultiNSFsid()
-    else:
-        collate_fn = TextAudioCollate()
-    assert train_dataset is not None
-    train_loader = DataLoader(  # type: ignore
+    train_loader = DataLoader(
         train_dataset,
         num_workers=4,
         shuffle=False,
@@ -131,26 +124,31 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         persistent_workers=True,
         prefetch_factor=8,
     )
+
+    # Model initialization
+    model_args = dict(
+        in_channels=hps.data.filter_length // 2 + 1,
+        segment_size=hps.train.segment_size // hps.data.hop_length,
+        **asdict(hps.model),
+        is_half=hps.train.fp16_run,
+    )
     if hps.if_f0 == 1:
-        net_g = RVC_Model_f0(
-            hps.data.filter_length // 2 + 1,
-            hps.train.segment_size // hps.data.hop_length,
-            **asdict(hps.model),
-            is_half=hps.train.fp16_run,
-            sr=hps.sample_rate,
-        )
+        model_args["sr"] = hps.sample_rate
+        net_g = RVC_Model_f0(**model_args)
     else:
-        net_g = RVC_Model_nof0(
-            hps.data.filter_length // 2 + 1,
-            hps.train.segment_size // hps.data.hop_length,
-            **asdict(hps.model),
-            is_half=hps.train.fp16_run,
-        )
+        net_g = RVC_Model_nof0(**model_args)
+    net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm)
+
     if torch.cuda.is_available():
         net_g = net_g.cuda(rank)
-    net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm)
-    if torch.cuda.is_available():
         net_d = net_d.cuda(rank)
+        net_g = DDP(net_g, device_ids=[rank])
+        net_d = DDP(net_d, device_ids=[rank])
+    else:
+        net_g = DDP(net_g)
+        net_d = DDP(net_d)
+
+    # Optimizers
     optim_g = torch.optim.AdamW(
         net_g.parameters(),
         hps.train.learning_rate,
@@ -164,87 +162,53 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         eps=hps.train.eps,
     )
 
-    if torch.cuda.is_available():
-        net_g = DDP(net_g, device_ids=[rank])
-        net_d = DDP(net_d, device_ids=[rank])
-    else:
-        net_g = DDP(net_g)
-        net_d = DDP(net_d)
-
-    try:  # 如果能加载自动resume
+    # Resume or load pretrained
+    try:
         _, _, _, epoch_str = utils.load_checkpoint(
             utils.latest_checkpoint_path(hps.model_dir, "D_*.pth"), net_d, optim_d
-        )  # D多半加载没事
-        if rank == 0:
-            logger.info("loaded D")
-
+        )
         _, _, _, epoch_str = utils.load_checkpoint(
             utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g
         )
-        global_step = (epoch_str - 1) * len(train_loader)  # pyright: ignore[reportUnknownArgumentType]
-
-    except Exception:  # If loading for the first time fails, load pretrained model
+        global_step = (epoch_str - 1) * len(train_loader)
+        if rank == 0:
+            logger.info("Loaded checkpoints")
+    except Exception:
         epoch_str = 1
         global_step = 0
-        if hps.pretrainG != "":
-            if rank == 0:
-                logger.info(f"loaded pretrained {hps.pretrainG}")
+        if hps.pretrainG:
+            ckpt = torch.load(hps.pretrainG, map_location="cpu")["model"]
             if hasattr(net_g, "module"):
-                logger.info(
-                    net_g.module.load_state_dict(  # type: ignore
-                        torch.load(hps.pretrainG, map_location="cpu")["model"]
-                    )
-                )  ##测试不加载优化器
+                net_g.module.load_state_dict(ckpt)
             else:
-                logger.info(
-                    net_g.load_state_dict(
-                        torch.load(hps.pretrainG, map_location="cpu")["model"]
-                    )
-                )  ##测试不加载优化器
-        if hps.pretrainD != "":
+                net_g.load_state_dict(ckpt)
             if rank == 0:
-                logger.info(f"loaded pretrained {hps.pretrainD}")
+                logger.info(f"Loaded pretrained G: {hps.pretrainG}")
+        if hps.pretrainD:
+            ckpt = torch.load(hps.pretrainD, map_location="cpu")["model"]
             if hasattr(net_d, "module"):
-                logger.info(
-                    net_d.module.load_state_dict(  # type: ignore
-                        torch.load(hps.pretrainD, map_location="cpu")["model"]
-                    )
-                )
+                net_d.module.load_state_dict(ckpt)
             else:
-                logger.info(
-                    net_d.load_state_dict(
-                        torch.load(hps.pretrainD, map_location="cpu")["model"]
-                    )
-                )
+                net_d.load_state_dict(ckpt)
+            if rank == 0:
+                logger.info(f"Loaded pretrained D: {hps.pretrainD}")
 
     scaler = torch.GradScaler(enabled=hps.train.fp16_run)
-
     cache: list[object] = []
+
+    # Training loop
     for epoch in range(epoch_str, hps.train.epochs + 1):
-        if rank == 0:
-            train_and_evaluate(
-                rank,
-                epoch,
-                hps,
-                [net_g, net_d],
-                [optim_g, optim_d],
-                scaler,
-                [train_loader, None],
-                logger,
-                cache,
-            )
-        else:
-            train_and_evaluate(
-                rank,
-                epoch,
-                hps,
-                [net_g, net_d],
-                [optim_g, optim_d],
-                scaler,
-                [train_loader, None],
-                None,
-                cache,
-            )
+        train_and_evaluate(
+            rank,
+            epoch,
+            hps,
+            [net_g, net_d],
+            [optim_g, optim_d],
+            scaler,
+            [train_loader, None],
+            logger if rank == 0 else None,
+            cache,
+        )
 
 
 def train_and_evaluate(
