@@ -56,7 +56,7 @@ extend-select = [
     "UP",
     "PL",
 ]
-ignore = ["E741", "COM812"]
+ignore = ["E741", "COM812", "N812"]
 
 [tool.pyright]
 typeCheckingMode = "strict"

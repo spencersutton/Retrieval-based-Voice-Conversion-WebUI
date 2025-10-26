@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from librosa.filters import mel
 from librosa.util import pad_center
-from scipy.signal import get_window
+from scipy.signal import get_window  # type: ignore
 from torch import nn
 
 from infer.lib import jit
