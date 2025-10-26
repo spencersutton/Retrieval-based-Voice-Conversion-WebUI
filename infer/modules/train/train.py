@@ -53,15 +53,24 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
+def latest_checkpoint_path(dir_path: Path, pattern: str = "G_*.pth") -> Path:
+    files = sorted(
+        dir_path.glob(pattern),
+        key=lambda f: int("".join(filter(str.isdigit, f.stem))),
+    )
+    latest = files[-1]
+    logger.debug(f"Latest checkpoint: {latest}")
+    return latest
+
+
 def load_checkpoint(
-    checkpoint_path: str,
+    checkpoint_path: Path,
     model: torch.nn.parallel.DistributedDataParallel,
     optimizer: torch.optim.Optimizer | None = None,
     load_opt: int = 1,
-) -> tuple[torch.nn.Module, torch.optim.Optimizer | None, float, int]:
-    checkpoint_file = Path(checkpoint_path)
-    assert checkpoint_file.is_file()
-    checkpoint_dict = torch.load(str(checkpoint_file), map_location="cpu")
+) -> int:
+    assert checkpoint_path.is_file()
+    checkpoint_dict = torch.load(str(checkpoint_path), map_location="cpu")
 
     saved_state_dict = checkpoint_dict["model"]
     # Get the current model's state dict
@@ -94,7 +103,6 @@ def load_checkpoint(
     logger.info("Loaded model weights")
 
     iteration = checkpoint_dict["iteration"]
-    learning_rate = checkpoint_dict["learning_rate"]
 
     # If loading optimizer state fails or optimizer is None, reinitialize it.
     # If empty, may affect LR scheduler updates, so catch at the outermost train file.
@@ -102,12 +110,12 @@ def load_checkpoint(
         optimizer.load_state_dict(checkpoint_dict["optimizer"])
 
     logger.info(f"Loaded checkpoint '{checkpoint_path}' (epoch {iteration})")
-    return model, optimizer, learning_rate, iteration
+    return iteration
 
 
 def save_checkpoint(
     model: torch.nn.parallel.DistributedDataParallel,
-    optimizer: torch.optim.Optimizer | None,
+    optimizer: torch.optim.Optimizer,
     learning_rate: float,
     iteration: int,
     checkpoint_path: Path,
@@ -118,8 +126,6 @@ def save_checkpoint(
     state_dict = (
         model.module.state_dict() if hasattr(model, "module") else model.state_dict()
     )
-    if optimizer is None:
-        raise ValueError("Optimizer must not be None when saving checkpoint.")
     checkpoint = {
         "model": state_dict,
         "iteration": iteration,
@@ -290,11 +296,12 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
 
     # Resume or load pretrained
     try:
-        _, _, _, epoch_str = load_checkpoint(
-            utils.latest_checkpoint_path(hps.model_dir, "D_*.pth"), net_d, optim_d
+        model_dir = Path(hps.model_dir)
+        epoch_str = load_checkpoint(
+            latest_checkpoint_path(model_dir, "D_*.pth"), net_d, optim_d
         )
-        _, _, _, epoch_str = load_checkpoint(
-            utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g
+        epoch_str = load_checkpoint(
+            latest_checkpoint_path(model_dir, "G_*.pth"), net_g, optim_g
         )
         global_step = (epoch_str - 1) * len(train_loader)
         if rank == 0:
@@ -513,7 +520,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                     if hasattr(net_g, "module")
                     else net_g.state_dict()
                 )
-                checkpoint_filepath = save_weights(
+                status = save_weights(
                     ckpt,
                     hps.sample_rate,
                     hps.if_f0,
@@ -521,7 +528,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                     epoch,
                     hps,
                 )
-                logger.info(f"saving ckpt {hps.name}_e{epoch}:{checkpoint_filepath}")
+                logger.info(f"saving ckpt {hps.name}_e{epoch}: {status}")
 
         if rank == 0:
             logger.info(f"====> Epoch: {epoch} {epoch_recorder.record()}")
@@ -532,10 +539,10 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                 if hasattr(net_g, "module")
                 else net_g.state_dict()
             )
-            checkpoint_filepath = save_weights(
+            status = save_weights(
                 ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps
             )
-            logger.info(f"saving final ckpt:{checkpoint_filepath}")
+            logger.info(f"saving final ckpt: {status}")
             sleep(1)
             os._exit(2333333)
 

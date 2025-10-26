@@ -14,16 +14,6 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def latest_checkpoint_path(dir_path: Path, pattern: str = "G_*.pth") -> str:
-    files = sorted(
-        dir_path.glob(pattern),
-        key=lambda f: int("".join(filter(str.isdigit, f.stem))),
-    )
-    latest = str(files[-1])
-    logger.debug(f"Latest checkpoint: {latest}")
-    return latest
-
-
 def load_wav_to_torch(full_path: Path) -> tuple[torch.FloatTensor, int]:
     sampling_rate, data = cast("tuple[int, np.ndarray]", wavfile.read(full_path))  # pyright: ignore[reportUnknownMemberType]
     return torch.FloatTensor(data.astype(np.float32)), sampling_rate
