@@ -54,9 +54,8 @@ def load_checkpoint(
 
     iteration = checkpoint_dict["iteration"]
     learning_rate = checkpoint_dict["learning_rate"]
-    if (
-        optimizer is not None and load_opt == 1
-    ):  ###加载不了，如果是空的的话，重新初始化，可能还会影响lr时间表的更新，因此在train文件最外围catch
+    # If loading fails or optimizer is None, reinitialize it. If empty, may affect LR scheduler updates, so catch at the outermost train file.
+    if optimizer is not None and load_opt == 1:
         optimizer.load_state_dict(checkpoint_dict["optimizer"])
 
     logger.info(f"Loaded checkpoint '{checkpoint_path}' (epoch {iteration})")
@@ -68,7 +67,7 @@ def save_checkpoint(
     optimizer: torch.optim.Optimizer | None,
     learning_rate: float,
     iteration: int,
-    checkpoint_path: str,
+    checkpoint_path: Path,
 ) -> None:
     logger.info(
         f"Saving model and optimizer state at epoch {iteration} to {checkpoint_path}"
@@ -202,22 +201,6 @@ class HParams:
 
 
 def get_hparams() -> HParams:
-    """
-    todo:
-      结尾七人组：
-        保存频率、总epoch                     done
-        bs                                    done
-        pretrainG、pretrainD                  done
-        卡号：os.en["CUDA_VISIBLE_DEVICES"]   done
-        if_latest                             done
-      模型：if_f0                             done
-      采样率：自动选择config                  done
-      是否缓存数据集进GPU:if_cache_data_in_gpu done
-
-      -m:
-        自动决定training_files路径,改掉train_nsf_load_pretrain.py里的hps.data.training_files    done
-      -c不要了
-    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-se",

@@ -34,8 +34,6 @@ from infer.lib.train.losses import (
 from infer.lib.train.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 from infer.lib.train.process_ckpt import savee
 
-logger = logging.getLogger(__name__)
-
 # Initialize these as None; they will be set when training is actually started
 hps: utils.HParams | None = None
 n_gpus: int = 0
@@ -185,7 +183,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         )
         global_step = (epoch_str - 1) * len(train_loader)  # pyright: ignore[reportUnknownArgumentType]
 
-    except Exception:  # 如果首次不能加载，加载pretrain
+    except Exception:  # If loading for the first time fails, load pretrained model
         epoch_str = 1
         global_step = 0
         if hps.pretrainG != "":
@@ -398,9 +396,9 @@ def train_and_evaluate(
                 (
                     y_hat,
                     ids_slice,
-                    x_mask,
+                    _x_mask,
                     z_mask,
-                    (z, z_p, m_p, logs_p, m_q, logs_q),
+                    (_z, z_p, m_p, logs_p, _m_q, logs_q),
                 ) = net_g(phone, phone_lengths, pitch, pitchf, spec, spec_lengths, sid)
             else:
                 (
@@ -474,14 +472,14 @@ def train_and_evaluate(
                 optim_g,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, f"G_{global_step}.pth"),
+                hps.model_dir / f"G_{global_step}.pth",
             )
             utils.save_checkpoint(
                 net_d,
                 optim_d,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, f"D_{global_step}.pth"),
+                hps.model_dir / f"D_{global_step}.pth",
             )
         else:
             utils.save_checkpoint(
@@ -489,14 +487,14 @@ def train_and_evaluate(
                 optim_g,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, f"G_{2333333}.pth"),
+                hps.model_dir / f"G_{2333333}.pth",
             )
             utils.save_checkpoint(
                 net_d,
                 optim_d,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, f"D_{2333333}.pth"),
+                hps.model_dir / f"D_{2333333}.pth",
             )
         if rank == 0 and hps.save_every_weights == "1":
             if hasattr(net_g, "module"):
