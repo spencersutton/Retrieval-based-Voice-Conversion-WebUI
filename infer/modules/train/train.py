@@ -221,25 +221,19 @@ def train_and_evaluate(
 ) -> None:
     net_g, net_d = nets
     optim_g, optim_d = optims
-    train_loader, _eval_loader = loaders
-
-    train_loader.batch_sampler.set_epoch(epoch)  # type: ignore
+    train_loader, _ = loaders
+    pitch = None
+    pitchf = None
     global global_step
 
+    train_loader.batch_sampler.set_epoch(epoch)  # type: ignore
     net_g.train()
     net_d.train()
 
     # Prepare data iterator
     if hps.if_cache_data_in_gpu:
-        # Use Cache
-        data_iterator = cache
-        if cache == []:
-            pitch = None
-            pitchf = None
-            # Make new cache
-            assert train_loader is not None
+        if not cache:
             for batch_idx, info in enumerate(train_loader):
-                # Unpack
                 if hps.if_f0:
                     (
                         phone,
@@ -262,13 +256,10 @@ def train_and_evaluate(
                         wave_lengths,
                         sid,
                     ) = info
-                # Load on CUDA
                 if torch.cuda.is_available():
                     phone = phone.cuda(rank, non_blocking=True)
                     phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
                     if hps.if_f0:
-                        assert pitch is not None
-                        assert pitchf is not None
                         pitch = pitch.cuda(rank, non_blocking=True)
                         pitchf = pitchf.cuda(rank, non_blocking=True)
                     sid = sid.cuda(rank, non_blocking=True)
@@ -276,9 +267,8 @@ def train_and_evaluate(
                     spec_lengths = spec_lengths.cuda(rank, non_blocking=True)
                     wave = wave.cuda(rank, non_blocking=True)
                     wave_lengths = wave_lengths.cuda(rank, non_blocking=True)
-                # Cache on list
-                if hps.if_f0:
-                    cached_data = (
+                cached_data = (
+                    (
                         phone,
                         phone_lengths,
                         pitch,
@@ -289,8 +279,8 @@ def train_and_evaluate(
                         wave_lengths,
                         sid,
                     )
-                else:
-                    cached_data = (
+                    if hps.if_f0
+                    else (
                         phone,
                         phone_lengths,
                         spec,
@@ -299,22 +289,16 @@ def train_and_evaluate(
                         wave_lengths,
                         sid,
                     )
+                )
                 cache.append((batch_idx, cached_data))
-        else:
-            # Load shuffled cache
-            shuffle(cache)
+        shuffle(cache)
+        data_iterator = cache
     else:
-        # Loader
-        assert train_loader is not None
         data_iterator = enumerate(train_loader)
 
-    # Run steps
     epoch_recorder = EpochRecorder()
-    pitch = None
-    pitchf = None
+
     for batch_idx, info in data_iterator:  # type: ignore
-        # Data
-        ## Unpack
         if hps.if_f0:
             (
                 phone,
@@ -329,13 +313,10 @@ def train_and_evaluate(
             ) = info
         else:
             phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
-        ## Load on CUDA
         if not hps.if_cache_data_in_gpu and torch.cuda.is_available():
             phone = phone.cuda(rank, non_blocking=True)
             phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
             if hps.if_f0:
-                assert pitch is not None
-                assert pitchf is not None
                 pitch = pitch.cuda(rank, non_blocking=True)
                 pitchf = pitchf.cuda(rank, non_blocking=True)
             sid = sid.cuda(rank, non_blocking=True)
@@ -386,27 +367,24 @@ def train_and_evaluate(
                 y_hat_mel = y_hat_mel.half()
             wave = commons.slice_segments(
                 wave, ids_slice * hps.data.hop_length, hps.train.segment_size
-            )  # slice
+            )
 
             # Discriminator
             y_d_hat_r, y_d_hat_g, _, _ = net_d(wave, y_hat.detach())
             with torch.autocast(device_type=DEVICE_TYPE, enabled=False):
-                loss_disc, _losses_disc_r, _losses_disc_g = discriminator_loss(
-                    y_d_hat_r, y_d_hat_g
-                )
+                loss_disc, _, _ = discriminator_loss(y_d_hat_r, y_d_hat_g)
         optim_d.zero_grad()
         scaler.scale(loss_disc).backward()
         scaler.unscale_(optim_d)
         scaler.step(optim_d)
 
         with torch.autocast(device_type=DEVICE_TYPE, enabled=hps.train.fp16_run):
-            # Generator
             y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(wave, y_hat)
             with torch.autocast(device_type=DEVICE_TYPE, enabled=False):
                 loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
                 loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
                 loss_fm = feature_loss(fmap_r, fmap_g)
-                loss_gen, _losses_gen = generator_loss(y_d_hat_g)
+                loss_gen, _ = generator_loss(y_d_hat_g)
                 loss_gen_all = loss_gen + loss_fm + loss_mel + loss_kl
         optim_g.zero_grad()
         scaler.scale(loss_gen_all).backward()
@@ -415,71 +393,43 @@ def train_and_evaluate(
         scaler.update()
 
         global_step += 1
-    # /Run steps
 
+    # Save checkpoints
     if epoch % hps.save_every_epoch == 0 and rank == 0:
-        if hps.if_latest == 0:
-            utils.save_checkpoint(
-                net_g,
-                optim_g,
-                hps.train.learning_rate,
-                epoch,
-                hps.model_dir / f"G_{global_step}.pth",
+        ckpt_suffix = global_step if hps.if_latest == 0 else 2333333
+        utils.save_checkpoint(
+            net_g,
+            optim_g,
+            hps.train.learning_rate,
+            epoch,
+            hps.model_dir / f"G_{ckpt_suffix}.pth",
+        )
+        utils.save_checkpoint(
+            net_d,
+            optim_d,
+            hps.train.learning_rate,
+            epoch,
+            hps.model_dir / f"D_{ckpt_suffix}.pth",
+        )
+        if hps.save_every_weights == "1":
+            ckpt = (
+                net_g.module.state_dict()
+                if hasattr(net_g, "module")
+                else net_g.state_dict()
             )
-            utils.save_checkpoint(
-                net_d,
-                optim_d,
-                hps.train.learning_rate,
-                epoch,
-                hps.model_dir / f"D_{global_step}.pth",
-            )
-        else:
-            utils.save_checkpoint(
-                net_g,
-                optim_g,
-                hps.train.learning_rate,
-                epoch,
-                hps.model_dir / f"G_{2333333}.pth",
-            )
-            utils.save_checkpoint(
-                net_d,
-                optim_d,
-                hps.train.learning_rate,
-                epoch,
-                hps.model_dir / f"D_{2333333}.pth",
-            )
-        if rank == 0 and hps.save_every_weights == "1":
-            if hasattr(net_g, "module"):
-                ckpt = net_g.module.state_dict()
-            else:
-                ckpt = net_g.state_dict()
-            assert logger is not None
             logger.info(
-                "saving ckpt {}_e{}:{}".format(
-                    hps.name,
-                    epoch,
-                    savee(
-                        ckpt,
-                        hps.sample_rate,
-                        hps.if_f0,
-                        hps.name + f"_e{epoch}_s{global_step}",
-                        epoch,
-                        hps,
-                    ),
-                )
+                f"saving ckpt {hps.name}_e{epoch}:{savee(ckpt, hps.sample_rate, hps.if_f0, hps.name + f'_e{epoch}_s{global_step}', epoch, hps)}"
             )
 
     if rank == 0:
-        assert logger is not None
         logger.info(f"====> Epoch: {epoch} {epoch_recorder.record()}")
     if epoch >= hps.total_epoch and rank == 0:
-        assert logger is not None
         logger.info("Training is done. The program is closed.")
-
-        if hasattr(net_g, "module"):
-            ckpt = net_g.module.state_dict()
-        else:
-            ckpt = net_g.state_dict()
+        ckpt = (
+            net_g.module.state_dict()
+            if hasattr(net_g, "module")
+            else net_g.state_dict()
+        )
         logger.info(
             f"saving final ckpt:{savee(ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps)}"
         )
