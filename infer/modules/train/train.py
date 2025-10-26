@@ -269,6 +269,10 @@ def train_and_evaluate(
     pitchf = None
     global global_step
 
+    if logger is None:
+        logger = logging.getLogger("RVC")
+        logger.addHandler(logging.NullHandler())
+
     train_loader.batch_sampler.set_epoch(epoch)  # type: ignore
     net_g.train()
     net_d.train()
@@ -303,6 +307,7 @@ def train_and_evaluate(
                     phone = phone.cuda(rank, non_blocking=True)
                     phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
                     if hps.if_f0:
+                        assert pitch is not None and pitchf is not None
                         pitch = pitch.cuda(rank, non_blocking=True)
                         pitchf = pitchf.cuda(rank, non_blocking=True)
                     sid = sid.cuda(rank, non_blocking=True)
@@ -360,6 +365,7 @@ def train_and_evaluate(
             phone = phone.cuda(rank, non_blocking=True)
             phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
             if hps.if_f0:
+                assert pitch is not None and pitchf is not None
                 pitch = pitch.cuda(rank, non_blocking=True)
                 pitchf = pitchf.cuda(rank, non_blocking=True)
             sid = sid.cuda(rank, non_blocking=True)
@@ -460,9 +466,15 @@ def train_and_evaluate(
                 if hasattr(net_g, "module")
                 else net_g.state_dict()
             )
-            logger.info(
-                f"saving ckpt {hps.name}_e{epoch}:{savee(ckpt, hps.sample_rate, hps.if_f0, hps.name + f'_e{epoch}_s{global_step}', epoch, hps)}"
+            checkpoint_filepath = savee(
+                ckpt,
+                hps.sample_rate,
+                hps.if_f0,
+                hps.name + f"_e{epoch}_s{global_step}",
+                epoch,
+                hps,
             )
+            logger.info(f"saving ckpt {hps.name}_e{epoch}:{checkpoint_filepath}")
 
     if rank == 0:
         logger.info(f"====> Epoch: {epoch} {epoch_recorder.record()}")
@@ -473,9 +485,10 @@ def train_and_evaluate(
             if hasattr(net_g, "module")
             else net_g.state_dict()
         )
-        logger.info(
-            f"saving final ckpt:{savee(ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps)}"
+        checkpoint_filepath = savee(
+            ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps
         )
+        logger.info(f"saving final ckpt:{checkpoint_filepath}")
         sleep(1)
         os._exit(2333333)
 
