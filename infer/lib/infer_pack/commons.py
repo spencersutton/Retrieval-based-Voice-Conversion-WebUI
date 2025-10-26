@@ -56,11 +56,6 @@ def rand_slice_segments(
     return ret, ids_str
 
 
-def subsequent_mask(length: int):
-    mask = torch.tril(torch.ones(length, length)).unsqueeze(0).unsqueeze(0)
-    return mask
-
-
 @torch.jit.script  # type: ignore
 def fused_add_tanh_sigmoid_multiply(
     input_a: torch.Tensor,

@@ -5,6 +5,7 @@ from typing import Self
 import numpy as np
 import torch
 from torch import nn
+from torch._dynamo.eval_frame import OptimizedModule
 from torch.nn import Conv1d, Conv2d, ConvTranspose1d
 from torch.nn import functional as F
 from torch.nn.utils import remove_weight_norm, spectral_norm, weight_norm
@@ -389,9 +390,6 @@ class SineGen(torch.nn.Module):
             noise = noise_amp * torch.randn_like(sine_waves)
             sine_waves = sine_waves * uv + noise
         return sine_waves, uv, noise
-
-
-from torch._dynamo.eval_frame import OptimizedModule
 
 
 class SourceModuleHnNSF(torch.nn.Module):

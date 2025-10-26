@@ -39,20 +39,9 @@ from infer.lib.train.process_ckpt import savee
 logger = logging.getLogger(__name__)
 
 # Initialize these as None; they will be set when training is actually started
-hps: object | None = None
+hps: utils.HParams | None = None
 n_gpus: int = 0
 global_step = 0
-
-
-# Only initialize when run as main script, not when imported
-if __name__ == "__main__":
-    """Initialize training parameters from command-line arguments."""
-    hps = utils.get_hparams()
-    os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
-    n_gpus = len(hps.gpus.split("-"))
-
-    torch.backends.cudnn.deterministic = False
-    torch.backends.cudnn.benchmark = False
 
 
 class EpochRecorder:
@@ -69,6 +58,7 @@ class EpochRecorder:
 
 
 def main() -> None:
+    assert hps is not None
     n_gpus = torch.cuda.device_count()
 
     if not torch.cuda.is_available() and torch.backends.mps.is_available():
@@ -79,14 +69,12 @@ def main() -> None:
         n_gpus = 1
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = str(randint(20000, 55555))
-    children = []
     logger = utils.get_logger(hps.model_dir)
-    for i in range(n_gpus):
-        subproc = mp.Process(
-            target=run,
-            args=(i, n_gpus, hps, logger),
-        )
-        children.append(subproc)
+    children = [
+        mp.Process(target=run, args=(i, n_gpus, hps, logger)) for i in range(n_gpus)
+    ]
+
+    for subproc in children:
         subproc.start()
 
     for i in range(n_gpus):
@@ -548,5 +536,12 @@ def train_and_evaluate(
 
 
 if __name__ == "__main__":
+    hps = utils.get_hparams()
+    os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
+    n_gpus = len(hps.gpus.split("-"))
+
+    torch.backends.cudnn.deterministic = False
+    torch.backends.cudnn.benchmark = False
+
     torch.multiprocessing.set_start_method("spawn")
     main()

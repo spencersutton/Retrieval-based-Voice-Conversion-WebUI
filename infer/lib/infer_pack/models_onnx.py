@@ -13,6 +13,7 @@ import math
 import numpy as np
 import torch
 from torch import nn
+from torch._dynamo.eval_frame import OptimizedModule
 from torch.nn import Conv1d, Conv2d, ConvTranspose1d
 from torch.nn import functional as F
 from torch.nn.utils import remove_weight_norm, spectral_norm, weight_norm
@@ -367,9 +368,6 @@ class SineGen(torch.nn.Module):
         return sine_waves, uv, noise
 
 
-from torch._dynamo.eval_frame import OptimizedModule
-
-
 class SourceModuleHnNSF(torch.nn.Module):
     """SourceModule for hn-nsf
     SourceModule(sampling_rate, harmonic_num=0, sine_amp=0.1,
@@ -522,7 +520,7 @@ class GeneratorNSF(torch.nn.Module):
             l.remove_weight_norm()
 
 
-sr2sr = {
+_sr2sr = {
     "32k": 32000,
     "40k": 40000,
     "48k": 48000,
@@ -555,7 +553,7 @@ class SynthesizerTrnMsNSFsidM(nn.Module):
     ) -> None:
         super().__init__()
         if type(sr) == str:
-            sr = sr2sr[sr]
+            sr = _sr2sr[sr]
         self.spec_channels = spec_channels
         self.inter_channels = inter_channels
         self.hidden_channels = hidden_channels

@@ -4,12 +4,11 @@ import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import torch
-from scipy.io.wavfile import read  # type: ignore
-
-MATPLOTLIB_FLAG = False
+from scipy.io import wavfile
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging
@@ -91,25 +90,6 @@ def save_checkpoint(
     )
 
 
-def summarize(
-    writer: object,
-    global_step: int,
-    scalars: dict[str, float] = {},
-    histograms: dict[str, object] = {},
-    images: dict[str, object] = {},
-    audios: dict[str, object] = {},
-    audio_sampling_rate: int = 22050,
-) -> None:
-    for k, v in scalars.items():
-        writer.add_scalar(k, v, global_step)
-    for k, v in histograms.items():
-        writer.add_histogram(k, v, global_step)
-    for k, v in images.items():
-        writer.add_image(k, v, global_step, dataformats="HWC")
-    for k, v in audios.items():
-        writer.add_audio(k, v, global_step, audio_sampling_rate)
-
-
 def latest_checkpoint_path(dir_path_str: str, regex: str = "G_*.pth") -> str:
     dir_path = Path(dir_path_str)
     f_list = sorted(
@@ -121,47 +101,20 @@ def latest_checkpoint_path(dir_path_str: str, regex: str = "G_*.pth") -> str:
     return x
 
 
-def plot_spectrogram_to_numpy(spectrogram):
-    global MATPLOTLIB_FLAG
-    if not MATPLOTLIB_FLAG:
-        import matplotlib as mpl
-
-        mpl.use("Agg")
-        MATPLOTLIB_FLAG = True
-        mpl_logger = logging.getLogger("matplotlib")
-        mpl_logger.setLevel(logging.WARNING)
-    import matplotlib.pylab as plt
-    import numpy as np
-
-    fig, ax = plt.subplots(figsize=(10, 2))
-    im = ax.imshow(spectrogram, aspect="auto", origin="lower", interpolation="none")
-    plt.colorbar(im, ax=ax)
-    plt.xlabel("Frames")
-    plt.ylabel("Channels")
-    plt.tight_layout()
-
-    fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-    data = data.reshape((*fig.canvas.get_width_height()[::-1], 3))
-    plt.close()
-    return data
-
-
-def load_wav_to_torch(full_path) -> tuple:
-    sampling_rate, data = read(full_path)
+def load_wav_to_torch(full_path: Path) -> tuple[torch.FloatTensor, int]:
+    sampling_rate, data = cast("tuple[int, np.ndarray]", wavfile.read(full_path))  # pyright: ignore[reportUnknownMemberType]
     return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
 
-def load_filepaths_and_text(filename: str, split: str = "|") -> list[list[str]]:
-    path = Path(filename)
+def load_filepaths_and_text(filename: Path, split: str = "|") -> list[list[str]]:
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = filename.read_text(encoding="utf-8").splitlines()
     except UnicodeDecodeError:
-        lines = path.read_text().splitlines()
+        lines = filename.read_text().splitlines()
     return [line.strip().split(split) for line in lines]
 
 
-def get_logger(model_dir: str, filename: str = "train.log") -> logging.Logger:
+def get_logger(model_dir: Path, filename: Path = Path("train.log")) -> logging.Logger:
     global logger
     model_dir_path = Path(model_dir)
     logger = logging.getLogger(model_dir_path.name)
