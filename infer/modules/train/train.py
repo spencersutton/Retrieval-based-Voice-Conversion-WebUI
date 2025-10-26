@@ -281,37 +281,29 @@ def train_and_evaluate(
                     wave_lengths = wave_lengths.cuda(rank, non_blocking=True)
                 # Cache on list
                 if hps.if_f0 == 1:
-                    cache.append(
-                        (
-                            batch_idx,
-                            (
-                                phone,
-                                phone_lengths,
-                                pitch,
-                                pitchf,
-                                spec,
-                                spec_lengths,
-                                wave,
-                                wave_lengths,
-                                sid,
-                            ),
-                        )
+                    cached_data = (
+                        phone,
+                        phone_lengths,
+                        pitch,
+                        pitchf,
+                        spec,
+                        spec_lengths,
+                        wave,
+                        wave_lengths,
+                        sid,
                     )
+                    cache.append((batch_idx, cached_data))
                 else:
-                    cache.append(
-                        (
-                            batch_idx,
-                            (
-                                phone,
-                                phone_lengths,
-                                spec,
-                                spec_lengths,
-                                wave,
-                                wave_lengths,
-                                sid,
-                            ),
-                        )
+                    cached_data = (
+                        phone,
+                        phone_lengths,
+                        spec,
+                        spec_lengths,
+                        wave,
+                        wave_lengths,
+                        sid,
                     )
+                    cache.append((batch_idx, cached_data))
         else:
             # Load shuffled cache
             shuffle(cache)
