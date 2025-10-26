@@ -259,22 +259,21 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
         collate_fn = TextAudioCollate()
 
     # Sampler and DataLoader
-    bucket_sizes = [100, 200, 300, 400, 500, 600, 700, 800, 900]
-    train_sampler = DistributedBucketSampler(
+    sampler = DistributedBucketSampler(
         train_dataset,
         hps.train.batch_size * n_gpus,
-        bucket_sizes,
+        [100, 200, 300, 400, 500, 600, 700, 800, 900],
         num_replicas=n_gpus,
         rank=rank,
         shuffle=True,
     )
-    train_loader: DataLoader[tuple] = DataLoader(
+    loader = DataLoader(
         train_dataset,
         num_workers=4,
         shuffle=False,
         pin_memory=True,
         collate_fn=collate_fn,
-        batch_sampler=train_sampler,
+        batch_sampler=sampler,
         persistent_workers=True,
         prefetch_factor=8,
     )
@@ -318,7 +317,7 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
         epoch_str = load_checkpoint(
             latest_checkpoint_path(model_dir, "G_*.pth"), net_g, optim_g
         )
-        global_step = (epoch_str - 1) * len(train_loader)
+        global_step = (epoch_str - 1) * len(loader)
         if rank == 0:
             logger.info("Loaded checkpoints")
     except Exception:
@@ -340,7 +339,7 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
 
     # Training loop
     for epoch in range(epoch_str, hps.train.epochs + 1):
-        train_loader.batch_sampler.set_epoch(epoch)  # type: ignore
+        loader.batch_sampler.set_epoch(epoch)  # type: ignore
         net_g.train()
         net_d.train()
 
@@ -357,11 +356,11 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
         if hps.if_cache_data_in_gpu:
             if not cache:
                 # Build cache on first epoch
-                cache = [move_batch_to_device(info) for info in train_loader]
+                cache = [move_batch_to_device(info) for info in loader]
             random.shuffle(cache)
             data_iterator = cache
         else:
-            data_iterator = train_loader
+            data_iterator = loader
 
         epoch_recorder = EpochRecorder()
 

@@ -1,6 +1,7 @@
 import logging
 import os
 import traceback
+from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
 
@@ -414,9 +415,6 @@ class TextAudioCollate:
             wave_lengths,
             sid,
         )
-
-
-from collections.abc import Iterator
 
 
 class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
