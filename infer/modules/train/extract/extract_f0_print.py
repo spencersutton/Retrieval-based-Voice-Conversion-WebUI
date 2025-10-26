@@ -60,14 +60,14 @@ class FeatureInput:
                     f0, [[pad_size, p_len - len(f0) - pad_size]], mode="constant"
                 )
         elif f0_method == "harvest":
-            f0, t = pyworld.harvest(
+            f0, t = pyworld.harvest(  # type: ignore
                 x.astype(np.double),
                 fs=self.fs,
                 f0_ceil=self.f0_max,
                 f0_floor=self.f0_min,
                 frame_period=1000 * self.hop / self.fs,
             )
-            f0 = pyworld.stonemask(x.astype(np.double), f0, t, self.fs)
+            f0 = pyworld.stonemask(x.astype(np.double), f0, t, self.fs)  # type: ignore
         elif f0_method == "dio":
             f0, t = pyworld.dio(
                 x.astype(np.double),

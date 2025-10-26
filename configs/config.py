@@ -38,7 +38,6 @@ class Config:
         self.is_half = True
         self.use_jit = False
         self.n_cpu = 0
-        self.gpu_name = None
         self.json_config = self.load_config_json()
         self.gpu_mem = None
         (
@@ -54,15 +53,19 @@ class Config:
 
     @staticmethod
     def load_config_json() -> dict[str, dict[str, object]]:
-        d: dict[str, dict[str, object]] = {}
+        configs: dict[str, dict[str, object]] = {}
         for config_file in version_config_list:
             src = Path("configs") / config_file
             dst = Path("configs/inuse") / config_file
+
             if not dst.exists():
                 dst.parent.mkdir(parents=True, exist_ok=True)
-                dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-            d[config_file] = json.loads(dst.read_text(encoding="utf-8"))
-        return d
+                dst.write_text(src.read_text())
+
+            with dst.open("r") as f:
+                configs[config_file] = json.load(f)
+
+        return configs
 
     @staticmethod
     def arg_parse() -> tuple[str, int, bool, bool, bool]:
@@ -105,72 +108,54 @@ class Config:
 
     def use_fp32_config(self) -> None:
         for config_file in version_config_list:
+            # Set fp16_run to False in config
             self.json_config[config_file]["train"]["fp16_run"] = False
+
+            # Update config file on disk
             path = Path("configs/inuse") / config_file
-            strr = path.read_text(encoding="utf-8").replace("true", "false")
-            path.write_text(strr, encoding="utf-8")
-            logger.info(f"overwrite {config_file}")
+            config_text = path.read_text()
+            updated_text = config_text.replace("true", "false")
+            path.write_text(updated_text)
+
+            logger.info(f"Overwrote {config_file} to use fp32")
+
         self.preprocess_per = 3.0
-        logger.info(f"overwrite preprocess_per to {self.preprocess_per}")
+        logger.info(f"Set preprocess_per to {self.preprocess_per}")
 
     def device_config(self) -> tuple[int, int, int, int]:
+        # Detect device and configure precision
         if torch.cuda.is_available():
             i_device = int(self.device.split(":")[-1])
-            self.gpu_name = torch.cuda.get_device_name(i_device)
-            if (
-                ("16" in self.gpu_name and "V100" not in self.gpu_name.upper())
-                or "P40" in self.gpu_name.upper()
-                or "P10" in self.gpu_name.upper()
-                or "1060" in self.gpu_name
-                or "1070" in self.gpu_name
-                or "1080" in self.gpu_name
-            ):
-                logger.info("Found GPU %s, force to fp32", self.gpu_name)
-                self.is_half = False
-                self.use_fp32_config()
-            else:
-                logger.info("Found GPU %s", self.gpu_name)
+            logger.info("Found GPU %s", self.torch.cuda.get_device_name(i_device))
             self.gpu_mem = int(
-                torch.cuda.get_device_properties(i_device).total_memory
-                / 1024
-                / 1024
-                / 1024
+                torch.cuda.get_device_properties(i_device).total_memory / (1024**3)
                 + 0.4
             )
             if self.gpu_mem <= 4:
                 self.preprocess_per = 3.0
         elif self.has_mps():
-            logger.info("No supported Nvidia GPU found")
+            logger.info("Found Apple Silicon GPU")
             self.device = self.instead = "mps"
             self.is_half = False
             self.use_fp32_config()
         else:
-            logger.info("No supported Nvidia GPU found")
+            logger.info("No supported GPU found")
             self.device = self.instead = "cpu"
             self.is_half = False
             self.use_fp32_config()
 
+        # Set CPU count if not set
         if self.n_cpu == 0:
             self.n_cpu = cpu_count()
 
+        # Set config values based on precision and memory
         if self.is_half:
-            # 6G显存配置
-            x_pad = 3
-            x_query = 10
-            x_center = 60
-            x_max = 65
+            x_pad, x_query, x_center, x_max = 3, 10, 60, 65
         else:
-            # 5G显存配置
-            x_pad = 1
-            x_query = 6
-            x_center = 38
-            x_max = 41
+            x_pad, x_query, x_center, x_max = 1, 6, 38, 41
 
         if self.gpu_mem is not None and self.gpu_mem <= 4:
-            x_pad = 1
-            x_query = 5
-            x_center = 30
-            x_max = 32
+            x_pad, x_query, x_center, x_max = 1, 5, 30, 32
 
         if self.instead:
             logger.info(f"Use {self.instead} instead")
