@@ -51,10 +51,6 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         self.audiopaths_and_text = audiopaths_and_text_new
         self.lengths = lengths
 
-    def get_sid(self, sid: int | str) -> torch.LongTensor:
-        sid = torch.LongTensor([int(sid)])
-        return sid
-
     def get_audio_text_pair(self, audiopath_and_text: list[object]) -> tuple:
         # separate filename and text
         file = audiopath_and_text[0]
@@ -65,7 +61,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
 
         phone, pitch, pitchf = self.get_labels(phone, pitch, pitchf)
         spec, wav = self.get_audio(file)
-        dv = self.get_sid(dv)
+        dv = torch.LongTensor([int(dv)])
 
         len_phone = phone.size()[0]
         len_spec = spec.size()[-1]
@@ -264,10 +260,6 @@ class TextAudioLoader(torch.utils.data.Dataset):
         self.audiopaths_and_text = audiopaths_and_text_new
         self.lengths = lengths
 
-    def get_sid(self, sid: int | str) -> torch.LongTensor:
-        sid = torch.LongTensor([int(sid)])
-        return sid
-
     def get_audio_text_pair(self, audiopath_and_text: list[object]) -> tuple:
         # separate filename and text
         file = audiopath_and_text[0]
@@ -276,7 +268,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
 
         phone = self.get_labels(phone)
         spec, wav = self.get_audio(file)
-        dv = self.get_sid(dv)
+        dv = torch.LongTensor([int(dv)])
 
         len_phone = phone.size()[0]
         len_spec = spec.size()[-1]

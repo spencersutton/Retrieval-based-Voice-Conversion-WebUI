@@ -233,7 +233,7 @@ def train_and_evaluate(
     # Prepare data iterator
     if hps.if_cache_data_in_gpu:
         if not cache:
-            for batch_idx, info in enumerate(train_loader):
+            for batch_idx, info in enumerate(train_loader):  # type: ignore
                 if hps.if_f0:
                     (
                         phone,
