@@ -1,4 +1,6 @@
+import argparse
 import datetime
+import json
 import logging
 import os
 import random
@@ -51,6 +53,106 @@ DEVICE_TYPE = (
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+
+def get_hparams() -> utils.HParams:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-se",
+        "--save_every_epoch",
+        type=int,
+        required=True,
+        help="checkpoint save frequency (epoch)",
+    )
+    parser.add_argument(
+        "-te", "--total_epoch", type=int, required=True, help="total_epoch"
+    )
+    parser.add_argument(
+        "-pg", "--pretrainG", type=str, default="", help="Pretrained Generator path"
+    )
+    parser.add_argument(
+        "-pd", "--pretrainD", type=str, default="", help="Pretrained Discriminator path"
+    )
+    parser.add_argument("-g", "--gpus", type=str, default="0", help="split by -")
+    parser.add_argument(
+        "-bs", "--batch_size", type=int, required=True, help="batch size"
+    )
+    parser.add_argument(
+        "-e", "--experiment_dir", type=str, required=True, help="experiment dir"
+    )  # -m
+    parser.add_argument(
+        "-sr", "--sample_rate", type=str, required=True, help="sample rate, 32k/40k/48k"
+    )
+    parser.add_argument(
+        "-sw",
+        "--save_every_weights",
+        type=str,
+        default="0",
+        help="save the extracted model in weights directory when saving checkpoints",
+    )
+    parser.add_argument(
+        "-f0",
+        "--if_f0",
+        type=int,
+        required=True,
+        help="use f0 as one of the inputs of the model, 1 or 0",
+    )
+    parser.add_argument(
+        "-l",
+        "--if_latest",
+        type=int,
+        required=True,
+        help="if only save the latest G/D pth file, 1 or 0",
+    )
+    parser.add_argument(
+        "-c",
+        "--if_cache_data_in_gpu",
+        type=int,
+        required=True,
+        help="if caching the dataset in GPU memory, 1 or 0",
+    )
+    args = parser.parse_args()
+    name = args.experiment_dir
+    experiment_dir = Path("./logs") / args.experiment_dir
+
+    config_save_path = experiment_dir / "config.json"
+    config = json.loads(config_save_path.read_text(encoding="utf-8"))
+
+    hparams = utils.HParams(**config)
+    hparams.train = utils.HParamsTrain(**config["train"])
+    hparams.model = utils.HParamsModel(**config["model"])
+    hparams.data = utils.HParamsData(**config["data"])
+    hparams.model_dir = hparams.experiment_dir = experiment_dir
+    hparams.save_every_epoch = args.save_every_epoch
+    hparams.name = name
+    hparams.total_epoch = args.total_epoch
+    hparams.pretrainG = args.pretrainG
+    hparams.pretrainD = args.pretrainD
+    hparams.gpus = args.gpus
+    hparams.train.batch_size = args.batch_size
+    hparams.sample_rate = args.sample_rate
+    hparams.if_f0 = args.if_f0
+    hparams.if_latest = args.if_latest
+    hparams.save_every_weights = args.save_every_weights
+    hparams.if_cache_data_in_gpu = args.if_cache_data_in_gpu
+    hparams.data.training_files = f"{experiment_dir}/filelist.txt"
+    return hparams
+
+
+def get_logger(model_dir: Path, filename: Path = Path("train.log")) -> logging.Logger:
+    model_dir.mkdir(parents=True, exist_ok=True)
+    log_file = model_dir / filename
+
+    logger = logging.getLogger(model_dir.name)
+    logger.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter("%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
+    handler = logging.FileHandler(log_file)
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(formatter)
+
+    logger.addHandler(handler)
+    return logger
 
 
 def latest_checkpoint_path(dir_path: Path, pattern: str = "G_*.pth") -> Path:
@@ -214,7 +316,7 @@ def main() -> None:
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = str(random.randint(20000, 55555))
 
-    logger = utils.get_logger(hps.model_dir)
+    logger = get_logger(hps.model_dir)
 
     # Launch training processes
     processes = [
@@ -533,7 +635,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
 
 
 if __name__ == "__main__":
-    hps = utils.get_hparams()
+    hps = get_hparams()
     os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
     n_gpus = len(hps.gpus.split("-"))
 

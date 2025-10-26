@@ -2,19 +2,30 @@ import logging
 import os
 import traceback
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import torch
 import torch.utils.data
+from scipy.io import wavfile
 
 from infer.lib.train.mel_processing import spectrogram_torch
-from infer.lib.train.utils import (
-    HParamsData,
-    load_filepaths_and_text,
-    load_wav_to_torch,
-)
+from infer.lib.train.utils import HParamsData
 
 logger = logging.getLogger(__name__)
+
+
+def load_wav_to_torch(full_path: Path) -> tuple[torch.FloatTensor, int]:
+    sampling_rate, data = cast("tuple[int, np.ndarray]", wavfile.read(full_path))  # pyright: ignore[reportUnknownMemberType]
+    return torch.FloatTensor(data.astype(np.float32)), sampling_rate
+
+
+def load_filepaths_and_text(filename: Path, split: str = "|") -> list[list[str]]:
+    try:
+        lines = filename.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        lines = filename.read_text().splitlines()
+    return [line.strip().split(split) for line in lines]
 
 
 class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
