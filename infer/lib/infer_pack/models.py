@@ -649,7 +649,7 @@ class _SynthesizerTrnMs256NSFsid(nn.Module):
             kernel_size,
             float(p_dropout),
         )
-        self.dec = GeneratorNSF(
+        self.dec = _GeneratorNSF(
             inter_channels,
             resblock,
             resblock_kernel_sizes,
