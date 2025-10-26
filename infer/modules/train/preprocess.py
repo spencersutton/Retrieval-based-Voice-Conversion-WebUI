@@ -12,26 +12,13 @@ from scipy.io import wavfile
 from infer.lib.audio import load_audio
 from infer.lib.slicer2 import Slicer
 
-_input_root: Path | None = None
-_sample_rate: int | None = None
-_num_processes: int | None = None
-_exp_dir: Path | None = None
+_input_root: Path = Path()
+_sample_rate: int = 0
+_num_processes: int = 0
+_exp_dir: Path = Path()
 _no_parallel: bool = False
-_per: float | None = None
+_per: float = 0.0
 _f: TextIOWrapper | None = None
-
-
-if __file__ == "__main__":
-    """Initialize global variables from command-line arguments."""
-    if _exp_dir is None and len(sys.argv) > 1:
-        print(*sys.argv[1:])
-        _input_root = Path(sys.argv[1])
-        _sample_rate = int(sys.argv[2])
-        _num_processes = int(sys.argv[3])
-        _exp_dir = Path(sys.argv[4])
-        _no_parallel = sys.argv[5] == "True"
-        _per = float(sys.argv[6])
-        _f = (_exp_dir / "preprocess.log").open("a+", encoding="utf-8")
 
 
 def _println(strr: str) -> None:
@@ -68,52 +55,51 @@ class _PreProcess:
         self.gt_wavs_dir.mkdir(exist_ok=True, parents=True)
         self.wavs16k_dir.mkdir(exist_ok=True, parents=True)
 
-    def norm_write(self, tmp_audio: np.ndarray, idx0: int, idx1: int) -> None:
-        tmp_max = np.abs(tmp_audio).max()
-        if tmp_max > 2.5:
-            print(f"{idx0}-{idx1}-{tmp_max}-filtered")
+    def norm_write(self, audio: np.ndarray, idx0: int, idx1: int) -> None:
+        max_val = np.abs(audio).max()
+        if max_val > 2.5:
+            print(f"{idx0}-{idx1}-{max_val}-filtered")
             return
-        tmp_audio = (tmp_audio / tmp_max * (self.max * self.alpha)) + (
+
+        # Normalize audio
+        normalized_audio = (audio / max_val * (self.max * self.alpha)) + (
             1 - self.alpha
-        ) * tmp_audio
+        ) * audio
+
+        # Save ground truth wav
         gt_wav_path = self.gt_wavs_dir / f"{idx0}_{idx1}.wav"
-        wavfile.write(
-            str(gt_wav_path),
-            self.sr,
-            tmp_audio.astype(np.float32),
-        )
-        tmp_audio_16k = librosa.resample(tmp_audio, orig_sr=self.sr, target_sr=16000)
+        wavfile.write(str(gt_wav_path), self.sr, normalized_audio.astype(np.float32))
+
+        # Resample and save 16k wav
+        audio_16k = librosa.resample(normalized_audio, orig_sr=self.sr, target_sr=16000)
         wav16k_path = self.wavs16k_dir / f"{idx0}_{idx1}.wav"
-        wavfile.write(
-            str(wav16k_path),
-            16000,
-            tmp_audio_16k.astype(np.float32),
-        )
+        wavfile.write(str(wav16k_path), 16000, audio_16k.astype(np.float32))
 
     def pipeline(self, path: str, idx0: int) -> None:
         try:
             audio = load_audio(path, self.sr)
-            # zero phased digital filter cause pre-ringing noise...
-
             audio = signal.lfilter(self.bh, self.ah, audio)
 
             idx1 = 0
-            for audio in self.slicer.slice(audio):
-                i = 0
-                tmp_audio = None
-                while 1:
-                    start = int(self.sr * (self.per - self.overlap) * i)
-                    i += 1
-                    if len(audio[start:]) > self.tail * self.sr:
-                        tmp_audio = audio[start : start + int(self.per * self.sr)]
-                        self.norm_write(tmp_audio, idx0, idx1)
+            for sliced_audio in self.slicer.slice(audio):
+                start = 0
+                length = len(sliced_audio)
+                per_samples = int(self.per * self.sr)
+                overlap_samples = int(self.overlap * self.sr)
+                tail_samples = int(self.tail * self.sr)
+
+                while start < length:
+                    end = start + per_samples
+                    if length - start > tail_samples:
+                        segment = sliced_audio[start:end]
+                        self.norm_write(segment, idx0, idx1)
                         idx1 += 1
+                        start += per_samples - overlap_samples
                     else:
-                        tmp_audio = audio[start:]
+                        segment = sliced_audio[start:]
+                        self.norm_write(segment, idx0, idx1)
                         idx1 += 1
                         break
-                assert tmp_audio is not None
-                self.norm_write(tmp_audio, idx0, idx1)
             _println(f"{path}\t-> Success")
         except Exception:
             _println(f"{path}\t-> {traceback.format_exc()}")
@@ -129,18 +115,20 @@ class _PreProcess:
                 for idx, path in enumerate(sorted(input_root.iterdir()))
             ]
             if _no_parallel:
-                for i in range(num_processes):
-                    self.pipeline_mp(infos[i::num_processes])
+                # Run sequentially, split work by process count for consistency
+                for chunk in (infos[i::num_processes] for i in range(num_processes)):
+                    self.pipeline_mp(chunk)
             else:
-                ps = [
+                # Run in parallel using multiprocessing
+                processes = [
                     multiprocessing.Process(
                         target=self.pipeline_mp, args=(infos[i::num_processes],)
                     )
                     for i in range(num_processes)
                 ]
-                for p in ps:
+                for p in processes:
                     p.start()
-                for p in ps:
+                for p in processes:
                     p.join()
         except Exception:
             _println(f"Fail. {traceback.format_exc()}")
@@ -160,6 +148,16 @@ def _preprocess_trainset(
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        print(*sys.argv[1:])
+        _input_root = Path(sys.argv[1])
+        _sample_rate = int(sys.argv[2])
+        _num_processes = int(sys.argv[3])
+        _exp_dir = Path(sys.argv[4])
+        _no_parallel = sys.argv[5] == "True"
+        _per = float(sys.argv[6])
+        _f = (_exp_dir / "preprocess.log").open("a+", encoding="utf-8")
+
     _preprocess_trainset(
         _input_root,
         _sample_rate,
