@@ -25,28 +25,30 @@ def load_checkpoint(
     checkpoint_dict = torch.load(str(checkpoint_file), map_location="cpu")
 
     saved_state_dict = checkpoint_dict["model"]
-    if hasattr(model, "module"):
-        assert isinstance(model.module, torch.nn.Module)  # type: ignore
-        state_dict = model.module.state_dict()
-    else:
-        state_dict = model.state_dict()
+    # Get the current model's state dict
+    state_dict = (
+        model.module.state_dict() if hasattr(model, "module") else model.state_dict()
+    )
     new_state_dict: dict[str, torch.Tensor] = {}
-    for k, v in state_dict.items():  # 模型需要的shape
+
+    for k, v in state_dict.items():
         try:
             new_state_dict[k] = saved_state_dict[k]
             if saved_state_dict[k].shape != v.shape:
                 logger.warning(
-                    "shape-%s-mismatch|need-%s|get-%s",
+                    "Shape mismatch for %s: expected %s, got %s",
                     k,
                     v.shape,
                     saved_state_dict[k].shape,
                 )
                 raise KeyError
         except Exception:
-            logger.info("%s is not in the checkpoint", k)  # pretrain缺失的
-            new_state_dict[k] = v  # 模型自带的随机值
+            # Missing in checkpoint, use model's own random value
+            logger.info("%s is not in the checkpoint", k)
+            new_state_dict[k] = v
+
+    # Load the new state dict into the model
     if hasattr(model, "module"):
-        assert isinstance(model.module, torch.nn.Module)  # type: ignore
         model.module.load_state_dict(new_state_dict, strict=False)
     else:
         model.load_state_dict(new_state_dict, strict=False)
@@ -54,7 +56,9 @@ def load_checkpoint(
 
     iteration = checkpoint_dict["iteration"]
     learning_rate = checkpoint_dict["learning_rate"]
-    # If loading fails or optimizer is None, reinitialize it. If empty, may affect LR scheduler updates, so catch at the outermost train file.
+
+    # If loading optimizer state fails or optimizer is None, reinitialize it.
+    # If empty, may affect LR scheduler updates, so catch at the outermost train file.
     if optimizer is not None and load_opt == 1:
         optimizer.load_state_dict(checkpoint_dict["optimizer"])
 
@@ -72,31 +76,28 @@ def save_checkpoint(
     logger.info(
         f"Saving model and optimizer state at epoch {iteration} to {checkpoint_path}"
     )
-    if hasattr(model, "module"):
-        assert isinstance(model.module, torch.nn.Module)  # type: ignore
-        state_dict = model.module.state_dict()
-    else:
-        state_dict = model.state_dict()
-    assert optimizer is not None
-    torch.save(
-        {
-            "model": state_dict,
-            "iteration": iteration,
-            "optimizer": optimizer.state_dict(),
-            "learning_rate": learning_rate,
-        },
-        checkpoint_path,
+    state_dict = (
+        model.module.state_dict() if hasattr(model, "module") else model.state_dict()
     )
+    if optimizer is None:
+        raise ValueError("Optimizer must not be None when saving checkpoint.")
+    checkpoint = {
+        "model": state_dict,
+        "iteration": iteration,
+        "optimizer": optimizer.state_dict(),
+        "learning_rate": learning_rate,
+    }
+    torch.save(checkpoint, checkpoint_path)
 
 
-def latest_checkpoint_path(dir_path: Path, regex: str = "G_*.pth") -> str:
-    f_list = sorted(
-        dir_path.glob(regex),
-        key=lambda f: int("".join(filter(str.isdigit, f.name))),
+def latest_checkpoint_path(dir_path: Path, pattern: str = "G_*.pth") -> str:
+    files = sorted(
+        dir_path.glob(pattern),
+        key=lambda f: int("".join(filter(str.isdigit, f.stem))),
     )
-    x = str(f_list[-1])
-    logger.debug(x)
-    return x
+    latest = str(files[-1])
+    logger.debug(f"Latest checkpoint: {latest}")
+    return latest
 
 
 def load_wav_to_torch(full_path: Path) -> tuple[torch.FloatTensor, int]:
@@ -113,17 +114,17 @@ def load_filepaths_and_text(filename: Path, split: str = "|") -> list[list[str]]
 
 
 def get_logger(model_dir: Path, filename: Path = Path("train.log")) -> logging.Logger:
-    global logger
-    model_dir_path = Path(model_dir)
-    logger = logging.getLogger(model_dir_path.name)
+    model_dir.mkdir(parents=True, exist_ok=True)
+    log_file = model_dir / filename
+
+    logger = logging.getLogger(model_dir.name)
     logger.setLevel(logging.DEBUG)
 
     formatter = logging.Formatter("%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
-    model_dir_path.mkdir(parents=True, exist_ok=True)
-    log_file = model_dir_path / filename
-    handler = logging.FileHandler(str(log_file))
+    handler = logging.FileHandler(log_file)
     handler.setLevel(logging.DEBUG)
     handler.setFormatter(formatter)
+
     logger.addHandler(handler)
     return logger
 
