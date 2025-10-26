@@ -470,7 +470,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                 # Discriminator
                 y_d_hat_r, y_d_hat_g, _, _ = net_d(wave, y_hat.detach())
                 with torch.autocast(device_type=DEVICE_TYPE, enabled=False):
-                    loss_disc, _, _ = discriminator_loss(y_d_hat_r, y_d_hat_g)
+                    loss_disc = discriminator_loss(y_d_hat_r, y_d_hat_g)
 
             optim_d.zero_grad()
             scaler.scale(loss_disc).backward()

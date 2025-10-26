@@ -16,20 +16,14 @@ def feature_loss(
 
 def discriminator_loss(
     disc_real_outputs: list[torch.Tensor], disc_generated_outputs: list[torch.Tensor]
-) -> tuple[torch.Tensor, list[float], list[float]]:
+) -> torch.Tensor:
     loss = 0
-    r_losses: list[float] = []
-    g_losses: list[float] = []
     for dr, dg in zip(disc_real_outputs, disc_generated_outputs):
-        dr = dr.float()
-        dg = dg.float()
-        r_loss = torch.mean((1 - dr) ** 2)
-        g_loss = torch.mean(dg**2)
+        r_loss = torch.mean((1 - dr.float()) ** 2)
+        g_loss = torch.mean(dg.float() ** 2)
         loss += r_loss + g_loss
-        r_losses.append(r_loss.item())
-        g_losses.append(g_loss.item())
 
-    return torch.Tensor(loss), r_losses, g_losses
+    return torch.Tensor(loss)
 
 
 def generator_loss(
