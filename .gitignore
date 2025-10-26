@@ -28,4 +28,4 @@ ffmpeg.*
 ffprobe.*
 **/*.pyi
 *.egg-info
-monkeytype.sqlite3
+.coverage
