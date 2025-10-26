@@ -64,26 +64,31 @@ class EpochRecorder:
 
 def main() -> None:
     assert hps is not None
-    n_gpus = torch.cuda.device_count()
 
-    if not torch.cuda.is_available() and torch.backends.mps.is_available():
+    # Determine number of GPUs
+    if torch.cuda.is_available():
+        n_gpus = torch.cuda.device_count()
+    elif torch.backends.mps.is_available():
         n_gpus = 1
-    if n_gpus < 1:
-        # patch to unblock people without gpus. there is probably a better way.
+    else:
         print("NO GPU DETECTED: falling back to CPU - this may take a while")
         n_gpus = 1
+
+    # Set up distributed training environment
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = str(randint(20000, 55555))
+
     logger = utils.get_logger(hps.model_dir)
-    children = [
-        mp.Process(target=run, args=(i, n_gpus, hps, logger)) for i in range(n_gpus)
+
+    # Launch training processes
+    processes = [
+        mp.Process(target=run, args=(rank, n_gpus, hps, logger))
+        for rank in range(n_gpus)
     ]
-
-    for subproc in children:
-        subproc.start()
-
-    for i in range(n_gpus):
-        children[i].join()
+    for proc in processes:
+        proc.start()
+    for proc in processes:
+        proc.join()
 
 
 def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> None:
