@@ -98,7 +98,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
 
     # Dataset selection
     assert hps.data.training_files is not None
-    if hps.if_f0 == 1:
+    if hps.if_f0:
         train_dataset = TextAudioLoaderMultiNSFsid(hps.data.training_files, hps.data)
         collate_fn = TextAudioCollateMultiNSFsid()
     else:
@@ -132,7 +132,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
         **asdict(hps.model),
         is_half=hps.train.fp16_run,
     )
-    if hps.if_f0 == 1:
+    if hps.if_f0:
         model_args["sr"] = hps.sample_rate
         net_g = RVC_Model_f0(**model_args)
     else:
@@ -243,7 +243,7 @@ def train_and_evaluate(
             assert train_loader is not None
             for batch_idx, info in enumerate(train_loader):
                 # Unpack
-                if hps.if_f0 == 1:
+                if hps.if_f0:
                     (
                         phone,
                         phone_lengths,
@@ -269,7 +269,7 @@ def train_and_evaluate(
                 if torch.cuda.is_available():
                     phone = phone.cuda(rank, non_blocking=True)
                     phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
-                    if hps.if_f0 == 1:
+                    if hps.if_f0:
                         assert pitch is not None
                         assert pitchf is not None
                         pitch = pitch.cuda(rank, non_blocking=True)
@@ -280,7 +280,7 @@ def train_and_evaluate(
                     wave = wave.cuda(rank, non_blocking=True)
                     wave_lengths = wave_lengths.cuda(rank, non_blocking=True)
                 # Cache on list
-                if hps.if_f0 == 1:
+                if hps.if_f0:
                     cached_data = (
                         phone,
                         phone_lengths,
@@ -292,7 +292,6 @@ def train_and_evaluate(
                         wave_lengths,
                         sid,
                     )
-                    cache.append((batch_idx, cached_data))
                 else:
                     cached_data = (
                         phone,
@@ -303,7 +302,7 @@ def train_and_evaluate(
                         wave_lengths,
                         sid,
                     )
-                    cache.append((batch_idx, cached_data))
+                cache.append((batch_idx, cached_data))
         else:
             # Load shuffled cache
             shuffle(cache)
@@ -319,7 +318,7 @@ def train_and_evaluate(
     for batch_idx, info in data_iterator:  # type: ignore
         # Data
         ## Unpack
-        if hps.if_f0 == 1:
+        if hps.if_f0:
             (
                 phone,
                 phone_lengths,
@@ -337,7 +336,7 @@ def train_and_evaluate(
         if not hps.if_cache_data_in_gpu and torch.cuda.is_available():
             phone = phone.cuda(rank, non_blocking=True)
             phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
-            if hps.if_f0 == 1:
+            if hps.if_f0:
                 assert pitch is not None
                 assert pitchf is not None
                 pitch = pitch.cuda(rank, non_blocking=True)
@@ -348,7 +347,7 @@ def train_and_evaluate(
             wave = wave.cuda(rank, non_blocking=True)
 
         with torch.autocast(device_type=DEVICE_TYPE, enabled=hps.train.fp16_run):
-            if hps.if_f0 == 1:
+            if hps.if_f0:
                 (
                     y_hat,
                     ids_slice,
