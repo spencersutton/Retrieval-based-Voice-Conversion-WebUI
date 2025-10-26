@@ -55,90 +55,6 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def get_hparams() -> params.HParams:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-se",
-        "--save_every_epoch",
-        type=int,
-        required=True,
-        help="checkpoint save frequency (epoch)",
-    )
-    parser.add_argument(
-        "-te", "--total_epoch", type=int, required=True, help="total_epoch"
-    )
-    parser.add_argument(
-        "-pg", "--pretrainG", type=str, default="", help="Pretrained Generator path"
-    )
-    parser.add_argument(
-        "-pd", "--pretrainD", type=str, default="", help="Pretrained Discriminator path"
-    )
-    parser.add_argument("-g", "--gpus", type=str, default="0", help="split by -")
-    parser.add_argument(
-        "-bs", "--batch_size", type=int, required=True, help="batch size"
-    )
-    parser.add_argument(
-        "-e", "--experiment_dir", type=str, required=True, help="experiment dir"
-    )  # -m
-    parser.add_argument(
-        "-sr", "--sample_rate", type=str, required=True, help="sample rate, 32k/40k/48k"
-    )
-    parser.add_argument(
-        "-sw",
-        "--save_every_weights",
-        type=str,
-        default="0",
-        help="save the extracted model in weights directory when saving checkpoints",
-    )
-    parser.add_argument(
-        "-f0",
-        "--if_f0",
-        type=int,
-        required=True,
-        help="use f0 as one of the inputs of the model, 1 or 0",
-    )
-    parser.add_argument(
-        "-l",
-        "--if_latest",
-        type=int,
-        required=True,
-        help="if only save the latest G/D pth file, 1 or 0",
-    )
-    parser.add_argument(
-        "-c",
-        "--if_cache_data_in_gpu",
-        type=int,
-        required=True,
-        help="if caching the dataset in GPU memory, 1 or 0",
-    )
-    args = parser.parse_args()
-    name = args.experiment_dir
-    experiment_dir = Path("./logs") / args.experiment_dir
-
-    config_save_path = experiment_dir / "config.json"
-    config = json.loads(config_save_path.read_text(encoding="utf-8"))
-
-    hparams = params.HParams(**config)
-    hparams.train = params.HParamsTrain(**config["train"])
-    hparams.model = params.HParamsModel(**config["model"])
-    hparams.data = params.HParamsData(**config["data"])
-    hparams.model_dir = hparams.experiment_dir = experiment_dir
-    hparams.save_every_epoch = args.save_every_epoch
-    hparams.name = name
-    hparams.total_epoch = args.total_epoch
-    hparams.pretrainG = args.pretrainG
-    hparams.pretrainD = args.pretrainD
-    hparams.gpus = args.gpus
-    hparams.train.batch_size = args.batch_size
-    hparams.sample_rate = args.sample_rate
-    hparams.if_f0 = args.if_f0
-    hparams.if_latest = args.if_latest
-    hparams.save_every_weights = args.save_every_weights
-    hparams.if_cache_data_in_gpu = args.if_cache_data_in_gpu
-    hparams.data.training_files = f"{experiment_dir}/filelist.txt"
-    return hparams
-
-
 def latest_checkpoint_path(dir_path: Path, pattern: str = "G_*.pth") -> Path:
     files = sorted(
         dir_path.glob(pattern),
@@ -441,18 +357,15 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
         if hps.if_cache_data_in_gpu:
             if not cache:
                 # Build cache on first epoch
-                cache = [
-                    (batch_idx, move_batch_to_device(info))
-                    for batch_idx, info in enumerate(train_loader)  # type: ignore
-                ]
+                cache = [move_batch_to_device(info) for info in train_loader]
             random.shuffle(cache)
             data_iterator = cache
         else:
-            data_iterator = enumerate(train_loader)  # type: ignore
+            data_iterator = train_loader
 
         epoch_recorder = EpochRecorder()
 
-        for batch_idx, info in data_iterator:  # type: ignore
+        for info in data_iterator:  # type: ignore
             # Unpack batch data
             pitch = pitchf = None  # Initialize for type checking
             if hps.if_f0:
@@ -627,7 +540,87 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
 
 
 if __name__ == "__main__":
-    hps = get_hparams()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-se",
+        "--save_every_epoch",
+        type=int,
+        required=True,
+        help="checkpoint save frequency (epoch)",
+    )
+    parser.add_argument(
+        "-te", "--total_epoch", type=int, required=True, help="total_epoch"
+    )
+    parser.add_argument(
+        "-pg", "--pretrainG", type=str, default="", help="Pretrained Generator path"
+    )
+    parser.add_argument(
+        "-pd", "--pretrainD", type=str, default="", help="Pretrained Discriminator path"
+    )
+    parser.add_argument("-g", "--gpus", type=str, default="0", help="split by -")
+    parser.add_argument(
+        "-bs", "--batch_size", type=int, required=True, help="batch size"
+    )
+    parser.add_argument(
+        "-e", "--experiment_dir", type=str, required=True, help="experiment dir"
+    )  # -m
+    parser.add_argument(
+        "-sr", "--sample_rate", type=str, required=True, help="sample rate, 32k/40k/48k"
+    )
+    parser.add_argument(
+        "-sw",
+        "--save_every_weights",
+        type=str,
+        default="0",
+        help="save the extracted model in weights directory when saving checkpoints",
+    )
+    parser.add_argument(
+        "-f0",
+        "--if_f0",
+        type=int,
+        required=True,
+        help="use f0 as one of the inputs of the model, 1 or 0",
+    )
+    parser.add_argument(
+        "-l",
+        "--if_latest",
+        type=int,
+        required=True,
+        help="if only save the latest G/D pth file, 1 or 0",
+    )
+    parser.add_argument(
+        "-c",
+        "--if_cache_data_in_gpu",
+        type=int,
+        required=True,
+        help="if caching the dataset in GPU memory, 1 or 0",
+    )
+    args = parser.parse_args()
+    name = args.experiment_dir
+    experiment_dir = Path("./logs") / args.experiment_dir
+
+    config_save_path = experiment_dir / "config.json"
+    config = json.loads(config_save_path.read_text(encoding="utf-8"))
+
+    hps = params.HParams(**config)
+    hps.train = params.HParamsTrain(**config["train"])
+    hps.model = params.HParamsModel(**config["model"])
+    hps.data = params.HParamsData(**config["data"])
+    hps.model_dir = hps.experiment_dir = experiment_dir
+    hps.save_every_epoch = args.save_every_epoch
+    hps.name = name
+    hps.total_epoch = args.total_epoch
+    hps.pretrainG = args.pretrainG
+    hps.pretrainD = args.pretrainD
+    hps.gpus = args.gpus
+    hps.train.batch_size = args.batch_size
+    hps.sample_rate = args.sample_rate
+    hps.if_f0 = args.if_f0
+    hps.if_latest = args.if_latest
+    hps.save_every_weights = args.save_every_weights
+    hps.if_cache_data_in_gpu = args.if_cache_data_in_gpu
+    hps.data.training_files = f"{experiment_dir}/filelist.txt"
+
     os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
     n_gpus = len(hps.gpus.split("-"))
 
