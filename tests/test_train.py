@@ -84,7 +84,7 @@ class TestEpochRecorder:
         result = recorder.record()
 
         # Extract elapsed time format
-        assert "00:00:0" in result  # Should be around 0.1 seconds
+        assert "0:00:00" in result  # Should be around 0.1 seconds
 
     def test_epoch_recorder_updates_last_time(self) -> None:
         """Test that record() updates the last_time attribute."""
