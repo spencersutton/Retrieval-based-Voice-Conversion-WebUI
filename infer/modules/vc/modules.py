@@ -10,8 +10,6 @@ import torch
 from configs.config import Config
 from infer.lib.audio import load_audio, wav2
 from infer.lib.infer_pack.models import (
-    SynthesizerTrnMs256NSFsid,
-    SynthesizerTrnMs256NSFsid_nono,
     SynthesizerTrnMs768NSFsid,
     SynthesizerTrnMs768NSFsid_nono,
 )
@@ -31,9 +29,7 @@ class VC:
         self.net_g = None
         self.pipeline = None
         self.cpt = None
-        self.version = None
         self.if_f0 = None
-        self.version = None
         self.hubert_model = None
 
         self.config = config
@@ -111,18 +107,15 @@ class VC:
         self.tgt_sr = self.cpt["config"][-1]
         self.cpt["config"][-3] = self.cpt["weight"]["emb_g.weight"].shape[0]  # n_spk
         self.if_f0 = self.cpt.get("f0", 1)
-        self.version = self.cpt.get("version", "v1")
 
         synthesizer_class = {
-            ("v1", 1): SynthesizerTrnMs256NSFsid,
-            ("v1", 0): SynthesizerTrnMs256NSFsid_nono,
-            ("v2", 1): SynthesizerTrnMs768NSFsid,
-            ("v2", 0): SynthesizerTrnMs768NSFsid_nono,
+            1: SynthesizerTrnMs768NSFsid,
+            0: SynthesizerTrnMs768NSFsid_nono,
         }
 
-        self.net_g = synthesizer_class.get(
-            (self.version, self.if_f0), SynthesizerTrnMs256NSFsid
-        )(*self.cpt["config"], is_half=self.config.is_half)
+        self.net_g = synthesizer_class.get(self.if_f0, SynthesizerTrnMs768NSFsid)(
+            *self.cpt["config"], is_half=self.config.is_half
+        )
 
         del self.net_g.enc_q
 
@@ -208,7 +201,6 @@ class VC:
                 self.tgt_sr,
                 resample_sr,
                 rms_mix_rate,
-                self.version,
                 protect,
                 f0_file,
             )

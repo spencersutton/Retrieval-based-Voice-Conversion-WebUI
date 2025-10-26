@@ -198,7 +198,6 @@ class Pipeline:
         index,
         big_npy,
         index_rate,
-        version,
         protect,
     ):
         feats = torch.from_numpy(audio0)
@@ -291,7 +290,6 @@ class Pipeline:
         tgt_sr,
         resample_sr,
         rms_mix_rate,
-        version,
         protect,
         f0_file=None,
     ) -> np.ndarray:
@@ -373,7 +371,6 @@ class Pipeline:
                         index,
                         big_npy,
                         index_rate,
-                        version,
                         protect,
                     )[self.t_pad_tgt : -self.t_pad_tgt]
                 )
@@ -390,7 +387,6 @@ class Pipeline:
                         index,
                         big_npy,
                         index_rate,
-                        version,
                         protect,
                     )[self.t_pad_tgt : -self.t_pad_tgt]
                 )
@@ -408,7 +404,6 @@ class Pipeline:
                     index,
                     big_npy,
                     index_rate,
-                    version,
                     protect,
                 )[self.t_pad_tgt : -self.t_pad_tgt]
             )
@@ -425,7 +420,6 @@ class Pipeline:
                     index,
                     big_npy,
                     index_rate,
-                    version,
                     protect,
                 )[self.t_pad_tgt : -self.t_pad_tgt]
             )
