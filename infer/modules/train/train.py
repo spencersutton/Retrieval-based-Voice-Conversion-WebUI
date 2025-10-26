@@ -129,7 +129,7 @@ def save_checkpoint(
     torch.save(checkpoint, checkpoint_path)
 
 
-def store_model_checkpoint(
+def save_weights(
     ckpt: dict[str, torch.Tensor],
     sr: int,
     if_f0: bool,
@@ -513,7 +513,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                     if hasattr(net_g, "module")
                     else net_g.state_dict()
                 )
-                checkpoint_filepath = store_model_checkpoint(
+                checkpoint_filepath = save_weights(
                     ckpt,
                     hps.sample_rate,
                     hps.if_f0,
@@ -532,7 +532,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger) -> N
                 if hasattr(net_g, "module")
                 else net_g.state_dict()
             )
-            checkpoint_filepath = store_model_checkpoint(
+            checkpoint_filepath = save_weights(
                 ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps
             )
             logger.info(f"saving final ckpt:{checkpoint_filepath}")
