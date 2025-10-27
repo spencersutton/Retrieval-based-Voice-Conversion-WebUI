@@ -1,5 +1,4 @@
 import logging
-import os
 import traceback
 from collections.abc import Iterator
 from pathlib import Path
@@ -74,23 +73,22 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         return (spec, wav, phone, pitch, pitchf, dv)
 
     def get_labels(
-        self, phone_str: Path, pitch_path: Path, pitchf_path: Path
+        self, phone_path: Path, pitch_path: Path, pitchf_path: Path
     ) -> tuple[torch.FloatTensor, torch.LongTensor, torch.FloatTensor]:
-        phone = np.load(phone_str)
-        phone = np.repeat(phone, 2, axis=0)
+        phone = np.load(phone_path)
         pitch = np.load(pitch_path)
         pitchf = np.load(pitchf_path)
-        n_num = min(phone.shape[0], 900)  # DistributedBucketSampler
 
-        phone = phone[:n_num, :]
-        pitch = pitch[:n_num]
-        pitchf = pitchf[:n_num]
-        phone = torch.FloatTensor(phone)
-        pitch_tensor = torch.LongTensor(pitch)
-        pitchf_tensor = torch.FloatTensor(pitchf)
-        return phone, pitch_tensor, pitchf_tensor
+        phone = np.repeat(phone, 2, axis=0)
+        max_len = min(phone.shape[0], 900)
 
-    def get_audio(self, filename: str) -> tuple:
+        return (
+            torch.FloatTensor(phone[:max_len, :]),
+            torch.LongTensor(pitch[:max_len]),
+            torch.FloatTensor(pitchf[:max_len]),
+        )
+
+    def get_audio(self, filename: Path) -> tuple[torch.Tensor, torch.Tensor]:
         audio, sampling_rate = load_wav_to_torch(filename)
         if sampling_rate != self.sampling_rate:
             raise ValueError(
@@ -99,8 +97,8 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         audio_norm = audio
 
         audio_norm = audio_norm.unsqueeze(0)
-        spec_filename = filename.replace(".wav", ".spec.pt")
-        if os.path.exists(spec_filename):
+        spec_filename = filename.with_suffix(".spec.pt")
+        if spec_filename.exists():
             try:
                 spec = torch.load(spec_filename)
             except Exception:
@@ -142,7 +140,7 @@ class TextAudioCollateMultiNSFsid:
         self.return_ids = return_ids
 
     def __call__(
-        self, batch: list[object]
+        self, batch: list[list[torch.Tensor]]
     ) -> tuple[
         torch.FloatTensor,
         torch.LongTensor,
@@ -267,7 +265,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
         phone = torch.FloatTensor(phone)
         return phone
 
-    def get_audio(self, filename: str) -> tuple:
+    def get_audio(self, filename: Path) -> tuple[torch.Tensor, torch.Tensor]:
         audio, sampling_rate = load_wav_to_torch(filename)
         if sampling_rate != self.sampling_rate:
             raise ValueError(
@@ -276,8 +274,8 @@ class TextAudioLoader(torch.utils.data.Dataset):
         audio_norm = audio
 
         audio_norm = audio_norm.unsqueeze(0)
-        spec_filename = filename.replace(".wav", ".spec.pt")
-        if os.path.exists(spec_filename):
+        spec_filename = filename.with_suffix(".spec.pt")
+        if spec_filename.exists():
             try:
                 spec = torch.load(spec_filename)
             except Exception:
@@ -319,7 +317,7 @@ class TextAudioCollate:
         self.return_ids = return_ids
 
     def __call__(
-        self, batch: list[object]
+        self, batch: list[list[torch.Tensor]]
     ) -> tuple[
         torch.FloatTensor,
         torch.LongTensor,
