@@ -327,6 +327,9 @@ def train_and_evaluate(
     net_g.train()
     net_d.train()
 
+    # Record epoch start time
+    epoch_start_time = ttime()
+
     # Prepare data iterator
     if hps.if_cache_data_in_gpu:
         # Use Cache
@@ -563,6 +566,12 @@ def train_and_evaluate(
                 )
         global_step += 1
     # /Run steps
+
+    # Log epoch duration
+    epoch_elapsed_time = ttime() - epoch_start_time
+    epoch_elapsed_str = str(datetime.timedelta(seconds=epoch_elapsed_time))
+    if rank == 0:
+        logger.info(f"Epoch {epoch} completed in {epoch_elapsed_str}")
 
     if epoch % hps.save_every_epoch == 0 and rank == 0:
         if hps.if_latest == 0:
