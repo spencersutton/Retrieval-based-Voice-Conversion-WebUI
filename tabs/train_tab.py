@@ -49,7 +49,7 @@ def if_done_multi(done_flag: list[bool], p_objs: list[Popen]):
 def preprocess_dataset(
     audio_dir: str,
     exp_dir: str,
-    sr: int,
+    sr: str,  # pyright: ignore[reportRedeclaration]
     n_p: int,
     progress: gr.Progress = gr.Progress(),
 ) -> Generator[str, None, None]:
@@ -87,7 +87,7 @@ def preprocess_dataset(
         shared.logger.error(error_msg)
         yield error_msg
         return
-    sr = shared.sr_dict[sr]
+    sr: int = shared.sr_dict[sr]
     exp_log_dir = Path(shared.now_dir) / "logs" / exp_dir
     exp_log_dir.mkdir(parents=True, exist_ok=True)
     preprocess_log_path = exp_log_dir / "preprocess.log"
@@ -127,7 +127,7 @@ def preprocess_meta(
     experiment_name: str,
     audio_dir: str,
     audio_files: list[str] | None,
-    sr: int,
+    sr: str,
     n_p: int,
     progress: gr.Progress = gr.Progress(),
 ):
@@ -183,13 +183,13 @@ def parse_f0_feature_log(content: str) -> tuple[int, int]:
 
 
 def extract_f0_feature(
-    gpus: str,
+    gpus: str,  # pyright: ignore[reportRedeclaration]
     n_p: int,
     f0method: str,
     if_f0: bool,
     exp_dir: str,
     version19: str,
-    gpus_rmvpe: str,
+    gpus_rmvpe: str,  # pyright: ignore[reportRedeclaration]
     progress: gr.Progress = gr.Progress(),
 ) -> Generator[str, None, None]:
     def update_progress(content: str):
@@ -324,7 +324,7 @@ def get_pretrained_models(path_str: str, f0_str: str, sr2: str):
     )
 
 
-def change_sr2(sr2: int, if_f0_3: bool, version19: str):
+def change_sr2(sr2: str, if_f0_3: bool, version19: str):
     path_str = "" if version19 == "v1" else "_v2"
     f0_str = "f0" if if_f0_3 else ""
     return get_pretrained_models(path_str, f0_str, sr2)
@@ -408,9 +408,10 @@ def click_train(
     feature_dir = (
         exp_dir / "3_feature256" if version19 == "v1" else exp_dir / "3_feature768"
     )
+    # Always define f0_dir and f0nsf_dir to avoid unbound errors
+    f0_dir = exp_dir / "2a_f0"
+    f0nsf_dir = exp_dir / "2b-f0nsf"
     if if_f0_3:
-        f0_dir = exp_dir / "2a_f0"
-        f0nsf_dir = exp_dir / "2b-f0nsf"
         names = (
             {name.stem for name in gt_wavs_dir.iterdir() if name.is_file()}
             & {name.stem for name in feature_dir.iterdir() if name.is_file()}
@@ -673,10 +674,7 @@ def one_click_training(
 
     # step1:处理数据  # noqa: ERA001
     yield get_info_str(shared.i18n("step1: processing data..."))
-    [
-        get_info_str(_)
-        for _ in preprocess_dataset(trainset_dir4, exp_dir1, int(sr2), np7)
-    ]
+    [get_info_str(_) for _ in preprocess_dataset(trainset_dir4, exp_dir1, sr2, np7)]
 
     # step2a:提取音高  # noqa: ERA001
     yield get_info_str(shared.i18n("step2: extracting feature & pitch"))
@@ -940,7 +938,7 @@ def create_train_tab():
                 training_plot = gr.LinePlot(
                     label=i18n("Training Metrics"),
                     x="index",  # Use the DataFrame's index as the x-axis (epochs)
-                    y=["loss/g/total", "loss/d/total"],
+                    y="loss/g/total",
                 )
                 training_info = gr.Textbox(label=i18n("Info"), value="", max_lines=10)
                 train_btn.click(
