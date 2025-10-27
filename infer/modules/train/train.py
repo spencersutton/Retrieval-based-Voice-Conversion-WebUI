@@ -450,6 +450,8 @@ def run(rank: int, n_gpus: int, hps: params.HParams) -> None:
                 ) = info
             else:
                 phone, phone_lengths, spec, spec_lengths, wave, _, sid = info
+                pitch = None
+                pitchf = None
 
             # Move to device if not cached
             if not hps.if_cache_data_in_gpu:
@@ -468,6 +470,8 @@ def run(rank: int, n_gpus: int, hps: params.HParams) -> None:
                     ) = batch
                 else:
                     (phone, phone_lengths, spec, spec_lengths, wave, _, sid) = batch
+                    pitch = None
+                    pitchf = None
 
             # Forward pass
             with torch.autocast(device_type=DEVICE_TYPE, enabled=hps.train.fp16_run):
@@ -496,6 +500,7 @@ def run(rank: int, n_gpus: int, hps: params.HParams) -> None:
                         (_z, z_p, m_p, logs_p, _m_q, logs_q),
                     ) = net_g(phone, phone_lengths, spec, spec_lengths, sid)
 
+                assert isinstance(spec, torch.Tensor)
                 mel = spec_to_mel_torch(
                     spec,
                     hps.data.filter_length,
@@ -520,6 +525,7 @@ def run(rank: int, n_gpus: int, hps: params.HParams) -> None:
                     )
                 if hps.train.fp16_run:
                     y_hat_mel = y_hat_mel.half()
+                assert isinstance(wave, torch.Tensor)
                 wave = commons.slice_segments(
                     wave, ids_slice * hps.data.hop_length, hps.train.segment_size
                 )

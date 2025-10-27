@@ -15,12 +15,12 @@ from infer.lib.train.params import HParamsData
 logger = logging.getLogger(__name__)
 
 
-def load_wav_to_torch(full_path: Path) -> tuple[torch.FloatTensor, int]:
+def _load_wav_to_torch(full_path: Path) -> tuple[torch.FloatTensor, int]:
     sampling_rate, data = cast("tuple[int, np.ndarray]", wavfile.read(full_path))  # pyright: ignore[reportUnknownMemberType]
     return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
 
-def load_filepaths_and_text(filename: Path) -> list[list[str]]:
+def _load_filepaths_and_text(filename: Path) -> list[list[str]]:
     lines = filename.read_text().splitlines()
     return [line.strip().split("|") for line in lines]
 
@@ -34,7 +34,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
     def __init__(self, audiopaths_and_text: Path, hparams: HParamsData) -> None:
         self.audiopaths_and_text = [
             (Path(x[0]), Path(x[1]), Path(x[2]), Path(x[3]), int(x[4]))
-            for x in load_filepaths_and_text(audiopaths_and_text)
+            for x in _load_filepaths_and_text(audiopaths_and_text)
         ]
         self.max_wav_value = hparams.max_wav_value
         self.sampling_rate = hparams.sampling_rate
@@ -76,7 +76,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         )
 
     def get_audio(self, filename: Path) -> tuple[torch.Tensor, torch.Tensor]:
-        audio, sampling_rate = load_wav_to_torch(filename)
+        audio, sampling_rate = _load_wav_to_torch(filename)
         if sampling_rate != self.sampling_rate:
             raise ValueError(
                 f"{sampling_rate} SR doesn't match target {self.sampling_rate} SR"
@@ -182,7 +182,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
     def __init__(self, audiopaths_and_text: Path, hparams: HParamsData) -> None:
         self.audiopaths_and_text = [
             (Path(x[0]), Path(x[1]), int(x[2]))
-            for x in load_filepaths_and_text(audiopaths_and_text)
+            for x in _load_filepaths_and_text(audiopaths_and_text)
         ]
         self.max_wav_value = hparams.max_wav_value
         self.sampling_rate = hparams.sampling_rate
@@ -210,7 +210,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
         return torch.FloatTensor(phone)
 
     def get_audio(self, filename: Path) -> tuple[torch.Tensor, torch.Tensor]:
-        audio, sampling_rate = load_wav_to_torch(filename)
+        audio, sampling_rate = _load_wav_to_torch(filename)
         if sampling_rate != self.sampling_rate:
             raise ValueError(
                 f"{sampling_rate} SR doesn't match target {self.sampling_rate} SR"
@@ -313,7 +313,7 @@ class DistributedBucketSampler(torch.utils.data.DistributedSampler):
 
     def __init__(
         self,
-        dataset: object,
+        dataset: TextAudioLoader | TextAudioLoaderMultiNSFsid,
         batch_size: int,
         boundaries: list[int],
         num_replicas: int | None = None,
@@ -329,92 +329,76 @@ class DistributedBucketSampler(torch.utils.data.DistributedSampler):
         self.total_size = sum(self.num_samples_per_bucket)
         self.num_samples = self.total_size // self.num_replicas
 
-    def _create_buckets(self) -> tuple:
+    def _create_buckets(self) -> tuple[list[list[int]], list[int]]:
         buckets = [[] for _ in range(len(self.boundaries) - 1)]
-        for i in range(len(self.lengths)):
-            length = self.lengths[i]
-            idx_bucket = self._bisect(length)
-            if idx_bucket != -1:
-                buckets[idx_bucket].append(i)
+        for idx, length in enumerate(self.lengths):
+            bucket_idx = self._find_bucket(length)
+            if bucket_idx != -1:
+                buckets[bucket_idx].append(idx)
 
-        for i in range(len(buckets) - 1, -1, -1):
-            if len(buckets[i]) == 0:
+        # Remove empty buckets and their boundaries
+        for i in reversed(range(len(buckets))):
+            if not buckets[i]:
                 buckets.pop(i)
                 self.boundaries.pop(i + 1)
 
         num_samples_per_bucket = []
-        for i in range(len(buckets)):
-            len_bucket = len(buckets[i])
-            total_batch_size = self.num_replicas * self.batch_size
+        total_batch_size = self.num_replicas * self.batch_size
+        for bucket in buckets:
+            len_bucket = len(bucket)
             rem = (
                 total_batch_size - (len_bucket % total_batch_size)
             ) % total_batch_size
             num_samples_per_bucket.append(len_bucket + rem)
         return buckets, num_samples_per_bucket
 
-    def __iter__(self) -> Iterator:
-        # deterministically shuffle based on epoch
+    def __iter__(self) -> Iterator[list[int]]:
+        # Deterministically shuffle based on epoch
         g = torch.Generator(device=torch.get_default_device())
         g.manual_seed(self.epoch)
 
-        indices = []
-        if self.shuffle:
-            for bucket in self.buckets:
-                indices.append(torch.randperm(len(bucket), generator=g).tolist())
-        else:
-            for bucket in self.buckets:
-                indices.append(list(range(len(bucket))))
-
         batches = []
-        for i in range(len(self.buckets)):
-            bucket = self.buckets[i]
-            len_bucket = len(bucket)
-            ids_bucket = indices[i]
-            num_samples_bucket = self.num_samples_per_bucket[i]
-
-            # add extra samples to make it evenly divisible
-            rem = num_samples_bucket - len_bucket
-            ids_bucket = (
-                ids_bucket
-                + ids_bucket * (rem // len_bucket)
-                + ids_bucket[: (rem % len_bucket)]
+        for i, bucket in enumerate(self.buckets):
+            indices = (
+                torch.randperm(len(bucket), generator=g).tolist()
+                if self.shuffle
+                else list(range(len(bucket)))
             )
+            num_samples = self.num_samples_per_bucket[i]
+            rem = num_samples - len(bucket)
 
-            # subsample
-            ids_bucket = ids_bucket[self.rank :: self.num_replicas]
+            # Extend indices to make bucket evenly divisible
+            extended = (
+                indices + indices * (rem // len(bucket)) + indices[: rem % len(bucket)]
+            )
+            # Subsample for distributed rank
+            rank_indices = extended[self.rank :: self.num_replicas]
 
-            # batching
-            for j in range(len(ids_bucket) // self.batch_size):
-                batch = [
-                    bucket[idx]
-                    for idx in ids_bucket[
-                        j * self.batch_size : (j + 1) * self.batch_size
-                    ]
-                ]
+            # Form batches
+            for j in range(0, len(rank_indices), self.batch_size):
+                batch = [bucket[idx] for idx in rank_indices[j : j + self.batch_size]]
                 batches.append(batch)
 
         if self.shuffle:
-            batch_ids = torch.randperm(len(batches), generator=g).tolist()
-            batches = [batches[i] for i in batch_ids]
-        self.batches = batches
+            batch_order = torch.randperm(len(batches), generator=g).tolist()
+            batches = [batches[i] for i in batch_order]
 
+        self.batches = batches
         assert len(self.batches) * self.batch_size == self.num_samples
         return iter(self.batches)
 
-    def _bisect(self, x: int, lo: int = 0, hi: int | None = None) -> int:
-        if hi is None:
-            hi = len(self.boundaries) - 1
-
-        if hi > lo:
-            mid = (hi + lo) // 2
+    def _find_bucket(self, x: int) -> int:
+        # Binary search for bucket index
+        lo, hi = 0, len(self.boundaries) - 1
+        while hi > lo:
+            mid = (lo + hi) // 2
             if self.boundaries[mid] < x <= self.boundaries[mid + 1]:
                 return mid
             elif x <= self.boundaries[mid]:
-                return self._bisect(x, lo, mid)
+                hi = mid
             else:
-                return self._bisect(x, mid + 1, hi)
-        else:
-            return -1
+                lo = mid + 1
+        return -1
 
     def __len__(self) -> int:
         return self.num_samples // self.batch_size
