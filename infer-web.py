@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import platform
 import shutil
 import threading
 import traceback
@@ -448,10 +447,10 @@ def _click_train(
     return "训练结束, 您可查看控制台训练日志或实验文件夹下的train.log"
 
 
-def _train_index(exp_dir1: str) -> Generator[str]:
-    _logger.info("Start training index for %s", exp_dir1)
+def _train_index(dir_name: str) -> Generator[str]:
+    _logger.info("Start training index for %s", dir_name)
 
-    exp_dir = Path("logs") / exp_dir1
+    exp_dir = Path("logs") / dir_name
     exp_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = exp_dir / "3_feature768"
 
@@ -465,7 +464,7 @@ def _train_index(exp_dir1: str) -> Generator[str]:
         return
 
     # Load and concatenate all feature files
-    infos: list[str] = []
+    status: list[str] = []
     features: list[np.ndarray] = [np.load(str(p)) for p in feature_files]
     big_npy = np.concatenate(features, axis=0)
 
@@ -476,10 +475,10 @@ def _train_index(exp_dir1: str) -> Generator[str]:
     big_npy = big_npy[indices]
     # Compress features with kmeans if too large
     if big_npy.shape[0] > 200_000:
-        infos.append(
+        status.append(
             f"Compressing {big_npy.shape[0]} samples to 10,000 centers using kmeans."
         )
-        yield "\n".join(infos)
+        yield "\n".join(status)
         try:
             kmeans = MiniBatchKMeans(
                 n_clusters=10_000,
@@ -490,16 +489,16 @@ def _train_index(exp_dir1: str) -> Generator[str]:
             )
             big_npy = kmeans.fit(big_npy).cluster_centers_
         except Exception:
-            infos.append(traceback.format_exc())
-            _logger.info(infos[-1])
-            yield "\n".join(infos)
+            status.append(traceback.format_exc())
+            _logger.info(status[-1])
+            yield "\n".join(status)
 
     np.save(exp_dir / "total_fea.npy", big_npy)
 
     # Build FAISS index
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
-    infos.append(f"Feature shape: {big_npy.shape}, IVF clusters: {n_ivf}")
-    yield "\n".join(infos)
+    status.append(f"Feature shape: {big_npy.shape}, IVF clusters: {n_ivf}")
+    yield "\n".join(status)
 
     index = faiss.index_factory(768, f"IVF{n_ivf},Flat")
     index_ivf = faiss.extract_index_ivf(index)
@@ -508,39 +507,38 @@ def _train_index(exp_dir1: str) -> Generator[str]:
 
     # Save trained index
     trained_index_path = (
-        exp_dir / f"trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
+        exp_dir / f"trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{dir_name}.index"
     )
     faiss.write_index(index, str(trained_index_path))
 
     # Add vectors and save final index
-    infos.append("Adding vectors to index...")
-    yield "\n".join(infos)
+    status.append("Adding vectors to index...")
+    yield "\n".join(status)
 
     for start in range(0, big_npy.shape[0], 8192):
         index.add(big_npy[start : start + 8192])
 
     added_index_path = (
-        exp_dir / f"added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
+        exp_dir / f"added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{dir_name}.index"
     )
     faiss.write_index(index, str(added_index_path))
-    infos.append(f"Index built successfully: {added_index_path.name}")
+    status.append(f"Index built successfully: {added_index_path.name}")
 
     # Link to external index root if configured
     if _outside_index_root:
         try:
-            link_fn = os.link if platform.system() == "Windows" else os.symlink
             external_path = (
                 Path(_outside_index_root)
-                / f"{exp_dir1}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
+                / f"{dir_name}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{dir_name}.index"
             )
-            link_fn(str(added_index_path), str(external_path))
-            infos.append(f"Linked index to external path: {_outside_index_root}")
+            external_path.symlink_to(added_index_path)
+            status.append(f"Linked index to external path: {_outside_index_root}")
         except Exception:
-            infos.append(
+            status.append(
                 f"Failed to link index to external path: {_outside_index_root}"
             )
 
-    yield "\n".join(infos)
+    yield "\n".join(status)
 
 
 def _train1key(
