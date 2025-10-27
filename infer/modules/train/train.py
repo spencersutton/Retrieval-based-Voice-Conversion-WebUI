@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import sys
+from dataclasses import asdict
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +169,7 @@ def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
         net_g = RVC_Model_f0(
             hps.data.filter_length // 2 + 1,
             hps.train.segment_size // hps.data.hop_length,
-            **hps.model,
+            **asdict(hps.model),
             is_half=hps.train.fp16_run,
             sr=hps.sample_rate,
         )
@@ -176,7 +177,7 @@ def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
         net_g = RVC_Model_nof0(
             hps.data.filter_length // 2 + 1,
             hps.train.segment_size // hps.data.hop_length,
-            **hps.model,
+            **asdict(hps.model),
             is_half=hps.train.fp16_run,
         )
     if torch.cuda.is_available():
