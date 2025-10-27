@@ -177,7 +177,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
             hps.data.filter_length // 2 + 1,
             hps.train.segment_size // hps.data.hop_length,
             **asdict(hps.model),
-            is_half=hps.train.fp16_run,
+            is_half=hps.train.fp16_run,  # type: ignore
             sr=hps.sample_rate,
         )
     else:
@@ -185,7 +185,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
             hps.data.filter_length // 2 + 1,
             hps.train.segment_size // hps.data.hop_length,
             **asdict(hps.model),
-            is_half=hps.train.fp16_run,
+            is_half=hps.train.fp16_run,  # type: ignore
         )
     if torch.cuda.is_available():
         net_g = net_g.cuda(rank)
@@ -223,7 +223,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
             utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g
         )
         global_step = (epoch_str - 1) * len(train_loader)
-    except Exception:  # 如果首次不能加载，加载pretrain
+    except Exception:  # 如果首次不能加载, 加载pretrain
         epoch_str = 1
         global_step = 0
         if hps.pretrainG != "":
@@ -231,7 +231,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
                 logger.info(f"loaded pretrained {hps.pretrainG}")
             if hasattr(net_g, "module"):
                 logger.info(
-                    net_g.module.load_state_dict(
+                    net_g.module.load_state_dict(  # type: ignore
                         torch.load(
                             hps.pretrainG, map_location="cpu", weights_only=False
                         )["model"]
@@ -250,7 +250,7 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
                 logger.info(f"loaded pretrained {hps.pretrainD}")
             if hasattr(net_d, "module"):
                 logger.info(
-                    net_d.module.load_state_dict(
+                    net_d.module.load_state_dict(  # type: ignore
                         torch.load(
                             hps.pretrainD, map_location="cpu", weights_only=False
                         )["model"]
@@ -307,18 +307,18 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
 
 
 def train_and_evaluate(
-    rank,
+    rank: int,
     epoch: int,
-    hps,
-    nets,
-    optims,
-    schedulers,
-    scaler,
-    loaders,
-    logger,
-    writers,
-    cache,
-):
+    hps: utils.HParams,
+    nets: list,
+    optims: list,
+    schedulers: list,
+    scaler: torch.GradScaler,
+    loaders: list,
+    logger: logging.Logger | None,
+    writers: object,
+    cache: list,
+) -> None:
     net_g, net_d = nets
     optim_g, optim_d = optims
     train_loader, _eval_loader = loaders
@@ -362,11 +362,14 @@ def train_and_evaluate(
                         wave_lengths,
                         sid,
                     ) = info
+                    pitch = None
+                    pitchf = None
                 # Load on CUDA
                 if torch.cuda.is_available():
                     phone = phone.cuda(rank, non_blocking=True)
                     phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
                     if hps.if_f0 == 1:
+                        assert pitch is not None and pitchf is not None
                         pitch = pitch.cuda(rank, non_blocking=True)
                         pitchf = pitchf.cuda(rank, non_blocking=True)
                     sid = sid.cuda(rank, non_blocking=True)
@@ -432,12 +435,15 @@ def train_and_evaluate(
                 sid,
             ) = info
         else:
+            pitch = None
+            pitchf = None
             phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
         ## Load on CUDA
         if (not hps.if_cache_data_in_gpu) and torch.cuda.is_available():
             phone = phone.cuda(rank, non_blocking=True)
             phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
             if hps.if_f0 == 1:
+                assert pitch is not None and pitchf is not None
                 pitch = pitch.cuda(rank, non_blocking=True)
                 pitchf = pitchf.cuda(rank, non_blocking=True)
             sid = sid.cuda(rank, non_blocking=True)
@@ -451,9 +457,9 @@ def train_and_evaluate(
                 (
                     y_hat,
                     ids_slice,
-                    x_mask,
+                    _x_mask,
                     z_mask,
-                    (z, z_p, m_p, logs_p, m_q, logs_q),
+                    (_z, z_p, m_p, logs_p, _m_q, logs_q),
                 ) = net_g(phone, phone_lengths, pitch, pitchf, spec, spec_lengths, sid)
             else:
                 (
@@ -498,6 +504,7 @@ def train_and_evaluate(
                     y_d_hat_r, y_d_hat_g
                 )
         optim_d.zero_grad()
+        assert isinstance(loss_disc, torch.Tensor)
         scaler.scale(loss_disc).backward()
         scaler.unscale_(optim_d)
         grad_norm_d = commons.clip_grad_value_(net_d.parameters(), None)
@@ -527,6 +534,7 @@ def train_and_evaluate(
         if rank == 0:
             if global_step % hps.train.log_interval == 0:
                 lr = optim_g.param_groups[0]["lr"]
+                assert logger is not None
                 logger.info(
                     f"Train Epoch: {epoch} [{100.0 * batch_idx / len(train_loader):.0f}%]"
                 )
@@ -573,6 +581,7 @@ def train_and_evaluate(
     epoch_elapsed_time = ttime() - epoch_start_time
     epoch_elapsed_str = str(datetime.timedelta(seconds=epoch_elapsed_time))
     if rank == 0:
+        assert logger is not None
         logger.info(f"Epoch {epoch} completed in {epoch_elapsed_str}")
 
     if epoch % hps.save_every_epoch == 0 and rank == 0:
@@ -611,6 +620,7 @@ def train_and_evaluate(
                 ckpt = net_g.module.state_dict()
             else:
                 ckpt = net_g.state_dict()
+            assert logger is not None
             logger.info(
                 "saving ckpt {}_e{}:{}".format(
                     hps.name,
@@ -627,6 +637,7 @@ def train_and_evaluate(
                 )
             )
 
+    assert logger is not None
     if rank == 0:
         logger.info(f"====> Epoch: {epoch} {epoch_recorder.record()}")
     if epoch >= hps.total_epoch and rank == 0:
