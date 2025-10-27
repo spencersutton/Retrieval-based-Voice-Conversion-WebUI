@@ -33,6 +33,16 @@ from infer.lib.train.losses import (
 from infer.lib.train.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 from infer.lib.train.process_ckpt import savee
 
+DEVICE_TYPE = (
+    "cuda"
+    if torch.cuda.is_available()
+    else "mps"
+    if torch.backends.mps.is_available()
+    else "cpu"
+)
+torch.set_default_device(DEVICE_TYPE)
+
+
 logger = logging.getLogger(__name__)
 
 now_dir = os.getcwd()
@@ -478,7 +488,7 @@ def train_and_evaluate(
 
             # Discriminator
             y_d_hat_r, y_d_hat_g, _, _ = net_d(wave, y_hat.detach())
-            with torch.autocast(enabled=False, device_type="cuda"):
+            with torch.autocast(enabled=False, device_type=DEVICE_TYPE):
                 loss_disc, losses_disc_r, losses_disc_g = discriminator_loss(
                     y_d_hat_r, y_d_hat_g
                 )
@@ -489,10 +499,10 @@ def train_and_evaluate(
         scaler.step(optim_d)
         schedulers[1].step()
 
-        with torch.autocast(enabled=hps.train.fp16_run, device_type="cuda"):
+        with torch.autocast(enabled=hps.train.fp16_run, device_type=DEVICE_TYPE):
             # Generator
             y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(wave, y_hat)
-            with torch.autocast(enabled=False, device_type="cuda"):
+            with torch.autocast(enabled=False, device_type=DEVICE_TYPE):
                 loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
                 loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
                 loss_fm = feature_loss(fmap_r, fmap_g)
