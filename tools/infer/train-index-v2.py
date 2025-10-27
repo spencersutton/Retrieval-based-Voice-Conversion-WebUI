@@ -45,7 +45,7 @@ if big_npy.shape[0] > 2e5:
             .fit(big_npy)
             .cluster_centers_
         )
-    except:
+    except Exception:
         info = traceback.format_exc()
         logger.warning(info)
 

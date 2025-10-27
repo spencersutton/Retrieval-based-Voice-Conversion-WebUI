@@ -43,7 +43,7 @@ def savee(ckpt, sr, if_f0, name, epoch, version, hps):
         opt["version"] = version
         torch.save(opt, f"assets/weights/{name}.pth")
         return "Success."
-    except:
+    except Exception:
         return traceback.format_exc()
 
 
@@ -56,7 +56,7 @@ def show_info(path):
             a.get("f0", "None"),
             a.get("version", "None"),
         )
-    except:
+    except Exception:
         return traceback.format_exc()
 
 
@@ -186,7 +186,7 @@ def extract_small_model(path, name, sr, if_f0, info, version):
         opt["f0"] = int(if_f0)
         torch.save(opt, f"assets/weights/{name}.pth")
         return "Success."
-    except:
+    except Exception:
         return traceback.format_exc()
 
 
@@ -198,7 +198,7 @@ def change_info(path, info, name):
             name = os.path.basename(path)
         torch.save(ckpt, f"assets/weights/{name}")
         return "Success."
-    except:
+    except Exception:
         return traceback.format_exc()
 
 
@@ -242,7 +242,7 @@ def merge(path1, path2, alpha1, sr, f0, info, name, version):
                 opt["weight"][key] = (
                     alpha1 * (ckpt1[key].float()) + (1 - alpha1) * (ckpt2[key].float())
                 ).half()
-        # except:
+        # except Exception:
         #     pdb.set_trace()
         opt["config"] = cfg
         """
@@ -256,5 +256,5 @@ def merge(path1, path2, alpha1, sr, f0, info, name, version):
         opt["info"] = info
         torch.save(opt, f"assets/weights/{name}.pth")
         return "Success."
-    except:
+    except Exception:
         return traceback.format_exc()

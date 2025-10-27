@@ -197,7 +197,7 @@ class RVC:
                         * self.index_rate
                         + (1 - self.index_rate) * feats[0][skip_head // 2 :]
                     )
-        except:
+        except Exception:
             pass
 
         p_len = input_wav.shape[0] // self.window

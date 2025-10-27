@@ -241,7 +241,7 @@ class VC:
                 f"Success.\n{index_info}\nTime:\nnpy: {times[0]:.2f}s, f0: {times[1]:.2f}s, infer: {times[2]:.2f}s.",
                 (tgt_sr, audio_opt),
             )
-        except:
+        except Exception:
             info = traceback.format_exc()
             logger.warning(info)
             return f"Failed with error:\n{info}", None

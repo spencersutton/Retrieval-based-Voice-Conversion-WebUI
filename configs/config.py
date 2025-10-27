@@ -248,14 +248,14 @@ class Config:
                         r"runtime\\Lib\site-packages\\onnxruntime",
                         r"runtime\\Lib\site-packages\\onnxruntime-cuda",
                     )
-                except:
+                except Exception:
                     pass
                 try:
                     os.rename(
                         r"runtime\\Lib\site-packages\\onnxruntime-dml",
                         r"runtime\\Lib\site-packages\\onnxruntime",
                     )
-                except:
+                except Exception:
                     pass
             # if self.device != "cpu":
             import torch_directml
@@ -273,14 +273,14 @@ class Config:
                         "runtime\\Lib\\site-packages\\onnxruntime",
                         "runtime\\Lib\\site-packages\\onnxruntime-dml",
                     )
-                except:
+                except Exception:
                     pass
                 try:
                     os.rename(
                         "runtime\\Lib\\site-packages\\onnxruntime-cuda",
                         "runtime\\Lib\\site-packages\\onnxruntime",
                     )
-                except:
+                except Exception:
                     pass
         logger.info(
             f"Half-precision floating-point: {self.is_half}, device: {self.device}"
