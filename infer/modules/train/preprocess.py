@@ -97,7 +97,6 @@ class PreProcess:
         try:
             audio = load_audio(path, self.sr)
             # zero phased digital filter cause pre-ringing noise...
-            # audio = signal.filtfilt(self.bh, self.ah, audio)
             audio = signal.lfilter(self.bh, self.ah, audio)
 
             idx1 = 0

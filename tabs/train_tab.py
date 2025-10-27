@@ -107,7 +107,6 @@ def preprocess_dataset(
 
     while True:
         with open(f"{shared.now_dir}/logs/{exp_dir}/preprocess.log") as f:
-            # yield (f.read())
             file_content = f.read()
             count = file_content.count("Success")
             progress(
@@ -181,7 +180,6 @@ def parse_f0_feature_log(content: str) -> tuple[int, int]:
     return max_now, max_all
 
 
-# but2.click(extract_f0,[gpus6,np7,f0method8,if_f0_3,trainset_dir4],[info2])
 def extract_f0_feature(
     gpus: str,
     n_p: int,
@@ -464,7 +462,6 @@ def click_train(
         f.write("\n".join(opt))
     shared.logger.debug("Write filelist done")
     # 生成config#无需生成config
-    # cmd = python_cmd + " train_nsf_sim_cache_sid_load_pretrain.py -e mi-test -sr 40k -f0 1 -bs 4 -g 0 -te 10 -se 5 -pg pretrained/f0G40k.pth -pd pretrained/f0D40k.pth -l 1 -c 0"
     shared.logger.info("Use gpus: %s", str(gpus16))
     if pretrained_G14 == "":
         shared.logger.info("No pretrained Generator")
@@ -520,7 +517,6 @@ def click_train(
         )
     shared.logger.info("Execute: " + cmd)
     current_epoch = 0
-    # p = Popen(cmd, shell=True, cwd=shared.now_dir)
     p = Popen(cmd, shell=True, cwd=shared.now_dir, stdout=subprocess.PIPE)
     scalar_count = 0
     while True:
@@ -528,7 +524,6 @@ def click_train(
         if not line:
             break
         # the real code does filtering here
-        # print(f"Line: {line}")
         line: str = line.decode("utf-8", errors="ignore")
         shared.logger.info(f"{line}")
 
@@ -552,14 +547,12 @@ def click_train(
                     df,
                 )  # Yielding the empty string updates info3, and plot_data updates the plot
             except Exception:
-                # continue
                 pass
 
         current_epoch = parse_epoch_from_train_log_line(line) or current_epoch
         progress(current_epoch / total_epoch11, desc="Training...")
 
     p.wait()
-    # return f"Training finished with exit code {return_code}. You can view the training log in the console or train.log in the experiment folder."
     yield (
         "Training finished with exit code {return_code}.",
         pd.DataFrame(scalar_history),
@@ -592,7 +585,6 @@ def train_index(exp_dir1: str, version19: str, progress=gr.Progress()):
         infos.append(
             f"Trying to perform KMeans on {big_npy.shape[0]} samples to 10k centers."
         )
-        # yield "\n".join(infos)
         progress(0.2, desc="Performing KMeans...")  # Progress update for KMeans
         try:
             big_npy = (
@@ -615,12 +607,9 @@ def train_index(exp_dir1: str, version19: str, progress=gr.Progress()):
     np.save(f"{exp_dir}/total_fea.npy", big_npy)
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
     infos.append(f"{big_npy.shape},{n_ivf}")
-    # yield "\n".join(infos)
     progress(0.5, desc="Training FAISS index...")  # Progress update for training
     index = faiss.index_factory(256 if version19 == "v1" else 768, f"IVF{n_ivf},Flat")
-    # index = faiss.index_factory(256if version19=="v1"else 768, "IVF%s,PQ128x4fs,RFlat"%n_ivf)
     infos.append("training")
-    # yield "\n".join(infos)
     index_ivf = faiss.extract_index_ivf(index)  #
     index_ivf.nprobe = 1
     index.train(big_npy)
@@ -630,7 +619,6 @@ def train_index(exp_dir1: str, version19: str, progress=gr.Progress()):
     )
     progress(0.7, desc="Adding vectors to index...")
     infos.append("Adding vectors to index...")
-    # yield "\n".join(infos)
     batch_size_add = 8192
     for i in range(0, big_npy.shape[0], batch_size_add):
         index.add(big_npy[i : i + batch_size_add])
@@ -851,7 +839,6 @@ def create_train_tab():
                         inputs=[f0method8],
                         outputs=[gpus_rmvpe],
                     )
-                    # progress = gr.Progress()
                     extract_f0_btn.click(
                         extract_f0_feature,
                         [
