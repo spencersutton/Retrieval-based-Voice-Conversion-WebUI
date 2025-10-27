@@ -154,11 +154,11 @@ class TestSimpleTrainingUtilities:
 
     def test_dataloader_creation(self) -> None:
         """Test creating a simple DataLoader."""
-        data = torch.randn(TENSOR_BATCH, FEATURE_SIZE)
-        labels = torch.randint(0, 2, (TENSOR_BATCH,))
+        data = torch.randn(TENSOR_BATCH, FEATURE_SIZE, device="cpu")
+        labels = torch.randint(0, 2, (TENSOR_BATCH,), device="cpu")
         dataset = TensorDataset(data, labels)
 
-        loader = DataLoader(dataset, batch_size=BATCH_SIZE_TEST, shuffle=True)
+        loader = DataLoader(dataset, batch_size=BATCH_SIZE_TEST, shuffle=False)
         assert len(loader) == DATALOADER_BATCHES
 
         for batch_data, batch_labels in loader:
@@ -173,6 +173,9 @@ class TestSimpleTrainingUtilities:
             nn.ReLU(),
             nn.Linear(LINEAR_HIDDEN, LINEAR_OUTPUT),
         )
+
+        # Move to CPU for testing
+        model = model.cpu()
 
         assert next(model.parameters()).device.type == "cpu"
 

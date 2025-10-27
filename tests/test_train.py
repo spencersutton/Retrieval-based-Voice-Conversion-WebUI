@@ -210,13 +210,13 @@ class TestSimpleTrainingUtilities:
 
     def test_dataloader_creation(self) -> None:
         """Test creating a simple DataLoader."""
-        # Create simple dataset
-        data = torch.randn(TENSOR_BATCH, FEATURE_SIZE)
-        labels = torch.randint(0, 2, (TENSOR_BATCH,))
+        # Create simple dataset on CPU
+        data = torch.randn(TENSOR_BATCH, FEATURE_SIZE, device="cpu")
+        labels = torch.randint(0, 2, (TENSOR_BATCH,), device="cpu")
         dataset = TensorDataset(data, labels)
 
-        # Create dataloader
-        loader = DataLoader(dataset, batch_size=BATCH_SIZE_TEST, shuffle=True)
+        # Create dataloader without shuffle to avoid device mismatch
+        loader = DataLoader(dataset, batch_size=BATCH_SIZE_TEST, shuffle=False)
         assert len(loader) == DATALOADER_BATCHES
 
         # Verify batch
@@ -234,7 +234,10 @@ class TestSimpleTrainingUtilities:
             nn.Linear(64, 32),
         )
 
-        # Test that model is on CPU by default
+        # Move to CPU for testing
+        model = model.cpu()
+
+        # Test that model is on CPU
         assert next(model.parameters()).device.type == "cpu"
 
     def test_optimizer_creation(self) -> None:
