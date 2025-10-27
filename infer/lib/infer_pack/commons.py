@@ -1,26 +1,27 @@
 import math
+from collections.abc import Iterable
 
 import torch
 from torch.nn import functional as F
 
 
-def init_weights(m, mean=0.0, std=0.01):
+def init_weights(m: torch.nn.Module, mean: float = 0.0, std: float = 0.01) -> None:
     classname = m.__class__.__name__
-    if classname.find("Conv") != -1:
+    if (
+        classname.find("Conv") != -1
+        and hasattr(m, "weight")
+        and isinstance(m.weight, torch.Tensor)
+    ):
         m.weight.data.normal_(mean, std)
 
 
-def get_padding(kernel_size, dilation=1):
+def get_padding(kernel_size: int, dilation: int = 1) -> int:
     return int((kernel_size * dilation - dilation) / 2)
 
 
-# def convert_pad_shape(pad_shape):
-#     l = pad_shape[::-1]
-#     pad_shape = [item for sublist in l for item in sublist]
-#     return pad_shape
-
-
-def kl_divergence(m_p, logs_p, m_q, logs_q):
+def kl_divergence(
+    m_p: torch.Tensor, logs_p: torch.Tensor, m_q: torch.Tensor, logs_q: torch.Tensor
+) -> torch.Tensor:
     """KL(P||Q)"""
     kl = (logs_q - logs_p) - 0.5
     kl += (
@@ -29,18 +30,20 @@ def kl_divergence(m_p, logs_p, m_q, logs_q):
     return kl
 
 
-def rand_gumbel(shape):
+def rand_gumbel(shape: torch.Size | tuple[int, ...]) -> torch.Tensor:
     """Sample from the Gumbel distribution, protect from overflows."""
     uniform_samples = torch.rand(shape) * 0.99998 + 0.00001
     return -torch.log(-torch.log(uniform_samples))
 
 
-def rand_gumbel_like(x):
+def rand_gumbel_like(x: torch.Tensor) -> torch.Tensor:
     g = rand_gumbel(x.size()).to(dtype=x.dtype, device=x.device)
     return g
 
 
-def slice_segments(x, ids_str, segment_size=4):
+def slice_segments(
+    x: torch.Tensor, ids_str: torch.Tensor, segment_size: int = 4
+) -> torch.Tensor:
     ret = torch.zeros_like(x[:, :, :segment_size])
     for i in range(x.size(0)):
         idx_str = ids_str[i]
@@ -49,7 +52,9 @@ def slice_segments(x, ids_str, segment_size=4):
     return ret
 
 
-def slice_segments2(x, ids_str, segment_size=4):
+def slice_segments2(
+    x: torch.Tensor, ids_str: torch.Tensor, segment_size: int = 4
+) -> torch.Tensor:
     ret = torch.zeros_like(x[:, :segment_size])
     for i in range(x.size(0)):
         idx_str = ids_str[i]
@@ -58,7 +63,9 @@ def slice_segments2(x, ids_str, segment_size=4):
     return ret
 
 
-def rand_slice_segments(x, x_lengths=None, segment_size=4):
+def rand_slice_segments(
+    x: torch.Tensor, x_lengths: int | torch.Tensor | None = None, segment_size: int = 4
+) -> tuple[torch.Tensor, torch.Tensor]:
     b, _d, t = x.size()
     if x_lengths is None:
         x_lengths = t
@@ -68,7 +75,9 @@ def rand_slice_segments(x, x_lengths=None, segment_size=4):
     return ret, ids_str
 
 
-def get_timing_signal_1d(length, channels, min_timescale=1.0, max_timescale=1.0e4):
+def get_timing_signal_1d(
+    length: int, channels: int, min_timescale: float = 1.0, max_timescale: float = 1.0e4
+) -> torch.Tensor:
     position = torch.arange(length, dtype=torch.float)
     num_timescales = channels // 2
     log_timescale_increment = math.log(float(max_timescale) / float(min_timescale)) / (
@@ -84,25 +93,34 @@ def get_timing_signal_1d(length, channels, min_timescale=1.0, max_timescale=1.0e
     return signal
 
 
-def add_timing_signal_1d(x, min_timescale=1.0, max_timescale=1.0e4):
+def add_timing_signal_1d(
+    x: torch.Tensor, min_timescale: float = 1.0, max_timescale: float = 1.0e4
+) -> torch.Tensor:
     _b, channels, length = x.size()
     signal = get_timing_signal_1d(length, channels, min_timescale, max_timescale)
     return x + signal.to(dtype=x.dtype, device=x.device)
 
 
-def cat_timing_signal_1d(x, min_timescale=1.0, max_timescale=1.0e4, axis=1):
+def cat_timing_signal_1d(
+    x: torch.Tensor,
+    min_timescale: float = 1.0,
+    max_timescale: float = 1.0e4,
+    axis: int = 1,
+) -> torch.Tensor:
     _b, channels, length = x.size()
     signal = get_timing_signal_1d(length, channels, min_timescale, max_timescale)
     return torch.cat([x, signal.to(dtype=x.dtype, device=x.device)], axis)
 
 
-def subsequent_mask(length):
+def subsequent_mask(length: int) -> torch.Tensor:
     mask = torch.tril(torch.ones(length, length)).unsqueeze(0).unsqueeze(0)
     return mask
 
 
 @torch.jit.script
-def fused_add_tanh_sigmoid_multiply(input_a, input_b, n_channels):
+def fused_add_tanh_sigmoid_multiply(
+    input_a: torch.Tensor, input_b: torch.Tensor, n_channels: torch.Tensor
+) -> torch.Tensor:
     n_channels_int = n_channels[0]
     in_act = input_a + input_b
     t_act = torch.tanh(in_act[:, :n_channels_int, :])
@@ -111,29 +129,27 @@ def fused_add_tanh_sigmoid_multiply(input_a, input_b, n_channels):
     return acts
 
 
-# def convert_pad_shape(pad_shape):
-#     l = pad_shape[::-1]
-#     pad_shape = [item for sublist in l for item in sublist]
-#     return pad_shape
-
-
 def convert_pad_shape(pad_shape: list[list[int]]) -> list[int]:
     return torch.tensor(pad_shape).flip(0).reshape(-1).int().tolist()
 
 
-def shift_1d(x):
+def shift_1d(x: torch.Tensor) -> torch.Tensor:
     x = F.pad(x, convert_pad_shape([[0, 0], [0, 0], [1, 0]]))[:, :, :-1]
     return x
 
 
-def sequence_mask(length: torch.Tensor, max_length: int | None = None):
+def sequence_mask(
+    length: torch.Tensor, max_length: int | torch.Tensor | None = None
+) -> torch.Tensor:
     if max_length is None:
-        max_length = length.max()
+        max_length = int(length.max().item())
+    if isinstance(max_length, torch.Tensor):
+        max_length = int(max_length.item())
     x = torch.arange(max_length, dtype=length.dtype, device=length.device)
     return x.unsqueeze(0) < length.unsqueeze(1)
 
 
-def generate_path(duration, mask):
+def generate_path(duration: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
     """
     duration: [b, 1, t_x]
     mask: [b, 1, t_y, t_x]
@@ -150,7 +166,11 @@ def generate_path(duration, mask):
     return path
 
 
-def clip_grad_value_(parameters, clip_value, norm_type=2):
+def clip_grad_value_(
+    parameters: Iterable[torch.Tensor] | torch.Tensor,
+    clip_value: float | None,
+    norm_type: int | float = 2,
+) -> float:
     if isinstance(parameters, torch.Tensor):
         parameters = [parameters]
     parameters = list(filter(lambda p: p.grad is not None, parameters))
@@ -158,11 +178,12 @@ def clip_grad_value_(parameters, clip_value, norm_type=2):
     if clip_value is not None:
         clip_value = float(clip_value)
 
-    total_norm = 0
+    total_norm = 0.0
     for p in parameters:
-        param_norm = p.grad.data.norm(norm_type)
-        total_norm += param_norm.item() ** norm_type
-        if clip_value is not None:
-            p.grad.data.clamp_(min=-clip_value, max=clip_value)
+        if p.grad is not None:
+            param_norm = p.grad.norm(norm_type)
+            total_norm += param_norm.item() ** norm_type
+            if clip_value is not None:
+                p.grad.clamp_(min=-clip_value, max=clip_value)
     total_norm = total_norm ** (1.0 / norm_type)
     return total_norm
