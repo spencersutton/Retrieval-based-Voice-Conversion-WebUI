@@ -5,6 +5,7 @@ import logging
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -170,6 +171,10 @@ def get_hparams():
         config = json.load(f)
 
     hparams = HParams(**config)
+    hparams.train = HParamsTrain(**config["train"])
+    hparams.model = HParamsModel(**config["model"])
+    hparams.data = HParamsData(**config["data"])
+
     hparams.model_dir = hparams.experiment_dir = experiment_dir
     hparams.save_every_epoch = args.save_every_epoch
     hparams.name = name
@@ -224,33 +229,74 @@ def get_logger(model_dir, filename="train.log"):
     return logger
 
 
+@dataclass
+class HParamsData:
+    filter_length: int
+    hop_length: int
+    max_wav_value: float
+    mel_fmax: int
+    mel_fmin: int
+    n_mel_channels: int
+    sampling_rate: int
+    win_length: int
+    training_files: str | None = None
+
+
+@dataclass
+class HParamsTrain:
+    batch_size: int
+    betas: tuple[float, float]
+    c_kl: float
+    c_mel: float
+    epochs: int
+    eps: float
+    fp16_run: bool
+    init_lr_ratio: int
+    learning_rate: float
+    log_interval: int
+    lr_decay: float
+    seed: int
+    segment_size: int
+    warmup_epochs: int
+
+
+@dataclass
+class HParamsModel:
+    filter_channels: int
+    gin_channels: int
+    hidden_channels: int
+    inter_channels: int
+    kernel_size: int
+    n_heads: int
+    n_layers: int
+    p_dropout: float
+    resblock_dilation_sizes: list[list[int]]
+    resblock_kernel_sizes: list[int]
+    resblock: str
+    spk_embed_dim: int
+    upsample_initial_channel: int
+    upsample_kernel_sizes: list[int]
+    upsample_rates: list[int]
+    use_spectral_norm: bool
+
+
+@dataclass
 class HParams:
-    def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            if type(v) == dict:
-                v = HParams(**v)
-            self[k] = v
+    data: HParamsData
+    model: HParamsModel
+    train: HParamsTrain
 
-    def keys(self):
-        return self.__dict__.keys()
-
-    def items(self):
-        return self.__dict__.items()
-
-    def values(self):
-        return self.__dict__.values()
-
-    def __len__(self):
-        return len(self.__dict__)
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __setitem__(self, key, value):
-        return setattr(self, key, value)
-
-    def __contains__(self, key):
-        return key in self.__dict__
-
-    def __repr__(self):
-        return self.__dict__.__repr__()
+    model_dir: str = ""
+    experiment_dir: str = ""
+    save_every_epoch: bool = False
+    name: str = ""
+    total_epoch: int = 0
+    pretrainG: str = ""
+    pretrainD: str = ""
+    gpus: str = ""
+    sample_rate: int = 0
+    if_f0: bool = False
+    if_latest: int = 0
+    save_every_weights: str = "0"
+    if_cache_data_in_gpu: int = 0
+    version: str = "v2"
