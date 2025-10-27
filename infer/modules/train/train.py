@@ -516,6 +516,9 @@ def train_and_evaluate(
         schedulers[0].step()
         scaler.update()
 
+        # Clean up GPU memory after generator backward/step
+        torch.cuda.empty_cache()
+
         if rank == 0:
             if global_step % hps.train.log_interval == 0:
                 lr = optim_g.param_groups[0]["lr"]
