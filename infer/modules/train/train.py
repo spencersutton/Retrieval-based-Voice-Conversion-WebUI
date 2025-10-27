@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 from dataclasses import asdict
+from pathlib import Path
 from random import randint, shuffle
 from time import sleep
 from time import time as ttime
@@ -45,11 +46,12 @@ torch.set_default_device(DEVICE_TYPE)
 
 logger = logging.getLogger(__name__)
 
-now_dir = os.getcwd()
-sys.path.append(os.path.join(now_dir))
+now_dir = Path.cwd()
+sys.path.append(str(now_dir))
 
 
 hps = utils.get_hparams()
+
 os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
 n_gpus = len(hps.gpus.split("-"))
 
@@ -580,14 +582,14 @@ def train_and_evaluate(
                 optim_g,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, f"G_{global_step}.pth"),
+                str(Path(hps.model_dir) / f"G_{global_step}.pth"),
             )
             utils.save_checkpoint(
                 net_d,
                 optim_d,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, f"D_{global_step}.pth"),
+                str(Path(hps.model_dir) / f"D_{global_step}.pth"),
             )
         else:
             utils.save_checkpoint(
@@ -595,14 +597,14 @@ def train_and_evaluate(
                 optim_g,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, f"G_{2333333}.pth"),
+                str(Path(hps.model_dir) / f"G_{2333333}.pth"),
             )
             utils.save_checkpoint(
                 net_d,
                 optim_d,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, f"D_{2333333}.pth"),
+                str(Path(hps.model_dir) / f"D_{2333333}.pth"),
             )
         if rank == 0 and hps.save_every_weights == "1":
             if hasattr(net_g, "module"):
