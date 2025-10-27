@@ -2,8 +2,15 @@ import logging
 import os
 import shutil
 import warnings
+from pathlib import Path
 
+import fairseq
+import torch
 from dotenv import load_dotenv
+
+from configs.config import Config
+from i18n.i18n import I18nAuto
+from infer.modules.vc.modules import VC
 
 load_dotenv()
 logging.getLogger("numba").setLevel(logging.WARNING)
@@ -12,23 +19,20 @@ logging.getLogger("fairseq").setLevel(logging.WARNING)
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 
-import fairseq
-import torch
-
-from configs.config import Config
-from i18n.i18n import I18nAuto
-from infer.modules.vc.modules import VC
-
 logger = logging.getLogger(__name__)
-now_dir = os.getcwd()
-tmp = os.path.join(now_dir, "TEMP")
+now_dir = Path.cwd()
+tmp = now_dir / "TEMP"
 shutil.rmtree(tmp, ignore_errors=True)
-shutil.rmtree(f"{now_dir}/runtime/Lib/site-packages/infer_pack", ignore_errors=True)
-shutil.rmtree(f"{now_dir}/runtime/Lib/site-packages/uvr5_pack", ignore_errors=True)
-os.makedirs(tmp, exist_ok=True)
-os.makedirs(os.path.join(now_dir, "logs"), exist_ok=True)
-os.makedirs(os.path.join(now_dir, "assets/weights"), exist_ok=True)
-os.environ["TEMP"] = tmp
+shutil.rmtree(
+    now_dir / "runtime" / "Lib" / "site-packages" / "infer_pack", ignore_errors=True
+)
+shutil.rmtree(
+    now_dir / "runtime" / "Lib" / "site-packages" / "uvr5_pack", ignore_errors=True
+)
+tmp.mkdir(exist_ok=True)
+(now_dir / "logs").mkdir(exist_ok=True)
+(now_dir / "assets" / "weights").mkdir(exist_ok=True)
+os.environ["TEMP"] = str(tmp)
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
@@ -111,7 +115,8 @@ outside_index_root = os.getenv("OUTSIDE_INDEX_ROOT", "assets/indices")
 rmvpe_root = os.getenv("RMVPE_ROOT", "assets/rmvpe")
 
 names = []
-for name in os.listdir(weight_root):
+for path in Path(weight_root).iterdir():
+    name = path.name
     print(f"Checking: {name}")
     if name.endswith(".pth"):
         names.append(name)
@@ -120,10 +125,14 @@ index_paths = [""]  # Fix for gradio 5
 
 def lookup_indices(root: str):
     # shared.index_paths
-    for root, dirs, files in os.walk(root, topdown=False):
-        for name in files:
-            if name.endswith(".index") and "trained" not in name:
-                index_paths.append(f"{root}/{name}")
+    index_paths.extend(
+        [
+            f"{root_dir}/{name}"
+            for root_dir, dirs, files in os.walk(root, topdown=False)
+            for name in files
+            if name.endswith(".index") and "trained" not in name
+        ]
+    )
 
 
 lookup_indices(index_root)
