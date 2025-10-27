@@ -107,41 +107,32 @@ def load_checkpoint(
         Training iteration/epoch number
     """
     assert checkpoint_path.is_file()
-    checkpoint_dict = torch.load(str(checkpoint_path), map_location="cpu")
+    checkpoint = torch.load(str(checkpoint_path), map_location="cpu")
+    saved_state = checkpoint["model"]
+    model_state = get_model_state_dict(model)
+    new_state: dict[str, torch.Tensor] = {}
 
-    saved_state_dict = checkpoint_dict["model"]
-    state_dict = get_model_state_dict(model)
-    new_state_dict: dict[str, torch.Tensor] = {}
+    for k, v in model_state.items():
+        sv = saved_state.get(k, v)
+        if sv.shape != v.shape:
+            logger.warning(
+                f"Shape mismatch for {k}: expected {v.shape}, got {sv.shape}"
+            )
+            sv = v
+        new_state[k] = sv
 
-    for k, v in state_dict.items():
-        try:
-            new_state_dict[k] = saved_state_dict[k]
-            if saved_state_dict[k].shape != v.shape:
-                logger.warning(
-                    "Shape mismatch for %s: expected %s, got %s",
-                    k,
-                    v.shape,
-                    saved_state_dict[k].shape,
-                )
-                raise KeyError
-        except Exception:
-            logger.info("%s is not in the checkpoint", k)
-            new_state_dict[k] = v
-
-    load_model_state_dict(model, new_state_dict)
+    load_model_state_dict(model, new_state)
     logger.info("Loaded model weights")
-
-    iteration = checkpoint_dict["iteration"]
+    iteration = checkpoint["iteration"]
 
     # If loading optimizer state fails or optimizer is None, reinitialize it.
     if optimizer is not None and load_opt == 1:
-        optimizer.load_state_dict(checkpoint_dict["optimizer"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
 
     logger.info(f"Loaded checkpoint '{checkpoint_path}' (epoch {iteration})")
 
     # Clean up checkpoint dict to free memory
-    del checkpoint_dict
-    del saved_state_dict
+    del checkpoint, saved_state
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
@@ -167,16 +158,16 @@ def save_checkpoint(
     logger.info(
         f"Saving model and optimizer state at epoch {iteration} to {checkpoint_path}"
     )
-    checkpoint = {
-        "model": get_model_state_dict(model),
-        "iteration": iteration,
-        "optimizer": optimizer.state_dict(),
-        "learning_rate": learning_rate,
-    }
-    torch.save(checkpoint, checkpoint_path)
+    torch.save(
+        {
+            "model": get_model_state_dict(model),
+            "iteration": iteration,
+            "optimizer": optimizer.state_dict(),
+            "learning_rate": learning_rate,
+        },
+        checkpoint_path,
+    )
 
-    # Clean up to reduce memory after save
-    del checkpoint
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
@@ -232,12 +223,7 @@ def save_weights(
             "sr": sr,
             "f0": if_f0,
         }
-        save_path = Path("assets/weights") / f"{name}.pth"
-        torch.save(opt, save_path)
-
-        # Clean up
-        del weights
-        del opt
+        torch.save(opt, Path("assets/weights") / f"{name}.pth")
 
         return "Success."
     except Exception:
