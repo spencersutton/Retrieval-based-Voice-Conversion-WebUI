@@ -259,7 +259,7 @@ def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
         optim_d, gamma=hps.train.lr_decay, last_epoch=epoch_str - 2
     )
 
-    scaler = torch.amp.GradScaler("cuda", enabled=hps.train.fp16_run)
+    scaler = torch.GradScaler("cuda", enabled=hps.train.fp16_run)
 
     cache = []
     for epoch in range(epoch_str, hps.train.epochs + 1):
@@ -430,7 +430,7 @@ def train_and_evaluate(
             wave = wave.cuda(rank, non_blocking=True)
 
         # Calculate
-        with torch.amp.autocast("cuda", enabled=hps.train.fp16_run):
+        with torch.autocast("cuda", enabled=hps.train.fp16_run):
             if hps.if_f0 == 1:
                 (
                     y_hat,
@@ -458,7 +458,7 @@ def train_and_evaluate(
             y_mel = commons.slice_segments(
                 mel, ids_slice, hps.train.segment_size // hps.data.hop_length
             )
-            with torch.amp.autocast("cuda", enabled=False):
+            with torch.autocast("cuda", enabled=False):
                 y_hat_mel = mel_spectrogram_torch(
                     y_hat.float().squeeze(1),
                     hps.data.filter_length,
@@ -477,7 +477,7 @@ def train_and_evaluate(
 
             # Discriminator
             y_d_hat_r, y_d_hat_g, _, _ = net_d(wave, y_hat.detach())
-            with torch.amp.autocast(enabled=False, device_type="cuda"):
+            with torch.autocast(enabled=False, device_type="cuda"):
                 loss_disc, losses_disc_r, losses_disc_g = discriminator_loss(
                     y_d_hat_r, y_d_hat_g
                 )
@@ -488,10 +488,10 @@ def train_and_evaluate(
         scaler.step(optim_d)
         schedulers[1].step()
 
-        with torch.amp.autocast(enabled=hps.train.fp16_run, device_type="cuda"):
+        with torch.autocast(enabled=hps.train.fp16_run, device_type="cuda"):
             # Generator
             y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(wave, y_hat)
-            with torch.amp.autocast(enabled=False, device_type="cuda"):
+            with torch.autocast(enabled=False, device_type="cuda"):
                 loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
                 loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
                 loss_fm = feature_loss(fmap_r, fmap_g)
