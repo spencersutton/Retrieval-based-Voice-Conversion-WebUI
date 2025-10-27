@@ -222,6 +222,7 @@ def save_weights(
             "info": f"{epoch}epoch",
             "sr": sr,
             "f0": if_f0,
+            "version": "v2",
         }
         torch.save(opt, Path("assets/weights") / f"{name}.pth")
 

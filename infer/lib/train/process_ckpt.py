@@ -101,6 +101,7 @@ def extract_small_model(path: str, name: str, sr: str, if_f0: str, info: str) ->
         opt["info"] = info
         opt["sr"] = sr
         opt["f0"] = int(if_f0)
+        opt["version"] = "v2"
         torch.save(opt, f"assets/weights/{name}.pth")
         return "Success."
     except Exception:
@@ -171,6 +172,7 @@ def merge(
         opt["sr"] = sr
         opt["f0"] = 1 if f0 == i18n("是") else 0
         opt["info"] = info
+        opt["version"] = "v2"
         torch.save(opt, f"assets/weights/{name}.pth")
         return "Success."
     except Exception:
