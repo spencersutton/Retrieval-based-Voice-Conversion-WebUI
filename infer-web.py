@@ -474,14 +474,15 @@ def _train_index(exp_dir1: str) -> Generator[str]:
     rng = np.random.default_rng()
     rng.shuffle(indices)
     big_npy = big_npy[indices]
-
-    # Compress with kmeans if too large
-    if big_npy.shape[0] > 2e5:
-        infos.append(f"Trying kmeans: {big_npy.shape[0]} samples to 10k centers.")
+    # Compress features with kmeans if too large
+    if big_npy.shape[0] > 200_000:
+        infos.append(
+            f"Compressing {big_npy.shape[0]} samples to 10,000 centers using kmeans."
+        )
         yield "\n".join(infos)
         try:
             kmeans = MiniBatchKMeans(
-                n_clusters=10000,
+                n_clusters=10_000,
                 verbose=True,
                 batch_size=256 * _config.n_cpu,
                 compute_labels=False,
@@ -493,11 +494,11 @@ def _train_index(exp_dir1: str) -> Generator[str]:
             _logger.info(infos[-1])
             yield "\n".join(infos)
 
-    np.save(str(exp_dir / "total_fea.npy"), big_npy)
+    np.save(exp_dir / "total_fea.npy", big_npy)
 
     # Build FAISS index
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
-    infos.append(f"{big_npy.shape},{n_ivf}")
+    infos.append(f"Feature shape: {big_npy.shape}, IVF clusters: {n_ivf}")
     yield "\n".join(infos)
 
     index = faiss.index_factory(768, f"IVF{n_ivf},Flat")
@@ -505,24 +506,24 @@ def _train_index(exp_dir1: str) -> Generator[str]:
     index_ivf.nprobe = 1
     index.train(big_npy)
 
-    # Save training index
+    # Save trained index
     trained_index_path = (
         exp_dir / f"trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
     )
     faiss.write_index(index, str(trained_index_path))
 
     # Add vectors and save final index
-    infos.append("adding")
+    infos.append("Adding vectors to index...")
     yield "\n".join(infos)
 
-    for i in range(0, big_npy.shape[0], 8192):
-        index.add(big_npy[i : i + 8192])
+    for start in range(0, big_npy.shape[0], 8192):
+        index.add(big_npy[start : start + 8192])
 
     added_index_path = (
         exp_dir / f"added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
     )
     faiss.write_index(index, str(added_index_path))
-    infos.append(f"成功构建索引 {added_index_path.name}")
+    infos.append(f"Index built successfully: {added_index_path.name}")
 
     # Link to external index root if configured
     if _outside_index_root:
@@ -533,9 +534,11 @@ def _train_index(exp_dir1: str) -> Generator[str]:
                 / f"{exp_dir1}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}.index"
             )
             link_fn(str(added_index_path), str(external_path))
-            infos.append(f"链接索引到外部-{_outside_index_root}")
+            infos.append(f"Linked index to external path: {_outside_index_root}")
         except Exception:
-            infos.append(f"链接索引到外部-{_outside_index_root}失败")
+            infos.append(
+                f"Failed to link index to external path: {_outside_index_root}"
+            )
 
     yield "\n".join(infos)
 
