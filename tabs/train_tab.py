@@ -22,8 +22,6 @@ from sklearn.cluster import MiniBatchKMeans
 import shared
 from shared import i18n
 
-ProgressComponent = gr.Progress
-
 F0GPUVisible = not shared.config.dml
 
 
