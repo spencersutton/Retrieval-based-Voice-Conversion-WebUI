@@ -1,7 +1,6 @@
 import logging
 import math
-
-logger = logging.getLogger(__name__)
+from typing import Any
 
 import numpy as np
 import torch
@@ -13,21 +12,23 @@ from torch.nn.utils import remove_weight_norm, spectral_norm, weight_norm
 from infer.lib.infer_pack import attentions, commons, modules
 from infer.lib.infer_pack.commons import get_padding, init_weights
 
+logger = logging.getLogger(__name__)
+
 has_xpu = bool(hasattr(torch, "xpu") and torch.xpu.is_available())
 
 
 class TextEncoder(nn.Module):
     def __init__(
         self,
-        in_channels,
-        out_channels,
-        hidden_channels,
-        filter_channels,
-        n_heads,
-        n_layers,
-        kernel_size,
-        p_dropout,
-        f0=True,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: int,
+        filter_channels: int,
+        n_heads: int,
+        n_layers: int,
+        kernel_size: int,
+        p_dropout: float,
+        f0: bool = True,
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -82,13 +83,13 @@ class TextEncoder(nn.Module):
 class ResidualCouplingBlock(nn.Module):
     def __init__(
         self,
-        channels,
-        hidden_channels,
-        kernel_size,
-        dilation_rate,
-        n_layers,
-        n_flows=4,
-        gin_channels=0,
+        channels: int,
+        hidden_channels: int,
+        kernel_size: int,
+        dilation_rate: int,
+        n_layers: int,
+        n_flows: int = 4,
+        gin_channels: int = 0,
     ):
         super().__init__()
         self.channels = channels
@@ -148,13 +149,13 @@ class ResidualCouplingBlock(nn.Module):
 class PosteriorEncoder(nn.Module):
     def __init__(
         self,
-        in_channels,
-        out_channels,
-        hidden_channels,
-        kernel_size,
-        dilation_rate,
-        n_layers,
-        gin_channels=0,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: int,
+        kernel_size: int,
+        dilation_rate: int,
+        n_layers: int,
+        gin_channels: int = 0,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -204,14 +205,14 @@ class PosteriorEncoder(nn.Module):
 class Generator(torch.nn.Module):
     def __init__(
         self,
-        initial_channel,
-        resblock,
-        resblock_kernel_sizes,
-        resblock_dilation_sizes,
-        upsample_rates,
-        upsample_initial_channel,
-        upsample_kernel_sizes,
-        gin_channels=0,
+        initial_channel: int,
+        resblock: str,
+        resblock_kernel_sizes: list[int],
+        resblock_dilation_sizes: list[int],
+        upsample_rates: list[int],
+        upsample_initial_channel: int,
+        upsample_kernel_sizes: list[int],
+        gin_channels: int = 0,
     ):
         super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
@@ -430,18 +431,9 @@ class SourceModuleHnNSF(torch.nn.Module):
         # to merge source harmonics into a single excitation
         self.l_linear = torch.nn.Linear(harmonic_num + 1, 1)
         self.l_tanh = torch.nn.Tanh()
-        # self.ddtype:int = -1
 
     def forward(self, x: torch.Tensor, upp: int = 1):
-        # if self.ddtype ==-1:
-        #     self.ddtype = self.l_linear.weight.dtype
         sine_wavs, _uv, _ = self.l_sin_gen(x, upp)
-        # print(x.dtype,sine_wavs.dtype,self.l_linear.weight.dtype)
-        # if self.is_half:
-        #     sine_wavs = sine_wavs.half()
-        # sine_merge = self.l_tanh(self.l_linear(sine_wavs.to(x)))
-        # print(sine_wavs.dtype,self.ddtype)
-        # if sine_wavs.dtype != self.l_linear.weight.dtype:
         sine_wavs = sine_wavs.to(dtype=self.l_linear.weight.dtype)
         sine_merge = self.l_tanh(self.l_linear(sine_wavs))
         return sine_merge, None, None  # noise, uv
@@ -459,7 +451,7 @@ class GeneratorNSF(torch.nn.Module):
         upsample_kernel_sizes,
         gin_channels,
         sr,
-        is_half=False,
+        is_half: bool = False,
     ):
         super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
@@ -604,25 +596,25 @@ sr2sr = {
 class SynthesizerTrnMs256NSFsid(nn.Module):
     def __init__(
         self,
-        spec_channels,
-        segment_size,
-        inter_channels,
-        hidden_channels,
-        filter_channels,
-        n_heads,
-        n_layers,
-        kernel_size,
-        p_dropout,
-        resblock,
-        resblock_kernel_sizes,
-        resblock_dilation_sizes,
-        upsample_rates,
-        upsample_initial_channel,
-        upsample_kernel_sizes,
-        spk_embed_dim,
-        gin_channels,
-        sr,
-        **kwargs,
+        spec_channels: int,
+        segment_size: int,
+        inter_channels: int,
+        hidden_channels: int,
+        filter_channels: int,
+        n_heads: int,
+        n_layers: int,
+        kernel_size: int,
+        p_dropout: float,
+        resblock: str,
+        resblock_kernel_sizes: list[int],
+        resblock_dilation_sizes: list[int],
+        upsample_rates: list[int],
+        upsample_initial_channel: int,
+        upsample_kernel_sizes: list[int],
+        spk_embed_dim: int,
+        gin_channels: int,
+        sr: int,
+        **kwargs: dict[str, Any],
     ):
         super().__init__()
         if isinstance(sr, str):
@@ -643,7 +635,6 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
         self.upsample_kernel_sizes = upsample_kernel_sizes
         self.segment_size = segment_size
         self.gin_channels = gin_channels
-        # self.hop_length = hop_length#
         self.spk_embed_dim = spk_embed_dim
         self.enc_p = TextEncoder(
             256,
@@ -665,7 +656,7 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
             upsample_kernel_sizes,
             gin_channels=gin_channels,
             sr=sr,
-            is_half=kwargs["is_half"],
+            is_half=bool(kwargs["is_half"]),
         )
         self.enc_q = PosteriorEncoder(
             spec_channels,
@@ -729,18 +720,15 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
         y: torch.Tensor,
         y_lengths: torch.Tensor,
         ds: torch.Tensor | None = None,
-    ):  # 这里ds是id，[bs,1]
-        # print(1,pitch.shape)#[bs,t]
-        g = self.emb_g(ds).unsqueeze(-1)  # [b, 256, 1]##1是t，广播的
+    ):  # Here, ds is the id, [bs, 1]
+        g = self.emb_g(ds).unsqueeze(-1)  # [b, 256, 1]##1 is t, for broadcasting
         m_p, logs_p, x_mask = self.enc_p(phone, pitch, phone_lengths)
         z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
         z_p = self.flow(z, y_mask, g=g)
         z_slice, ids_slice = commons.rand_slice_segments(
             z, y_lengths, self.segment_size
         )
-        # print(-1,pitchf.shape,ids_slice,self.segment_size,self.hop_length,self.segment_size//self.hop_length)
         pitchf = commons.slice_segments2(pitchf, ids_slice, self.segment_size)
-        # print(-2,pitchf.shape,z_slice.shape)
         o = self.dec(z_slice, pitchf, g=g)
         return o, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
@@ -781,25 +769,25 @@ class SynthesizerTrnMs256NSFsid(nn.Module):
 class SynthesizerTrnMs768NSFsid(SynthesizerTrnMs256NSFsid):
     def __init__(
         self,
-        spec_channels,
-        segment_size,
-        inter_channels,
-        hidden_channels,
-        filter_channels,
-        n_heads,
-        n_layers,
-        kernel_size,
-        p_dropout,
-        resblock,
-        resblock_kernel_sizes,
-        resblock_dilation_sizes,
-        upsample_rates,
-        upsample_initial_channel,
-        upsample_kernel_sizes,
-        spk_embed_dim,
-        gin_channels,
-        sr,
-        **kwargs,
+        spec_channels: int,
+        segment_size: int,
+        inter_channels: int,
+        hidden_channels: int,
+        filter_channels: int,
+        n_heads: int,
+        n_layers: int,
+        kernel_size: int,
+        p_dropout: float,
+        resblock: str,
+        resblock_kernel_sizes: list[int],
+        resblock_dilation_sizes: list[int],
+        upsample_rates: list[int],
+        upsample_initial_channel: int,
+        upsample_kernel_sizes: list[int],
+        spk_embed_dim: int,
+        gin_channels: int,
+        sr: int,
+        **kwargs: dict[str, Any],
     ):
         super().__init__(
             spec_channels,
@@ -838,25 +826,25 @@ class SynthesizerTrnMs768NSFsid(SynthesizerTrnMs256NSFsid):
 class SynthesizerTrnMs256NSFsid_nono(nn.Module):
     def __init__(
         self,
-        spec_channels,
-        segment_size,
-        inter_channels,
-        hidden_channels,
-        filter_channels,
-        n_heads,
-        n_layers,
-        kernel_size,
-        p_dropout,
-        resblock,
-        resblock_kernel_sizes,
-        resblock_dilation_sizes,
-        upsample_rates,
-        upsample_initial_channel,
-        upsample_kernel_sizes,
-        spk_embed_dim,
-        gin_channels,
-        sr=None,
-        **kwargs,
+        spec_channels: int,
+        segment_size: int,
+        inter_channels: int,
+        hidden_channels: int,
+        filter_channels: int,
+        n_heads: int,
+        n_layers: int,
+        kernel_size: int,
+        p_dropout: float,
+        resblock: str,
+        resblock_kernel_sizes: list[int],
+        resblock_dilation_sizes: list[int],
+        upsample_rates: list[int],
+        upsample_initial_channel: int,
+        upsample_kernel_sizes: list[int],
+        spk_embed_dim: int,
+        gin_channels: int,
+        sr: Any = None,
+        **kwargs: dict[str, Any],
     ):
         super().__init__()
         self.spec_channels = spec_channels
@@ -875,7 +863,6 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
         self.upsample_kernel_sizes = upsample_kernel_sizes
         self.segment_size = segment_size
         self.gin_channels = gin_channels
-        # self.hop_length = hop_length#
         self.spk_embed_dim = spk_embed_dim
         self.enc_p = TextEncoder(
             256,
@@ -951,7 +938,14 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
         return self
 
     @torch.jit.ignore
-    def forward(self, phone, phone_lengths, y, y_lengths, ds):  # 这里ds是id，[bs,1]
+    def forward(
+        self,
+        phone: torch.Tensor,
+        phone_lengths: torch.Tensor,
+        y: torch.Tensor,
+        y_lengths: torch.Tensor,
+        ds: torch.Tensor,
+    ):  # 这里ds是id，[bs,1]
         g = self.emb_g(ds).unsqueeze(-1)  # [b, 256, 1]##1是t，广播的
         m_p, logs_p, x_mask = self.enc_p(phone, None, phone_lengths)
         z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
@@ -996,25 +990,25 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
 class SynthesizerTrnMs768NSFsid_nono(SynthesizerTrnMs256NSFsid_nono):
     def __init__(
         self,
-        spec_channels,
-        segment_size,
-        inter_channels,
-        hidden_channels,
-        filter_channels,
-        n_heads,
-        n_layers,
-        kernel_size,
-        p_dropout,
-        resblock,
-        resblock_kernel_sizes,
-        resblock_dilation_sizes,
-        upsample_rates,
-        upsample_initial_channel,
-        upsample_kernel_sizes,
-        spk_embed_dim,
-        gin_channels,
-        sr=None,
-        **kwargs,
+        spec_channels: int,
+        segment_size: int,
+        inter_channels: int,
+        hidden_channels: int,
+        filter_channels: int,
+        n_heads: int,
+        n_layers: int,
+        kernel_size: int,
+        p_dropout: float,
+        resblock: str,
+        resblock_kernel_sizes: list[int],
+        resblock_dilation_sizes: list[int],
+        upsample_rates: list[int],
+        upsample_initial_channel: int,
+        upsample_kernel_sizes: list[int],
+        spk_embed_dim: int,
+        gin_channels: int,
+        sr: int | None = None,
+        **kwargs: dict[str, Any],
     ):
         super().__init__(
             spec_channels,
@@ -1052,10 +1046,9 @@ class SynthesizerTrnMs768NSFsid_nono(SynthesizerTrnMs256NSFsid_nono):
 
 
 class MultiPeriodDiscriminator(torch.nn.Module):
-    def __init__(self, use_spectral_norm=False):
+    def __init__(self, use_spectral_norm: bool = False):
         super().__init__()
         periods = [2, 3, 5, 7, 11, 17]
-        # periods = [3, 5, 7, 11, 17, 23, 37]
 
         discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
         discs = discs + [
@@ -1063,7 +1056,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         ]
         self.discriminators = nn.ModuleList(discs)
 
-    def forward(self, y, y_hat):
+    def forward(self, y: torch.Tensor, y_hat: torch.Tensor):
         y_d_rs = []  #
         y_d_gs = []
         fmap_rs = []
@@ -1071,8 +1064,6 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         for i, d in enumerate(self.discriminators):
             y_d_r, fmap_r = d(y)
             y_d_g, fmap_g = d(y_hat)
-            # for j in range(len(fmap_r)):
-            #     print(i,j,y.shape,y_hat.shape,fmap_r[j].shape,fmap_g[j].shape)
             y_d_rs.append(y_d_r)
             y_d_gs.append(y_d_g)
             fmap_rs.append(fmap_r)
@@ -1082,9 +1073,8 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 
 
 class MultiPeriodDiscriminatorV2(torch.nn.Module):
-    def __init__(self, use_spectral_norm=False):
+    def __init__(self, use_spectral_norm: bool = False):
         super().__init__()
-        # periods = [2, 3, 5, 7, 11, 17]
         periods = [2, 3, 5, 7, 11, 17, 23, 37]
 
         discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
@@ -1093,7 +1083,7 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
         ]
         self.discriminators = nn.ModuleList(discs)
 
-    def forward(self, y, y_hat):
+    def forward(self, y: torch.Tensor, y_hat: torch.Tensor):
         y_d_rs = []  #
         y_d_gs = []
         fmap_rs = []
@@ -1101,8 +1091,6 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
         for i, d in enumerate(self.discriminators):
             y_d_r, fmap_r = d(y)
             y_d_g, fmap_g = d(y_hat)
-            # for j in range(len(fmap_r)):
-            #     print(i,j,y.shape,y_hat.shape,fmap_r[j].shape,fmap_g[j].shape)
             y_d_rs.append(y_d_r)
             y_d_gs.append(y_d_g)
             fmap_rs.append(fmap_r)
@@ -1112,7 +1100,7 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
 
 
 class DiscriminatorS(torch.nn.Module):
-    def __init__(self, use_spectral_norm=False):
+    def __init__(self, use_spectral_norm: bool = False):
         super().__init__()
         norm_f = weight_norm if not use_spectral_norm else spectral_norm
         self.convs = nn.ModuleList(
@@ -1127,7 +1115,7 @@ class DiscriminatorS(torch.nn.Module):
         )
         self.conv_post = norm_f(Conv1d(1024, 1, 3, 1, padding=1))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         fmap = []
 
         for l in self.convs:
@@ -1142,7 +1130,13 @@ class DiscriminatorS(torch.nn.Module):
 
 
 class DiscriminatorP(torch.nn.Module):
-    def __init__(self, period, kernel_size=5, stride=3, use_spectral_norm=False):
+    def __init__(
+        self,
+        period: int,
+        kernel_size: int = 5,
+        stride: int = 3,
+        use_spectral_norm: bool = False,
+    ):
         super().__init__()
         self.period = period
         self.use_spectral_norm = use_spectral_norm
@@ -1198,7 +1192,7 @@ class DiscriminatorP(torch.nn.Module):
         )
         self.conv_post = norm_f(Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         fmap = []
 
         # 1d to 2d
