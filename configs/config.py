@@ -1,10 +1,10 @@
 import argparse
-import os
-import sys
 import json
+import os
 import shutil
+import sys
 from multiprocessing import cpu_count
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import torch
 
@@ -29,14 +29,14 @@ version_config_list: list[str] = [
 ]
 
 from functools import wraps
-from typing import Type, TypeVar
+from typing import TypeVar
 
 T = TypeVar("T")
 
-_singleton_instances: Dict[Type, object] = {}
+_singleton_instances: dict[type, object] = {}
 
 
-def singleton_class(cls: Type[T]) -> Type[T]:
+def singleton_class(cls: type[T]) -> type[T]:
     @wraps(cls)
     def wrapper(*args, **kwargs):
         if cls not in _singleton_instances:
@@ -62,9 +62,9 @@ class Config:
     is_half: bool
     use_jit: bool
     n_cpu: int
-    gpu_name: Optional[str]
-    json_config: Dict[str, Any]
-    gpu_mem: Optional[int]
+    gpu_name: str | None
+    json_config: dict[str, Any]
+    gpu_mem: int | None
 
     python_cmd: str
     listen_port: int
@@ -85,9 +85,9 @@ class Config:
         self.is_half: bool = True
         self.use_jit: bool = False
         self.n_cpu: int = 0
-        self.gpu_name: Optional[str] = None
-        self.json_config: Dict[str, Any] = self.load_config_json()
-        self.gpu_mem: Optional[int] = None
+        self.gpu_name: str | None = None
+        self.json_config: dict[str, Any] = self.load_config_json()
+        self.gpu_mem: int | None = None
         (
             self.python_cmd,
             self.listen_port,
@@ -107,12 +107,12 @@ class Config:
             p = f"configs/inuse/{config_file}"
             if not os.path.exists(p):
                 shutil.copy(f"configs/{config_file}", p)
-            with open(f"configs/inuse/{config_file}", "r") as f:
+            with open(f"configs/inuse/{config_file}") as f:
                 d[config_file] = json.load(f)
         return d
 
     @staticmethod
-    def arg_parse() -> Tuple[str, int, bool, bool, bool, bool]:
+    def arg_parse() -> tuple[str, int, bool, bool, bool, bool]:
         exe = sys.executable or "python"
         parser = argparse.ArgumentParser()
         parser.add_argument("--port", type=int, default=7865, help="Listen port")
@@ -166,7 +166,7 @@ class Config:
     def use_fp32_config(self):
         for config_file in version_config_list:
             self.json_config[config_file]["train"]["fp16_run"] = False
-            with open(f"configs/inuse/{config_file}", "r") as f:
+            with open(f"configs/inuse/{config_file}") as f:
                 strr = f.read().replace("true", "false")
             with open(f"configs/inuse/{config_file}", "w") as f:
                 f.write(strr)

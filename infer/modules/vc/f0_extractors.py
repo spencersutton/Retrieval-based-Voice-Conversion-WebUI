@@ -1,12 +1,13 @@
+import hashlib
+import warnings
 from abc import ABC, abstractmethod
+from functools import lru_cache
+
 import numpy as np
 import parselmouth
 import torch
 import torchcrepe
 from scipy import signal
-import warnings
-from functools import lru_cache
-import hashlib
 
 # Use a context manager to suppress the warning during import
 with warnings.catch_warnings():
@@ -32,7 +33,6 @@ class PitchExtractor(ABC):
     @abstractmethod
     def extract_pitch(self, audio: np.ndarray, p_len: int) -> np.ndarray:
         """Extracts and returns the fundamental frequency (f0) from audio."""
-        pass
 
 
 # --- Concrete Pitch Extractor Classes with Lazy Loading ---

@@ -1,7 +1,8 @@
 from collections import defaultdict
-import torch
+
 import intel_extension_for_pytorch as ipex  # pylint: disable=import-error, unused-import
 import intel_extension_for_pytorch._C as core  # pylint: disable=import-error, unused-import
+import torch
 
 # pylint: disable=protected-access, missing-function-docstring, line-too-long
 

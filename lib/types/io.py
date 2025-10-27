@@ -1,5 +1,6 @@
 import os
-from typing import Union, IO
+from typing import IO, Union
+
 import torch
 
 if hasattr(torch.serialization, "FILE_LIKE"):

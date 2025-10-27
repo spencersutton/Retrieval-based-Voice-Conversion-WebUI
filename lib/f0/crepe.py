@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 import numpy as np
 import torch
 import torchcrepe
@@ -29,8 +27,8 @@ class CRePE(F0Predictor):
     def compute_f0(
         self,
         wav: np.ndarray,
-        p_len: Optional[int] = None,
-        filter_radius: Optional[Union[int, float]] = None,
+        p_len: int | None = None,
+        filter_radius: int | float | None = None,
     ):
         if p_len is None:
             p_len = wav.shape[0] // self.hop_length

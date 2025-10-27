@@ -1,17 +1,15 @@
-from typing import Optional, Union
-
-import torch
 import numpy as np
+import torch
 
 
-class F0Predictor(object):
+class F0Predictor:
     def __init__(
         self,
         hop_length=512,
         f0_min=50,
         f0_max=1100,
         sampling_rate=44100,
-        device: Optional[str] = None,
+        device: str | None = None,
     ):
         self.hop_length = hop_length
         self.f0_min = f0_min
@@ -24,8 +22,8 @@ class F0Predictor(object):
     def compute_f0(
         self,
         wav: np.ndarray,
-        p_len: Optional[int] = None,
-        filter_radius: Optional[Union[int, float]] = None,
+        p_len: int | None = None,
+        filter_radius: int | float | None = None,
     ): ...
 
     def _interpolate_f0(self, f0: np.ndarray):

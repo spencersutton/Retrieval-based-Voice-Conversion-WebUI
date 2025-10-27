@@ -1,15 +1,15 @@
+import logging
+
 import librosa
 import numpy as np
 import onnxruntime
-
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 class ContentVec:
     def __init__(self, vec_path="pretrained/vec-768-layer-12.onnx", device=None):
-        logger.info("Load model(s) from {}".format(vec_path))
+        logger.info(f"Load model(s) from {vec_path}")
         if device == "cpu" or device is None:
             providers = ["CPUExecutionProvider"]
         elif device == "cuda":

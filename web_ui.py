@@ -1,9 +1,10 @@
-import shared
-import torch
-import gradio as gr
 import git
-from fastapi.middleware.cors import CORSMiddleware
+import gradio as gr
+import torch
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+import shared
 from tabs.ckpt_processing_tab import create_ckpt_processing_tab
 
 # from tabs.faq_tab import create_faq_tab

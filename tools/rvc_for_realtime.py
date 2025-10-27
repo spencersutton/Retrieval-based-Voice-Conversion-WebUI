@@ -1,10 +1,9 @@
-from io import BytesIO
 import os
 import sys
 import traceback
-from infer.lib import jit
-from infer.lib.jit.get_synthesizer import get_synthesizer
+from io import BytesIO
 from time import time as ttime
+
 import fairseq
 import faiss
 import numpy as np
@@ -18,6 +17,8 @@ import torchcrepe
 from fairseq.data.dictionary import Dictionary
 from torch.serialization import safe_globals
 
+from infer.lib import jit
+from infer.lib.jit.get_synthesizer import get_synthesizer
 
 now_dir = os.getcwd()
 sys.path.append(now_dir)

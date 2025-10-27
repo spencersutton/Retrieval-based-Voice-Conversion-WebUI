@@ -2,8 +2,8 @@ from collections import OrderedDict
 
 import torch
 
+from .jit import export_jit_model, load_inputs, save_pickle
 from .layers.synthesizers import SynthesizerTrnMsNSFsid
-from .jit import load_inputs, export_jit_model, save_pickle
 from .types import FileLike
 
 

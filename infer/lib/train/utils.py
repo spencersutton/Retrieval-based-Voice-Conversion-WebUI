@@ -67,7 +67,7 @@ def load_checkpoint_d(
         optimizer.load_state_dict(checkpoint_dict["optimizer"])
     #   except:
     #     traceback.print_exc()
-    logger.info("Loaded checkpoint '{}' (epoch {})".format(checkpoint_path, iteration))
+    logger.info(f"Loaded checkpoint '{checkpoint_path}' (epoch {iteration})")
     return model, optimizer, learning_rate, iteration
 
 
@@ -142,15 +142,13 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt: int = 1):
         optimizer.load_state_dict(checkpoint_dict["optimizer"])
     #   except:
     #     traceback.print_exc()
-    logger.info("Loaded checkpoint '{}' (epoch {})".format(checkpoint_path, iteration))
+    logger.info(f"Loaded checkpoint '{checkpoint_path}' (epoch {iteration})")
     return model, optimizer, learning_rate, iteration
 
 
 def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path):
     logger.info(
-        "Saving model and optimizer state at epoch {} to {}".format(
-            iteration, checkpoint_path
-        )
+        f"Saving model and optimizer state at epoch {iteration} to {checkpoint_path}"
     )
     if hasattr(model, "module"):
         state_dict = model.module.state_dict()
@@ -171,9 +169,7 @@ def save_checkpoint_d(
     combd, sbd, optimizer, learning_rate: float, iteration, checkpoint_path
 ):
     logger.info(
-        "Saving model and optimizer state at epoch {} to {}".format(
-            iteration, checkpoint_path
-        )
+        f"Saving model and optimizer state at epoch {iteration} to {checkpoint_path}"
     )
     if hasattr(combd, "module"):
         state_dict_combd = combd.module.state_dict()
@@ -400,7 +396,7 @@ def get_hparams(init=True):
     experiment_dir = os.path.join("./logs", args.experiment_dir)
 
     config_save_path = os.path.join(experiment_dir, "config.json")
-    with open(config_save_path, "r") as f:
+    with open(config_save_path) as f:
         config = json.load(f)
 
     hparams = HParams(**config)
@@ -424,7 +420,7 @@ def get_hparams(init=True):
 
 def get_hparams_from_dir(model_dir):
     config_save_path = os.path.join(model_dir, "config.json")
-    with open(config_save_path, "r") as f:
+    with open(config_save_path) as f:
         data = f.read()
     config = json.loads(data)
 
@@ -434,7 +430,7 @@ def get_hparams_from_dir(model_dir):
 
 
 def get_hparams_from_file(config_path):
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         data = f.read()
     config = json.loads(data)
 
@@ -446,9 +442,7 @@ def check_git_hash(model_dir: str):
     source_dir = os.path.dirname(os.path.realpath(__file__))
     if not os.path.exists(os.path.join(source_dir, ".git")):
         logger.warning(
-            "{} is not a git repository, therefore hash value comparison will be ignored.".format(
-                source_dir
-            )
+            f"{source_dir} is not a git repository, therefore hash value comparison will be ignored."
         )
         return
 
@@ -459,9 +453,7 @@ def check_git_hash(model_dir: str):
         saved_hash = open(path).read()
         if saved_hash != cur_hash:
             logger.warning(
-                "git hash values are different. {}(saved) != {}(current)".format(
-                    saved_hash[:8], cur_hash[:8]
-                )
+                f"git hash values are different. {saved_hash[:8]}(saved) != {cur_hash[:8]}(current)"
             )
     else:
         open(path, "w").write(cur_hash)

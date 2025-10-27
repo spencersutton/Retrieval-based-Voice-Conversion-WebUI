@@ -1,11 +1,10 @@
 import math
-from typing import Tuple, Optional
 
 import torch
 from torch import nn
 
-from .attentions import MultiHeadAttention, FFN
-from .norms import LayerNorm, WN
+from .attentions import FFN, MultiHeadAttention
+from .norms import WN, LayerNorm
 from .utils import sequence_mask
 
 
@@ -123,8 +122,8 @@ class TextEncoder(nn.Module):
         phone: torch.Tensor,
         pitch: torch.Tensor,
         lengths: torch.Tensor,
-        skip_head: Optional[int] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        skip_head: int | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         return super().__call__(
             phone,
             pitch,
@@ -137,8 +136,8 @@ class TextEncoder(nn.Module):
         phone: torch.Tensor,
         pitch: torch.Tensor,
         lengths: torch.Tensor,
-        skip_head: Optional[int] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        skip_head: int | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         x = self.emb_phone(phone)
         if pitch is not None:
             x += self.emb_pitch(pitch)
@@ -190,13 +189,13 @@ class PosteriorEncoder(nn.Module):
         self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
     def __call__(
-        self, x: torch.Tensor, x_lengths: torch.Tensor, g: Optional[torch.Tensor] = None
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, x: torch.Tensor, x_lengths: torch.Tensor, g: torch.Tensor | None = None
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         return super().__call__(x, x_lengths, g=g)
 
     def forward(
-        self, x: torch.Tensor, x_lengths: torch.Tensor, g: Optional[torch.Tensor] = None
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, x: torch.Tensor, x_lengths: torch.Tensor, g: torch.Tensor | None = None
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         x_mask = torch.unsqueeze(
             sequence_mask(x_lengths, x.size(2)),
             1,

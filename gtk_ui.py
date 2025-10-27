@@ -1,24 +1,27 @@
+import json
 import os
 import sys
-import json
 import time
+from collections.abc import Callable
 from multiprocessing import Queue, cpu_count
-from typing import Callable, List, Literal, Optional
+from typing import Literal, Optional
+
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, GLib, Gio
-from dotenv import load_dotenv
-import numpy as np
-import torch
-import sounddevice as sd
 import librosa
+import numpy as np
+import sounddevice as sd
+import torch
 import torch.nn.functional as F
 import torchaudio.transforms as tat
-from tools.torchgate import TorchGate
-from infer.lib import rtrvc as rvc_for_realtime
+from dotenv import load_dotenv
+from gi.repository import Adw, Gio, GLib, Gtk
+
 from configs.config import Config
+from infer.lib import rtrvc as rvc_for_realtime
+from tools.torchgate import TorchGate
 
 # --- Environment and Path Setup ---
 load_dotenv()
@@ -125,7 +128,7 @@ class VCState:
     fade_out_window: torch.Tensor
 
     resampler: tat.Resample
-    resampler2: Optional[tat.Resample]
+    resampler2: tat.Resample | None
 
     tg: TorchGate
 
@@ -240,15 +243,15 @@ class VCState:
 
 
 class UiState:
-    stream: Optional[sd.Stream] = None
+    stream: sd.Stream | None = None
     delay_time = 0
-    hostapis: List[str] = []
-    input_devices: List[str] = []
-    output_devices: List[str] = []
-    input_devices_indices: List[int] = []
-    output_devices_indices: List[int] = []
+    hostapis: list[str] = []
+    input_devices: list[str] = []
+    output_devices: list[str] = []
+    input_devices_indices: list[int] = []
+    output_devices_indices: list[int] = []
 
-    vc_state: Optional[VCState] = None
+    vc_state: VCState | None = None
 
     def __init__(self) -> None:
         self.gui_config = GUIConfig()
@@ -490,7 +493,7 @@ def get_device_channels():
     return min(max_input_channels, max_output_channels, 2)
 
 
-def update_devices(state: UiState, hostapi_name: Optional[str] = None):
+def update_devices(state: UiState, hostapi_name: str | None = None):
     """Get devices"""
     sd._terminate()
     sd._initialize()
@@ -532,8 +535,8 @@ def update_devices(state: UiState, hostapi_name: Optional[str] = None):
 
 def set_devices(
     state: UiState,
-    input_device: Optional[str] = None,
-    output_device: Optional[str] = None,
+    input_device: str | None = None,
+    output_device: str | None = None,
 ):
     """Set devices"""
     if input_device is not None:
@@ -670,7 +673,7 @@ class MainWindow(Adw.ApplicationWindow):
         entry_row: Adw.EntryRow,
         pattern: str,
         mime: str,
-        on_file_path: Optional[Callable],
+        on_file_path: Callable | None,
     ):
         """Generic method to create and show a Gtk.FileChooserDialog."""
         # Create a filter for the specific file type
@@ -719,8 +722,8 @@ class MainWindow(Adw.ApplicationWindow):
 
     def reload_device(self, button: Gtk.Button | None):
         update_devices(self.state)
-        input_devices: List[str] = self.state.input_devices
-        output_devices: List[str] = self.state.output_devices
+        input_devices: list[str] = self.state.input_devices
+        output_devices: list[str] = self.state.output_devices
 
         # Clear existing models
         while self.input_devices_list.get_n_items() > 0:

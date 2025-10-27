@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from typing import List, Optional, Tuple
+
 import gradio as gr
 import numpy as np
 
@@ -30,7 +30,7 @@ def change_choices():
     }
 
 
-def get_pitch_methods() -> List[PitchMethod]:
+def get_pitch_methods() -> list[PitchMethod]:
     if not hasattr(shared.config, "dml"):
         # Handle cases where shared.config.dml might not exist
         return PITCH_METHODS
@@ -42,12 +42,12 @@ def get_pitch_methods() -> List[PitchMethod]:
     )
 
 
-def get_model_list() -> List[str]:
+def get_model_list() -> list[str]:
     print(f"Models: {shared.names}")
     return sorted(shared.names)
 
 
-def get_index_paths() -> List[str]:
+def get_index_paths() -> list[str]:
     return sorted(shared.index_paths)
 
 
@@ -109,7 +109,7 @@ def create_inference_tab(app: gr.Blocks):
                     lag_backlog = 0.0
 
                     def realtime_vc_generator(
-                        audio_chunk: Optional[Tuple[int, np.ndarray]],
+                        audio_chunk: tuple[int, np.ndarray] | None,
                         f0_up_key,
                         f0_method,
                         file_index,

@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import torch.nn as nn
 
 from .deepunet import DeepUnet
@@ -10,7 +8,7 @@ class E2E(nn.Module):
         self,
         n_blocks: int,
         n_gru: int,
-        kernel_size: Tuple[int, int],
+        kernel_size: tuple[int, int],
         en_de_layers=5,
         inter_layers=4,
         in_channels=1,

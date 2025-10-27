@@ -1,7 +1,7 @@
 import json
+import logging
 import os
 import sys
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 
 # from torch.utils.tensorboard import SummaryWriter
-
 from infer.lib.infer_pack import commons
 from infer.lib.train.data_utils import (
     DistributedBucketSampler,
@@ -61,9 +60,13 @@ if hps.version == "v1":
     )
 else:
     from infer.lib.infer_pack.models import (
-        SynthesizerTrnMs768NSFsid as RVC_Model_f0,
-        SynthesizerTrnMs768NSFsid_nono as RVC_Model_nof0,
         MultiPeriodDiscriminatorV2 as MultiPeriodDiscriminator,
+    )
+    from infer.lib.infer_pack.models import (
+        SynthesizerTrnMs768NSFsid as RVC_Model_f0,
+    )
+    from infer.lib.infer_pack.models import (
+        SynthesizerTrnMs768NSFsid_nono as RVC_Model_nof0,
     )
 
 from infer.lib.train.losses import (
@@ -524,9 +527,7 @@ def train_and_evaluate(
             if global_step % hps.train.log_interval == 0:
                 lr = optim_g.param_groups[0]["lr"]
                 logger.info(
-                    "Train Epoch: {} [{:.0f}%]".format(
-                        epoch, 100.0 * batch_idx / len(train_loader)
-                    )
+                    f"Train Epoch: {epoch} [{100.0 * batch_idx / len(train_loader):.0f}%]"
                 )
                 # Amor For Tensorboard display
                 if loss_mel > 75:
@@ -553,14 +554,12 @@ def train_and_evaluate(
                     }
                 )
 
+                scalar_dict.update({f"loss/g/{i}": v for i, v in enumerate(losses_gen)})
                 scalar_dict.update(
-                    {"loss/g/{}".format(i): v for i, v in enumerate(losses_gen)}
+                    {f"loss/d_r/{i}": v for i, v in enumerate(losses_disc_r)}
                 )
                 scalar_dict.update(
-                    {"loss/d_r/{}".format(i): v for i, v in enumerate(losses_disc_r)}
-                )
-                scalar_dict.update(
-                    {"loss/d_g/{}".format(i): v for i, v in enumerate(losses_disc_g)}
+                    {f"loss/d_g/{i}": v for i, v in enumerate(losses_disc_g)}
                 )
 
                 print(
@@ -593,14 +592,14 @@ def train_and_evaluate(
                 optim_g,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, "G_{}.pth".format(global_step)),
+                os.path.join(hps.model_dir, f"G_{global_step}.pth"),
             )
             utils.save_checkpoint(
                 net_d,
                 optim_d,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, "D_{}.pth".format(global_step)),
+                os.path.join(hps.model_dir, f"D_{global_step}.pth"),
             )
         else:
             utils.save_checkpoint(
@@ -608,14 +607,14 @@ def train_and_evaluate(
                 optim_g,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, "G_{}.pth".format(2333333)),
+                os.path.join(hps.model_dir, f"G_{2333333}.pth"),
             )
             utils.save_checkpoint(
                 net_d,
                 optim_d,
                 hps.train.learning_rate,
                 epoch,
-                os.path.join(hps.model_dir, "D_{}.pth".format(2333333)),
+                os.path.join(hps.model_dir, f"D_{2333333}.pth"),
             )
         if rank == 0 and hps.save_every_weights == "1":
             if hasattr(net_g, "module"):
@@ -640,7 +639,7 @@ def train_and_evaluate(
             )
 
     if rank == 0:
-        logger.info("====> Epoch: {} {}".format(epoch, epoch_recorder.record()))
+        logger.info(f"====> Epoch: {epoch} {epoch_recorder.record()}")
     if epoch >= hps.total_epoch and rank == 0:
         logger.info("Training is done. The program is closed.")
 

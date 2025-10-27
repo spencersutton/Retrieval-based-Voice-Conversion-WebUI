@@ -1,7 +1,7 @@
 import os
-import requests
 from pathlib import Path
-from typing import Optional
+
+import requests
 from tqdm import tqdm
 
 # Base URL for model downloads
@@ -11,7 +11,7 @@ RVC_DOWNLOAD_LINK = "https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-def dl_model(link: str, model_name: str, download_dir: Path) -> Optional[Path]:
+def dl_model(link: str, model_name: str, download_dir: Path) -> Path | None:
     url = f"{link}{model_name}"
     target_path = download_dir / model_name
 

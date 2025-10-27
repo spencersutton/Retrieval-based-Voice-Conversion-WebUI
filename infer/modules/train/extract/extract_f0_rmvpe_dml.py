@@ -2,7 +2,6 @@ import os
 import sys
 import traceback
 
-
 now_dir = os.getcwd()
 sys.path.append(now_dir)
 
@@ -23,7 +22,7 @@ def printt(strr):
     f.flush()
 
 
-class FeatureInput(object):
+class FeatureInput:
     def __init__(self, samplerate=16000, hop_size=160):
         self.fs = samplerate
         self.hop = hop_size

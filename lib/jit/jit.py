@@ -1,7 +1,7 @@
-import pickle
-from io import BytesIO
-from collections import OrderedDict
 import os
+import pickle
+from collections import OrderedDict
+from io import BytesIO
 
 import torch
 

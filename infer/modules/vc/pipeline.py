@@ -1,8 +1,10 @@
+import logging
 import os
 import sys
 import traceback
-import logging
-from typing import List, Optional, Union, TypeAlias
+from typing import TypeAlias
+
+import gradio as gr
 
 from configs.config import Config
 from infer.lib.infer_pack.models import (
@@ -12,19 +14,18 @@ from infer.lib.infer_pack.models import (
     SynthesizerTrnMs768NSFsid_nono,
 )
 
-import gradio as gr
-
 logger = logging.getLogger(__name__)
 
 from time import time as ttime
-from fairseq.models.hubert.hubert import (
-    HubertModel as FairseqHubertModel,
-)  # Renamed for clarity in this example
+
 import faiss
 import librosa
 import numpy as np
 import torch
 import torch.nn.functional as F
+from fairseq.models.hubert.hubert import (
+    HubertModel as FairseqHubertModel,
+)  # Renamed for clarity in this example
 from scipy import signal
 
 now_dir = os.getcwd()
@@ -60,7 +61,7 @@ def change_rms(
     return data2
 
 
-class Pipeline(object):
+class Pipeline:
     import shared
 
     sr: int = 16000
@@ -96,7 +97,7 @@ class Pipeline(object):
         f0_up_key: int,
         f0_method: PitchMethod,
         filter_radius: int = 3,
-        inp_f0: Optional[np.ndarray] = None,
+        inp_f0: np.ndarray | None = None,
     ):
         # Lazy load f0 pitch extractor
         if f0_method not in self.pitch_extractors:
@@ -154,19 +155,17 @@ class Pipeline(object):
     def vc(
         self: "Pipeline",
         model: FairseqHubertModel,
-        net_g: Union[
-            SynthesizerTrnMs256NSFsid,
-            SynthesizerTrnMs256NSFsid_nono,
-            SynthesizerTrnMs768NSFsid,
-            SynthesizerTrnMs768NSFsid_nono,
-        ],
+        net_g: SynthesizerTrnMs256NSFsid
+        | SynthesizerTrnMs256NSFsid_nono
+        | SynthesizerTrnMs768NSFsid
+        | SynthesizerTrnMs768NSFsid_nono,
         sid: int,
         audio: np.ndarray,
-        pitch: Optional[torch.Tensor],
-        pitchf: Optional[torch.Tensor],
-        times: List[float],
-        index: Optional[faiss.Index],
-        big_npy: Optional[np.ndarray],
+        pitch: torch.Tensor | None,
+        pitchf: torch.Tensor | None,
+        times: list[float],
+        index: faiss.Index | None,
+        big_npy: np.ndarray | None,
         index_rate: float,
         version: str,
         protect: float,
@@ -258,16 +257,14 @@ class Pipeline(object):
     def pipeline(
         self: "Pipeline",
         model: FairseqHubertModel,
-        net_g: Union[
-            SynthesizerTrnMs256NSFsid,
-            SynthesizerTrnMs256NSFsid_nono,
-            SynthesizerTrnMs768NSFsid,
-            SynthesizerTrnMs768NSFsid_nono,
-        ],
+        net_g: SynthesizerTrnMs256NSFsid
+        | SynthesizerTrnMs256NSFsid_nono
+        | SynthesizerTrnMs768NSFsid
+        | SynthesizerTrnMs768NSFsid_nono,
         sid: int,
         audio: np.ndarray,
         # input_audio_path: str,
-        times: List[int],
+        times: list[int],
         f0_up_key: int,
         f0_method: PitchMethod,
         file_index: str,
@@ -317,7 +314,7 @@ class Pipeline(object):
                     )[0][0]
                 )
         s = 0
-        audio_opt: List[np.ndarray] = []
+        audio_opt: list[np.ndarray] = []
         t = None
         t1 = ttime()
         audio_pad = np.pad(audio, (self.t_pad, self.t_pad), mode="reflect")
@@ -325,7 +322,7 @@ class Pipeline(object):
         inp_f0 = None
         if hasattr(f0_file, "name"):
             try:
-                with open(f0_file.name, "r") as f:
+                with open(f0_file.name) as f:
                     lines = f.read().strip("\n").split("\n")
                 inp_f0 = []
                 for line in lines:

@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import torch
 from torch.nn import functional as F
@@ -15,7 +13,7 @@ def piecewise_rational_quadratic_transform(
     unnormalized_heights: torch.Tensor,
     unnormalized_derivatives: torch.Tensor,
     inverse: bool = False,
-    tails: Optional[str] = None,
+    tails: str | None = None,
     tail_bound: float = 1.0,
     min_bin_width=DEFAULT_MIN_BIN_WIDTH,
     min_bin_height=DEFAULT_MIN_BIN_HEIGHT,
@@ -74,7 +72,7 @@ def unconstrained_rational_quadratic_spline(
         outputs[outside_interval_mask] = inputs[outside_interval_mask]
         logabsdet[outside_interval_mask] = 0
     else:
-        raise RuntimeError("{} tails are not implemented.".format(tails))
+        raise RuntimeError(f"{tails} tails are not implemented.")
 
     (
         outputs[inside_interval_mask],

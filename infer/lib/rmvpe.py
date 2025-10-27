@@ -1,6 +1,6 @@
-from io import BytesIO
 import os
-from typing import List, Optional, Union
+from io import BytesIO
+
 import numpy as np
 import torch
 
@@ -15,12 +15,12 @@ try:
         ipex_init()
 except Exception:  # pylint: disable=broad-exception-caught
     pass
+import logging
+
 import torch.nn as nn
 import torch.nn.functional as F
 from librosa.util import pad_center
 from scipy.signal import get_window
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class STFT(torch.nn.Module):
         self.pad_amount = int(self.filter_length / 2)
         fourier_basis = np.fft.fft(np.eye(self.filter_length))
 
-        cutoff = int((self.filter_length / 2 + 1))
+        cutoff = int(self.filter_length / 2 + 1)
         fourier_basis = np.vstack(
             [np.real(fourier_basis[:cutoff, :]), np.imag(fourier_basis[:cutoff, :])]
         )
@@ -239,7 +239,7 @@ class Encoder(nn.Module):
         self.out_channel = out_channels
 
     def forward(self, x: torch.Tensor):
-        concat_tensors: List[torch.Tensor] = []
+        concat_tensors: list[torch.Tensor] = []
         x = self.bn(x)
         for i, layer in enumerate(self.layers):
             t, x = layer(x)
@@ -332,7 +332,7 @@ class Decoder(nn.Module):
             )
             in_channels = out_channels
 
-    def forward(self, x: torch.Tensor, concat_tensors: List[torch.Tensor]):
+    def forward(self, x: torch.Tensor, concat_tensors: list[torch.Tensor]):
         for i, layer in enumerate(self.layers):
             x = layer(x, concat_tensors[-1 - i])
         return x
@@ -519,7 +519,7 @@ class MelSpectrogram(torch.nn.Module):
 
 class RMVPE:
     def __init__(
-        self, model_path: str, is_half, device: Optional[str] = None, use_jit=False
+        self, model_path: str, is_half, device: str | None = None, use_jit=False
     ):
         self.resample_kernel = {}
         self.resample_kernel = {}
@@ -653,7 +653,7 @@ class RMVPE:
     #     return f0
     def infer_from_audio(
         self,
-        audio: Union[torch.Tensor, np.ndarray],
+        audio: torch.Tensor | np.ndarray,
         thred=0.03,
         chunk_size_seconds=60,
         overlap_seconds=2,

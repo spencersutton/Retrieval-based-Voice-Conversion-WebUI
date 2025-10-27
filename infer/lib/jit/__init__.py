@@ -1,9 +1,10 @@
-from io import BytesIO
 import pickle
 import time
+from collections import OrderedDict
+from io import BytesIO
+
 import torch
 from tqdm import tqdm
-from collections import OrderedDict
 
 
 def load_inputs(path, device, is_half=False):

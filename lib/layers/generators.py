@@ -1,12 +1,10 @@
-from typing import Optional, List, Tuple
-
 import torch
 from torch import nn
 from torch.nn import Conv1d, ConvTranspose1d
 from torch.nn import functional as F
 from torch.nn.utils import remove_weight_norm, weight_norm
 
-from .residuals import ResBlock1, ResBlock2, LRELU_SLOPE
+from .residuals import LRELU_SLOPE, ResBlock1, ResBlock2
 from .utils import call_weight_data_normal_if_Conv
 
 
@@ -15,11 +13,11 @@ class Generator(torch.nn.Module):
         self,
         initial_channel: int,
         resblock: str,
-        resblock_kernel_sizes: List[int],
-        resblock_dilation_sizes: List[List[int]],
-        upsample_rates: List[int],
+        resblock_kernel_sizes: list[int],
+        resblock_dilation_sizes: list[list[int]],
+        upsample_rates: list[int],
         upsample_initial_channel: int,
-        upsample_kernel_sizes: List[int],
+        upsample_kernel_sizes: list[int],
         gin_channels: int = 0,
     ):
         super(Generator, self).__init__()
@@ -60,16 +58,16 @@ class Generator(torch.nn.Module):
     def __call__(
         self,
         x: torch.Tensor,
-        g: Optional[torch.Tensor] = None,
-        n_res: Optional[int] = None,
+        g: torch.Tensor | None = None,
+        n_res: int | None = None,
     ) -> torch.Tensor:
         return super().__call__(x, g=g, n_res=n_res)
 
     def forward(
         self,
         x: torch.Tensor,
-        g: Optional[torch.Tensor] = None,
-        n_res: Optional[int] = None,
+        g: torch.Tensor | None = None,
+        n_res: int | None = None,
     ):
         if n_res is not None:
             n = int(n_res)
@@ -180,12 +178,12 @@ class SineGenerator(torch.nn.Module):
 
     def __call__(
         self, f0: torch.Tensor, upp: int
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         return super().__call__(f0, upp)
 
     def forward(
         self, f0: torch.Tensor, upp: int
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """sine_tensor, uv = forward(f0)
         input F0: tensor(batchsize=1, length, dim=1)
                   f0 for unvoiced steps should be 0

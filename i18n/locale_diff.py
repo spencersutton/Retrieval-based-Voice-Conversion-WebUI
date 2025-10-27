@@ -14,13 +14,13 @@ languages = [
 ]
 
 # Load the standard file
-with open(standard_file, "r", encoding="utf-8") as f:
+with open(standard_file, encoding="utf-8") as f:
     standard_data = json.load(f, object_pairs_hook=OrderedDict)
 
 # Loop through each language file
 for lang_file in languages:
     # Load the language file
-    with open(lang_file, "r", encoding="utf-8") as f:
+    with open(lang_file, encoding="utf-8") as f:
         lang_data = json.load(f, object_pairs_hook=OrderedDict)
 
     # Find the difference between the language file and the standard file

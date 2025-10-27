@@ -8,10 +8,10 @@ import shutil
 import subprocess
 import threading
 import traceback
+from collections.abc import Generator
 from random import shuffle
 from subprocess import Popen
 from time import sleep
-from typing import Generator, List, Optional, Tuple
 
 import faiss
 import gradio as gr
@@ -35,7 +35,7 @@ def change_f0_method(f0method8: str):
     return {"visible": visible, "__type__": "update"}
 
 
-def if_done(done_flag: List[bool], p: Popen):
+def if_done(done_flag: list[bool], p: Popen):
     p.wait()
     done_flag[0] = True
 
@@ -115,7 +115,7 @@ def preprocess_dataset(
     ).start()
 
     while True:
-        with open("%s/logs/%s/preprocess.log" % (shared.now_dir, exp_dir), "r") as f:
+        with open("%s/logs/%s/preprocess.log" % (shared.now_dir, exp_dir)) as f:
             # yield (f.read())
             file_content = f.read()
             count = file_content.count("Success")
@@ -126,7 +126,7 @@ def preprocess_dataset(
         sleep(0.5)
         if done[0]:
             break
-    with open("%s/logs/%s/preprocess.log" % (shared.now_dir, exp_dir), "r") as f:
+    with open("%s/logs/%s/preprocess.log" % (shared.now_dir, exp_dir)) as f:
         log = f.read()
     shared.logger.info(log)
     yield log
@@ -135,7 +135,7 @@ def preprocess_dataset(
 def preprocess_meta(
     experiment_name: str,
     audio_dir: str,
-    audio_files: Optional[List[str]],
+    audio_files: list[str] | None,
     sr: int,
     n_p: int,
     progress=gr.Progress(),
@@ -159,9 +159,9 @@ def preprocess_meta(
         yield update
 
 
-def parse_f0_feature_log(content: str) -> Tuple[int, int]:
-    max_now: Optional[int] = 0
-    max_all: Optional[int] = 1
+def parse_f0_feature_log(content: str) -> tuple[int, int]:
+    max_now: int | None = 0
+    max_all: int | None = 1
     # Regex to capture the numbers after "now-" and "all-"
     # Pattern breakdown:
     # f0ing,       # Literal string "f0ing,"
@@ -187,7 +187,6 @@ def parse_f0_feature_log(content: str) -> Tuple[int, int]:
                     max_all = current_all
             except ValueError:
                 print(f"Warning: Could not parse numbers from line: {line}")
-                pass
 
     return max_now, max_all
 
@@ -207,7 +206,7 @@ def extract_f0_feature(
         now, all = parse_f0_feature_log(content)
         progress(float(now) / all, desc=f"{now}/{all} Features extracted...")
 
-    gpus: List[str] = gpus.split("-")
+    gpus: list[str] = gpus.split("-")
     os.makedirs("%s/logs/%s" % (shared.now_dir, exp_dir), exist_ok=True)
     f = open("%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir), "w")
     f.close()
@@ -282,15 +281,13 @@ def extract_f0_feature(
                 done = [True]
         while True:
             with open(
-                "%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir), "r"
+                "%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir)
             ) as f:
                 update_progress(f.read())
             sleep(1)
             if done[0]:
                 break
-        with open(
-            "%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir), "r"
-        ) as f:
+        with open("%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir)) as f:
             log = f.read()
         shared.logger.info(log)
     # 对不同part分别开多进程
@@ -333,16 +330,12 @@ def extract_f0_feature(
         ),
     ).start()
     while True:
-        with open(
-            "%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir), "r"
-        ) as f:
+        with open("%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir)) as f:
             update_progress(f.read())
         sleep(1)
         if done[0]:
             break
-    with open(
-        "%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir), "r"
-    ) as f:
+    with open("%s/logs/%s/extract_f0_feature.log" % (shared.now_dir, exp_dir)) as f:
         log = f.read()
     shared.logger.info(log)
     yield log
@@ -414,7 +407,7 @@ def change_f0(if_f0_3: bool, sr2, version19):  # f0method8,pretrained_G14,pretra
     )
 
 
-def parse_epoch_from_train_log_line(line: str) -> Optional[int]:
+def parse_epoch_from_train_log_line(line: str) -> int | None:
     """
     Parse a single log line and extract the current epoch number if present.
 
