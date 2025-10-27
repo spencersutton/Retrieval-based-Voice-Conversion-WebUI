@@ -202,7 +202,6 @@ class VC:
         file_index = None
         f0_file = None
         sid = 0
-        filter_radius = 3
         f0_up_key = int(f0_up_key)
         try:
             if sr_and_audio is None:
@@ -298,7 +297,7 @@ class VC:
         self.audio_buffer = self.audio_buffer[block_size - crossfade_size :]
 
         # Call existing single VC function
-        msg, result = self.vc_single(
+        _msg, result = self.vc_single(
             (16000, process_block),
             f0_up_key=f0_up_key,
             f0_method=f0_method,

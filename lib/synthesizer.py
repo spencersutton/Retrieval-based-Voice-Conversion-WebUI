@@ -38,8 +38,8 @@ def load_synthesizer(pth_path: FileLike, device=torch.device("cpu")):  # type: i
 def synthesizer_jit_export(
     model_path: str,
     mode: str = "script",
-    inputs_path: str = None,
-    save_path: str = None,
+    inputs_path: str | None = None,
+    save_path: str | None = None,
     device=torch.device("cpu"),
     is_half=False,
 ):

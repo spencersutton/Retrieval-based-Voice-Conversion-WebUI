@@ -159,7 +159,7 @@ class RMVPE_PitchExtractor(PitchExtractor):
             from infer.lib.rmvpe import RMVPE
 
             self.model = RMVPE(
-                "%s/rmvpe.pt" % (self.shared.rmvpe_root),
+                f"{self.shared.rmvpe_root}/rmvpe.pt",
                 is_half=self.is_half,
                 device=self.device,
             )

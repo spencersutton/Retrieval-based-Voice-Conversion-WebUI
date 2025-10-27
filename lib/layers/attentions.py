@@ -18,7 +18,7 @@ class MultiHeadAttention(nn.Module):
         proximal_bias: bool = False,
         proximal_init: bool = False,
     ):
-        super(MultiHeadAttention, self).__init__()
+        super().__init__()
         assert channels % n_heads == 0
 
         self.channels = channels
@@ -239,7 +239,7 @@ class FFN(nn.Module):
         activation: str | None = None,
         causal: bool = False,
     ):
-        super(FFN, self).__init__()
+        super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.filter_channels = filter_channels

@@ -14,7 +14,7 @@ class E2E(nn.Module):
         in_channels=1,
         en_out_channels=16,
     ):
-        super(E2E, self).__init__()
+        super().__init__()
 
         self.unet = DeepUnet(
             kernel_size,

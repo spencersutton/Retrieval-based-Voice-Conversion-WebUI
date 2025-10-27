@@ -20,7 +20,7 @@ class Generator(torch.nn.Module):
         upsample_kernel_sizes: list[int],
         gin_channels: int = 0,
     ):
-        super(Generator, self).__init__()
+        super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_rates)
 
@@ -146,7 +146,7 @@ class SineGenerator(torch.nn.Module):
         noise_std: float = 0.003,
         voiced_threshold: int = 0,
     ):
-        super(SineGenerator, self).__init__()
+        super().__init__()
         self.sine_amp = sine_amp
         self.noise_std = noise_std
         self.harmonic_num = harmonic_num

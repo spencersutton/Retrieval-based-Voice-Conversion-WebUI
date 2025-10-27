@@ -37,11 +37,11 @@ def savee(ckpt, sr, if_f0, name, epoch, version, hps):
             hps.model.gin_channels,
             hps.data.sampling_rate,
         ]
-        opt["info"] = "%sepoch" % epoch
+        opt["info"] = f"{epoch}epoch"
         opt["sr"] = sr
         opt["f0"] = if_f0
         opt["version"] = version
-        torch.save(opt, "assets/weights/%s.pth" % name)
+        torch.save(opt, f"assets/weights/{name}.pth")
         return "Success."
     except:
         return traceback.format_exc()
@@ -50,7 +50,7 @@ def savee(ckpt, sr, if_f0, name, epoch, version, hps):
 def show_info(path):
     try:
         a = torch.load(path, map_location="cpu", weights_only=False)
-        return "模型信息:%s\n采样率:%s\n模型是否输入音高引导:%s\n版本:%s" % (
+        return "模型信息:{}\n采样率:{}\n模型是否输入音高引导:{}\n版本:{}".format(
             a.get("info", "None"),
             a.get("sr", "None"),
             a.get("f0", "None"),
@@ -184,7 +184,7 @@ def extract_small_model(path, name, sr, if_f0, info, version):
         opt["version"] = version
         opt["sr"] = sr
         opt["f0"] = int(if_f0)
-        torch.save(opt, "assets/weights/%s.pth" % name)
+        torch.save(opt, f"assets/weights/{name}.pth")
         return "Success."
     except:
         return traceback.format_exc()
@@ -196,7 +196,7 @@ def change_info(path, info, name):
         ckpt["info"] = info
         if name == "":
             name = os.path.basename(path)
-        torch.save(ckpt, "assets/weights/%s" % name)
+        torch.save(ckpt, f"assets/weights/{name}")
         return "Success."
     except:
         return traceback.format_exc()
@@ -226,7 +226,7 @@ def merge(path1, path2, alpha1, sr, f0, info, name, version):
             ckpt2 = extract(ckpt2)
         else:
             ckpt2 = ckpt2["weight"]
-        if sorted(list(ckpt1.keys())) != sorted(list(ckpt2.keys())):
+        if sorted(ckpt1.keys()) != sorted(ckpt2.keys()):
             return "Fail to merge the models. The model architectures are not the same."
         opt = OrderedDict()
         opt["weight"] = {}
@@ -254,7 +254,7 @@ def merge(path1, path2, alpha1, sr, f0, info, name, version):
         opt["f0"] = 1 if f0 == i18n("Yes") else 0
         opt["version"] = version
         opt["info"] = info
-        torch.save(opt, "assets/weights/%s.pth" % name)
+        torch.save(opt, f"assets/weights/{name}.pth")
         return "Success."
     except:
         return traceback.format_exc()

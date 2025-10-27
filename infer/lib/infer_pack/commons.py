@@ -59,7 +59,7 @@ def slice_segments2(x, ids_str, segment_size=4):
 
 
 def rand_slice_segments(x, x_lengths=None, segment_size=4):
-    b, d, t = x.size()
+    b, _d, t = x.size()
     if x_lengths is None:
         x_lengths = t
     ids_str_max = x_lengths - segment_size + 1
@@ -85,13 +85,13 @@ def get_timing_signal_1d(length, channels, min_timescale=1.0, max_timescale=1.0e
 
 
 def add_timing_signal_1d(x, min_timescale=1.0, max_timescale=1.0e4):
-    b, channels, length = x.size()
+    _b, channels, length = x.size()
     signal = get_timing_signal_1d(length, channels, min_timescale, max_timescale)
     return x + signal.to(dtype=x.dtype, device=x.device)
 
 
 def cat_timing_signal_1d(x, min_timescale=1.0, max_timescale=1.0e4, axis=1):
-    b, channels, length = x.size()
+    _b, channels, length = x.size()
     signal = get_timing_signal_1d(length, channels, min_timescale, max_timescale)
     return torch.cat([x, signal.to(dtype=x.dtype, device=x.device)], axis)
 
@@ -138,7 +138,6 @@ def generate_path(duration, mask):
     duration: [b, 1, t_x]
     mask: [b, 1, t_y, t_x]
     """
-    device = duration.device
 
     b, _, t_y, t_x = mask.shape
     cum_duration = torch.cumsum(duration, -1)

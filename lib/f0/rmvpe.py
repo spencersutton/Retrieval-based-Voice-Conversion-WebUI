@@ -14,8 +14,8 @@ from .models import get_rmvpe
 def rmvpe_jit_export(
     model_path: str,
     mode: str = "script",
-    inputs_path: str = None,
-    save_path: str = None,
+    inputs_path: str | None = None,
+    save_path: str | None = None,
     device=torch.device("cpu"),
     is_half=False,
 ):
@@ -75,7 +75,7 @@ class RMVPE(F0Predictor):
             import onnxruntime as ort
 
             self.model = ort.InferenceSession(
-                "%s/rmvpe.onnx" % os.environ["rmvpe_root"],
+                "{}/rmvpe.onnx".format(os.environ["rmvpe_root"]),
                 providers=["DmlExecutionProvider"],
             )
         else:
@@ -107,7 +107,7 @@ class RMVPE(F0Predictor):
             hidden = hidden.squeeze(0).cpu().numpy()
         else:
             hidden = hidden[0]
-        if self.is_half == True:
+        if self.is_half:
             hidden = hidden.astype("float32")
 
         f0 = self._decode(hidden, thred=filter_radius)

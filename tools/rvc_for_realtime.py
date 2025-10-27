@@ -57,7 +57,7 @@ class RVC:
         初始化
         """
         try:
-            if config.dml == True:
+            if config.dml:
 
                 def forward_dml(ctx, x, scale):
                     ctx.scale = scale
@@ -242,7 +242,7 @@ class RVC:
             f0 *= pow(2, f0_up_key / 12)
             return self.get_f0_post(f0)
         if n_cpu == 1:
-            f0, t = pyworld.harvest(
+            f0, _t = pyworld.harvest(
                 x.astype(np.double),
                 fs=16000,
                 f0_ceil=1100,
@@ -310,7 +310,7 @@ class RVC:
         return self.get_f0_post(f0)
 
     def get_f0_rmvpe(self, x, f0_up_key):
-        if hasattr(self, "model_rmvpe") == False:
+        if not hasattr(self, "model_rmvpe"):
             from infer.lib.rmvpe import RMVPE
 
             printt("Loading rmvpe model")
@@ -325,7 +325,7 @@ class RVC:
         return self.get_f0_post(f0)
 
     def get_f0_fcpe(self, x, f0_up_key):
-        if hasattr(self, "model_fcpe") == False:
+        if not hasattr(self, "model_fcpe"):
             from torchfcpe import spawn_bundled_infer_model
 
             printt("Loading fcpe model")

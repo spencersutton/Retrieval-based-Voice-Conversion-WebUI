@@ -23,12 +23,12 @@ from scipy.io import wavfile
 from infer.lib.audio import load_audio
 from infer.lib.slicer2 import Slicer
 
-f = open("%s/preprocess.log" % exp_dir, "a+")
+f = open(f"{exp_dir}/preprocess.log", "a+")
 
 
 def println(strr):
     print(strr)
-    f.write("%s\n" % strr)
+    f.write(f"{strr}\n")
     f.flush()
 
 
@@ -63,8 +63,8 @@ class PreProcess:
         self.max = 0.9
         self.alpha = 0.75
         self.exp_dir = exp_dir
-        self.gt_wavs_dir = "%s/0_gt_wavs" % exp_dir
-        self.wavs16k_dir = "%s/1_16k_wavs" % exp_dir
+        self.gt_wavs_dir = f"{exp_dir}/0_gt_wavs"
+        self.wavs16k_dir = f"{exp_dir}/1_16k_wavs"
         os.makedirs(self.exp_dir, exist_ok=True)
         os.makedirs(self.gt_wavs_dir, exist_ok=True)
         os.makedirs(self.wavs16k_dir, exist_ok=True)
@@ -74,13 +74,13 @@ class PreProcess:
     ) -> None:
         tmp_max = np.abs(tmp_audio).max()
         if tmp_max > 2.5:
-            print("%s-%s-%s-filtered" % (idx0, idx1, tmp_max))
+            print(f"{idx0}-{idx1}-{tmp_max}-filtered")
             return
         tmp_audio = (tmp_audio / tmp_max * (self.max * self.alpha)) + (
             1 - self.alpha
         ) * tmp_audio
         wavfile.write(
-            "%s/%s_%s.wav" % (self.gt_wavs_dir, idx0, idx1),
+            f"{self.gt_wavs_dir}/{idx0}_{idx1}.wav",
             self.sr,
             tmp_audio.astype(np.float32),
         )
@@ -88,7 +88,7 @@ class PreProcess:
             tmp_audio, orig_sr=self.sr, target_sr=16000
         )  # , res_type="soxr_vhq"
         wavfile.write(
-            "%s/%s_%s.wav" % (self.wavs16k_dir, idx0, idx1),
+            f"{self.wavs16k_dir}/{idx0}_{idx1}.wav",
             16000,
             tmp_audio.astype(np.float32),
         )
@@ -115,9 +115,9 @@ class PreProcess:
                         idx1 += 1
                         break
                 self.norm_write(tmp_audio, idx0, idx1)
-            println("%s\t-> Success" % path)
+            println(f"{path}\t-> Success")
         except:
-            println("%s\t-> %s" % (path, traceback.format_exc()))
+            println(f"{path}\t-> {traceback.format_exc()}")
 
     def pipeline_mp(self: "PreProcess", infos: list[tuple[str, int]]) -> None:
         for path, idx0 in infos:
@@ -126,8 +126,8 @@ class PreProcess:
     def pipeline_mp_inp_dir(self: "PreProcess", inp_root: str, n_p: int) -> None:
         try:
             infos = [
-                ("%s/%s" % (inp_root, name), idx)
-                for idx, name in enumerate(sorted(list(os.listdir(inp_root))))
+                (f"{inp_root}/{name}", idx)
+                for idx, name in enumerate(sorted(os.listdir(inp_root)))
             ]
             if noparallel:
                 for i in range(n_p):
@@ -143,7 +143,7 @@ class PreProcess:
                 for i in range(n_p):
                     ps[i].join()
         except:
-            println("Fail. %s" % traceback.format_exc())
+            println(f"Fail. {traceback.format_exc()}")
 
 
 def preprocess_trainset(inp_root: str, sr: int, n_p: int, exp_dir: str, per: float):

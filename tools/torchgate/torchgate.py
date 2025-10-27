@@ -41,8 +41,8 @@ class TorchGate(torch.nn.Module):
         n_movemean_nonstationary: int = 20,
         prop_decrease: float = 1.0,
         n_fft: int = 1024,
-        win_length: bool = None,
-        hop_length: int = None,
+        win_length: bool | None = None,
+        hop_length: int | None = None,
         freq_mask_smooth_hz: float = 500,
         time_mask_smooth_ms: float = 50,
     ):

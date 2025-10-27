@@ -9,7 +9,7 @@ class ConvBlockRes(nn.Module):
         out_channels: int,
         momentum: float = 0.01,
     ):
-        super(ConvBlockRes, self).__init__()
+        super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(
                 in_channels=in_channels,
@@ -54,7 +54,7 @@ class Encoder(nn.Module):
         out_channels=16,
         momentum=0.01,
     ):
-        super(Encoder, self).__init__()
+        super().__init__()
         self.n_encoders = n_encoders
 
         self.bn = nn.BatchNorm2d(in_channels, momentum=momentum)
@@ -92,7 +92,7 @@ class ResEncoderBlock(nn.Module):
         n_blocks=1,
         momentum=0.01,
     ):
-        super(ResEncoderBlock, self).__init__()
+        super().__init__()
         self.n_blocks = n_blocks
         self.kernel_size = kernel_size
 
@@ -117,7 +117,7 @@ class ResEncoderBlock(nn.Module):
 
 class Intermediate(nn.Module):
     def __init__(self, in_channels, out_channels, n_inters, n_blocks, momentum=0.01):
-        super(Intermediate, self).__init__()
+        super().__init__()
 
         self.layers = nn.ModuleList()
         self.layers.append(
@@ -136,7 +136,7 @@ class Intermediate(nn.Module):
 
 class ResDecoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride, n_blocks=1, momentum=0.01):
-        super(ResDecoderBlock, self).__init__()
+        super().__init__()
         out_padding = (0, 1) if stride == (1, 2) else (1, 1)
 
         self.conv1 = nn.Sequential(
@@ -167,7 +167,7 @@ class ResDecoderBlock(nn.Module):
 
 class Decoder(nn.Module):
     def __init__(self, in_channels, n_decoders, stride, n_blocks, momentum=0.01):
-        super(Decoder, self).__init__()
+        super().__init__()
 
         self.layers = nn.ModuleList()
         self.n_decoders = n_decoders
@@ -194,7 +194,7 @@ class DeepUnet(nn.Module):
         in_channels=1,
         en_out_channels=16,
     ):
-        super(DeepUnet, self).__init__()
+        super().__init__()
         self.encoder = Encoder(
             in_channels, 128, en_de_layers, kernel_size, n_blocks, en_out_channels
         )

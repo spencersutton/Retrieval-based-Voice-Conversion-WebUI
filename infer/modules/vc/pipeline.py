@@ -2,7 +2,6 @@ import logging
 import os
 import sys
 import traceback
-from typing import TypeAlias
 
 import gradio as gr
 
@@ -80,7 +79,7 @@ class Pipeline:
         )
         # self.sr: int = 16000  # hubert输入采样率
         # self.window: int = 160  # 每帧点数
-        PitchExtractorDict: TypeAlias = dict[str, "PitchExtractor"]
+        type PitchExtractorDict = dict[str, "PitchExtractor"]
         self.t_pad: int = self.sr * self.x_pad  # 每条前后pad时间
         self.t_pad_tgt: int = tgt_sr * self.x_pad
         self.t_pad2: int = self.t_pad * 2

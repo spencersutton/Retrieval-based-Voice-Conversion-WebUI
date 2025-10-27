@@ -32,7 +32,7 @@ def slice_on_last_dim(
 
 def rand_slice_segments_on_last_dim(
     x: torch.Tensor,
-    x_lengths: int = None,
+    x_lengths: int | None = None,
     segment_size=4,
 ) -> tuple[torch.Tensor, list[int]]:
     b, _, t = x.size()

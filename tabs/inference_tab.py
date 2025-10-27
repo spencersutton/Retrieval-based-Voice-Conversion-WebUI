@@ -23,7 +23,7 @@ def change_choices():
     for root, dirs, files in os.walk(shared.index_root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
-                index_paths.append("%s/%s" % (root, name))
+                index_paths.append(f"{root}/{name}")
     return {"choices": sorted(names), "__type__": "update"}, {
         "choices": sorted(index_paths),
         "__type__": "update",

@@ -32,7 +32,7 @@ def load_inputs(path: FileLike, device: str, is_half=False):  # type: ignore
 def export_jit_model(
     model: torch.nn.Module,
     mode: str = "trace",
-    inputs: dict = None,
+    inputs: dict | None = None,
     device=torch.device("cpu"),
     is_half: bool = False,
 ) -> dict:

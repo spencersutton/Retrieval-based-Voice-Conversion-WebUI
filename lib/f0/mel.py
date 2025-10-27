@@ -15,7 +15,7 @@ class MelSpectrogram(torch.nn.Module):
         hop_length: int,
         n_fft: int | None = None,
         mel_fmin: int = 0,
-        mel_fmax: int = None,
+        mel_fmax: int | None = None,
         clamp: float = 1e-5,
         device=torch.device("cpu"),
     ):

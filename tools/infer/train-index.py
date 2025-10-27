@@ -13,8 +13,8 @@ import numpy as np
 # ###########如果是原始特征要先写save
 inp_root = r"E:\codes\py39\dataset\mi\2-co256"
 npys = []
-for name in sorted(list(os.listdir(inp_root))):
-    phone = np.load("%s/%s" % (inp_root, name))
+for name in sorted(os.listdir(inp_root)):
+    phone = np.load(f"{inp_root}/{name}")
     npys.append(phone)
 big_npy = np.concatenate(npys, 0)
 logger.debug(big_npy.shape)  # (6196072, 192)#fp32#4.43G

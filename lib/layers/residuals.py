@@ -20,7 +20,7 @@ class ResBlock1(torch.nn.Module):
         kernel_size: int = 3,
         dilation: list[int] = (1, 3, 5),
     ):
-        super(ResBlock1, self).__init__()
+        super().__init__()
 
         self.convs1 = nn.ModuleList()
         for d in dilation:
@@ -117,7 +117,7 @@ class ResBlock2(torch.nn.Module):
         kernel_size=3,
         dilation: list[int] = (1, 3),
     ):
-        super(ResBlock2, self).__init__()
+        super().__init__()
         self.convs = nn.ModuleList()
         for d in dilation:
             self.convs.append(
@@ -185,7 +185,7 @@ class ResidualCouplingLayer(nn.Module):
         mean_only: bool = False,
     ):
         assert channels % 2 == 0, "channels should be divisible by 2"
-        super(ResidualCouplingLayer, self).__init__()
+        super().__init__()
         self.channels = channels
         self.hidden_channels = hidden_channels
         self.kernel_size = kernel_size
@@ -288,7 +288,7 @@ class ResidualCouplingBlock(nn.Module):
         n_flows: int = 4,
         gin_channels: int = 0,
     ):
-        super(ResidualCouplingBlock, self).__init__()
+        super().__init__()
         self.channels = channels
         self.hidden_channels = hidden_channels
         self.kernel_size = kernel_size

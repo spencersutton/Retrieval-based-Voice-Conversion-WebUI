@@ -20,7 +20,7 @@ class Encoder(nn.Module):
         window_size=10,
         **kwargs,
     ):
-        super(Encoder, self).__init__()
+        super().__init__()
         self.hidden_channels = hidden_channels
         self.filter_channels = filter_channels
         self.n_heads = n_heads
@@ -87,7 +87,7 @@ class Decoder(nn.Module):
         proximal_init=True,
         **kwargs,
     ):
-        super(Decoder, self).__init__()
+        super().__init__()
         self.hidden_channels = hidden_channels
         self.filter_channels = filter_channels
         self.n_heads = n_heads
@@ -173,7 +173,7 @@ class MultiHeadAttention(nn.Module):
         proximal_bias=False,
         proximal_init=False,
     ):
-        super(MultiHeadAttention, self).__init__()
+        super().__init__()
         assert channels % n_heads == 0
 
         self.channels = channels
@@ -303,7 +303,7 @@ class MultiHeadAttention(nn.Module):
         return ret
 
     def _get_relative_embeddings(self, relative_embeddings, length: int):
-        max_relative_position = 2 * self.window_size + 1
+        2 * self.window_size + 1
         # Pad first before slice to avoid using cond ops.
         pad_length: int = max(length - (self.window_size + 1), 0)
         slice_start_position = max((self.window_size + 1) - length, 0)
@@ -390,10 +390,10 @@ class FFN(nn.Module):
         filter_channels,
         kernel_size,
         p_dropout=0.0,
-        activation: str = None,
+        activation: str | None = None,
         causal=False,
     ):
-        super(FFN, self).__init__()
+        super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.filter_channels = filter_channels

@@ -130,7 +130,7 @@ for idx, name in enumerate(
         "冬之花clip1.wav",
     ]
 ):  ##
-    wav_path = "todo-songs/%s" % name  #
+    wav_path = f"todo-songs/{name}"  #
     f0_up_key = -2  #
     audio, sampling_rate = sf.read(wav_path)
     if len(audio.shape) > 1:
@@ -197,7 +197,7 @@ for idx, name in enumerate(
     # wavfile.write("ft-mi_1k-index256-noD-%s.wav"%name, 40000, audio)##
     # wavfile.write("ft-mi-freeze-vocoder-flow-enc_q_1k-%s.wav"%name, 40000, audio)##
     # wavfile.write("ft-mi-sim1k-%s.wav"%name, 40000, audio)##
-    wavfile.write("ft-mi-no_opt-no_dropout-%s.wav" % name, 40000, audio)  ##
+    wavfile.write(f"ft-mi-no_opt-no_dropout-{name}.wav", 40000, audio)  ##
 
 
 logger.debug("%.2fs %.2fs %.2fs", ta0, ta1, ta2)  #

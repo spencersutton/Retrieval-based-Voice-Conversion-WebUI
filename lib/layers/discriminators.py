@@ -16,7 +16,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
     def __init__(
         self, version: str, use_spectral_norm: bool = False, has_xpu: bool = False
     ):
-        super(MultiPeriodDiscriminator, self).__init__()
+        super().__init__()
         periods = (
             (2, 3, 5, 7, 11, 17) if version == "v1" else (2, 3, 5, 7, 11, 17, 23, 37)
         )
@@ -69,7 +69,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 
 class DiscriminatorS(torch.nn.Module):
     def __init__(self, use_spectral_norm: bool = False):
-        super(DiscriminatorS, self).__init__()
+        super().__init__()
         norm_f = spectral_norm if use_spectral_norm else weight_norm
 
         self.convs = nn.ModuleList(
@@ -111,7 +111,7 @@ class DiscriminatorP(torch.nn.Module):
         use_spectral_norm: bool = False,
         has_xpu: bool = False,
     ):
-        super(DiscriminatorP, self).__init__()
+        super().__init__()
         self.period = period
         self.has_xpu = has_xpu
         norm_f = spectral_norm if use_spectral_norm else weight_norm
