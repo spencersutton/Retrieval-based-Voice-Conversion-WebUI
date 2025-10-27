@@ -2248,7 +2248,7 @@ wheels = [
 ]
 
 [[package]]
-name = "rvc"
+name = "rvc-webgui-fork"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
