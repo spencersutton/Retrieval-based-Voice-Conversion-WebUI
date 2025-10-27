@@ -261,7 +261,7 @@ class RVC:
                 self.inp_q.put(
                     (idx, x[part_length * idx - 320 : tail], res_f0, n_cpu, ts)
                 )
-        while 1:
+        while True:
             res_ts = self.opt_q.get()
             if res_ts == ts:
                 break

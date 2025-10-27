@@ -1,7 +1,7 @@
 import multiprocessing
-import os
 import sys
 import traceback
+from pathlib import Path
 
 import librosa
 import numpy as np
@@ -11,8 +11,6 @@ from scipy.io import wavfile
 from infer.lib.audio import load_audio
 from infer.lib.slicer2 import Slicer
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
 print(*sys.argv[1:])
 inp_root = sys.argv[1]
 sr = int(sys.argv[2])
@@ -21,10 +19,11 @@ exp_dir = sys.argv[4]
 noparallel = sys.argv[5] == "True"
 per = float(sys.argv[6])
 
-f = open(f"{exp_dir}/preprocess.log", "a+")
+
+f = Path(f"{exp_dir}/preprocess.log").open("a+")
 
 
-def println(strr):
+def println(strr: str):
     print(strr)
     f.write(f"{strr}\n")
     f.flush()
@@ -40,11 +39,11 @@ class PreProcess:
     tail: float
     max: float
     alpha: float
-    exp_dir: str
-    gt_wavs_dir: str
-    wavs16k_dir: str
+    exp_dir: Path
+    gt_wavs_dir: Path
+    wavs16k_dir: Path
 
-    def __init__(self: "PreProcess", sr: int, exp_dir: str, per=3.7):
+    def __init__(self: "PreProcess", sr: int, exp_dir: str, per: float = 3.7):
         self.slicer = Slicer(
             sr=sr,
             threshold=-42,
@@ -54,18 +53,18 @@ class PreProcess:
             max_sil_kept=500,
         )
         self.sr = sr
-        self.bh, self.ah = signal.butter(N=5, Wn=48, btype="high", fs=self.sr)
+        self.bh, self.ah = signal.butter(N=5, Wn=48, btype="high", fs=self.sr)  # type: ignore
         self.per = per
         self.overlap = 0.3
         self.tail = self.per + self.overlap
         self.max = 0.9
         self.alpha = 0.75
-        self.exp_dir = exp_dir
-        self.gt_wavs_dir = f"{exp_dir}/0_gt_wavs"
-        self.wavs16k_dir = f"{exp_dir}/1_16k_wavs"
-        os.makedirs(self.exp_dir, exist_ok=True)
-        os.makedirs(self.gt_wavs_dir, exist_ok=True)
-        os.makedirs(self.wavs16k_dir, exist_ok=True)
+        self.exp_dir = Path(exp_dir)
+        self.gt_wavs_dir = self.exp_dir / "0_gt_wavs"
+        self.wavs16k_dir = self.exp_dir / "1_16k_wavs"
+        self.exp_dir.mkdir(parents=True, exist_ok=True)
+        self.gt_wavs_dir.mkdir(parents=True, exist_ok=True)
+        self.wavs16k_dir.mkdir(parents=True, exist_ok=True)
 
     def norm_write(
         self: "PreProcess", tmp_audio: np.ndarray, idx0: int, idx1: int
@@ -100,7 +99,8 @@ class PreProcess:
             idx1 = 0
             for audio in self.slicer.slice(audio):
                 i = 0
-                while 1:
+                tmp_audio = None
+                while True:
                     start = int(self.sr * (self.per - self.overlap) * i)
                     i += 1
                     if len(audio[start:]) > self.tail * self.sr:
@@ -111,6 +111,7 @@ class PreProcess:
                         tmp_audio = audio[start:]
                         idx1 += 1
                         break
+                assert tmp_audio is not None
                 self.norm_write(tmp_audio, idx0, idx1)
             println(f"{path}\t-> Success")
         except Exception:
@@ -122,9 +123,10 @@ class PreProcess:
 
     def pipeline_mp_inp_dir(self: "PreProcess", inp_root: str, n_p: int) -> None:
         try:
+            inp_root_path = Path(inp_root)
             infos = [
-                (f"{inp_root}/{name}", idx)
-                for idx, name in enumerate(sorted(os.listdir(inp_root)))
+                (str(path), idx)
+                for idx, path in enumerate(sorted(inp_root_path.iterdir()))
             ]
             if noparallel:
                 for i in range(n_p):
