@@ -130,8 +130,11 @@ class _ResidualCouplingBlock(nn.Module):
         return x
 
     def remove_weight_norm(self) -> None:
+        """Remove weight normalization and free associated memory."""
         for i in range(self.n_flows):
             self.flows[i * 2].remove_weight_norm()  # type: ignore
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     def __prepare_scriptable__(self) -> Self:
         for i in range(self.n_flows):
@@ -193,7 +196,10 @@ class _PosteriorEncoder(nn.Module):
         return z, m, logs, x_mask
 
     def remove_weight_norm(self) -> None:
+        """Remove weight normalization and free associated memory."""
         self.enc.remove_weight_norm()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     def __prepare_scriptable__(self) -> Self:
         for hook in self.enc._forward_pre_hooks.values():  # type: ignore
@@ -270,13 +276,10 @@ class _Generator(torch.nn.Module):
         for i in range(self.num_upsamples):
             x = F.leaky_relu(x, modules.LRELU_SLOPE)
             x = self.ups[i](x)
-            xs: torch.Tensor | None = None
-            for j in range(self.num_kernels):
-                if xs is None:
-                    xs = self.resblocks[i * self.num_kernels + j](x)
-                else:
-                    xs += self.resblocks[i * self.num_kernels + j](x)
-            assert xs is not None
+            # Pre-compute first resblock instead of None check in loop
+            xs = self.resblocks[i * self.num_kernels](x)
+            for j in range(1, self.num_kernels):
+                xs = xs + self.resblocks[i * self.num_kernels + j](x)
             x = xs / self.num_kernels
         x = F.leaky_relu(x)
         x = self.conv_post(x)
@@ -355,20 +358,25 @@ class _SineGen(torch.nn.Module):
     def _f02sine(self, f0: torch.Tensor, upp: int) -> torch.Tensor:
         """f0: (batchsize, length, dim)
         where dim indicates fundamental tone and overtones
+
+        Memory optimized: reduces intermediate tensor allocations
         """
         a = torch.arange(1, upp + 1, dtype=f0.dtype, device=f0.device)
         rad = f0 / self.sampling_rate * a
         rad2 = torch.fmod(rad[:, :-1, -1:].float() + 0.5, 1.0) - 0.5
         rad_acc = rad2.cumsum(dim=1).fmod(1.0).to(f0)
+        del rad2  # Free intermediate tensor
         rad += F.pad(rad_acc, (0, 0, 1, 0), mode="constant")
+        del rad_acc  # Free intermediate tensor
         rad = rad.reshape(f0.shape[0], -1, 1)
         b = torch.arange(1, self.dim + 1, dtype=f0.dtype, device=f0.device).reshape(
             1, 1, -1
         )
-        rad *= b
+        rad = rad * b
         rand_ini = torch.rand(1, 1, self.dim, device=f0.device)
         rand_ini[..., 0] = 0
-        rad += rand_ini
+        rad = rad + rand_ini
+        del rand_ini  # Free intermediate tensor
         sines = torch.sin(2 * np.pi * rad)
         return sines
 
@@ -378,6 +386,8 @@ class _SineGen(torch.nn.Module):
                   f0 for unvoiced steps should be 0
         output sine_tensor: tensor(batchsize=1, length, dim)
         output uv: tensor(batchsize=1, length, 1)
+
+        Memory optimized: uses in-place operations where safe
         """
         with torch.no_grad():
             f0 = f0.unsqueeze(-1)
@@ -388,7 +398,9 @@ class _SineGen(torch.nn.Module):
             ).transpose(2, 1)
             noise_amp = uv * self.noise_std + (1 - uv) * self.sine_amp / 3
             noise = noise_amp * torch.randn_like(sine_waves)
-            sine_waves = sine_waves * uv + noise
+            # In-place operation to reduce memory
+            sine_waves *= uv
+            sine_waves += noise
         return sine_waves, uv, noise
 
 
@@ -543,17 +555,11 @@ class _GeneratorNSF(torch.nn.Module):
                 x = ups(x)
                 x_source = noise_convs(har_source)
                 x = x + x_source
-                xs: torch.Tensor | None = None
-                l = [i * self.num_kernels + j for j in range(self.num_kernels)]
-                for j, resblock in enumerate(self.resblocks):
-                    if j in l:
-                        if xs is None:
-                            xs = resblock(x)
-                        else:
-                            xs += resblock(x)
-                # This assertion cannot be ignored! \
-                # If ignored, it will cause torch.jit.script() compilation errors
-                assert isinstance(xs, torch.Tensor)
+                # Optimize resblock accumulation - pre-compute first block
+                start_idx = i * self.num_kernels
+                xs = self.resblocks[start_idx](x)
+                for j in range(1, self.num_kernels):
+                    xs = xs + self.resblocks[start_idx + j](x)
                 x = xs / self.num_kernels
         x = F.leaky_relu(x)
         x = self.conv_post(x)
@@ -562,10 +568,14 @@ class _GeneratorNSF(torch.nn.Module):
         return x
 
     def remove_weight_norm(self) -> None:
+        """Remove weight normalization and free associated memory."""
         for l in self.ups:
             remove_weight_norm(l)
         for l in self.resblocks:
             l.remove_weight_norm()  # type: ignore
+        # Clear any cached computations
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     def __prepare_scriptable__(self) -> Self:
         for l in self.ups:
@@ -682,10 +692,14 @@ class _SynthesizerTrnMs256NSFsid(nn.Module):
         )
 
     def remove_weight_norm(self) -> None:
+        """Remove weight normalization from all sub-modules and free memory."""
         self.dec.remove_weight_norm()
         self.flow.remove_weight_norm()
         if hasattr(self, "enc_q"):
             self.enc_q.remove_weight_norm()
+        # Clear cached GPU memory after removing weight norms
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     def __prepare_scriptable__(self) -> Self:
         for hook in self.dec._forward_pre_hooks.values():  # type: ignore
@@ -909,10 +923,14 @@ class _SynthesizerTrnMs256NSFsid_nono(nn.Module):
         )
 
     def remove_weight_norm(self) -> None:
+        """Remove weight normalization from all sub-modules and free memory."""
         self.dec.remove_weight_norm()
         self.flow.remove_weight_norm()
         if hasattr(self, "enc_q"):
             self.enc_q.remove_weight_norm()
+        # Clear cached GPU memory after removing weight norms
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     def __prepare_scriptable__(self) -> Self:
         for hook in self.dec._forward_pre_hooks.values():  # type: ignore
@@ -1063,18 +1081,21 @@ class MultiPeriodDiscriminator(torch.nn.Module):
     def forward(
         self, y: torch.Tensor, y_hat: torch.Tensor
     ) -> tuple[list, list, list, list]:
-        y_d_rs = []
-        y_d_gs = []
-        fmap_rs = []
-        fmap_gs = []
-        for d in self.discriminators:
+        # Pre-allocate lists with known size to reduce memory fragmentation
+        num_discs = len(self.discriminators)
+        y_d_rs = [None] * num_discs
+        y_d_gs = [None] * num_discs
+        fmap_rs = [None] * num_discs
+        fmap_gs = [None] * num_discs
+
+        for i, d in enumerate(self.discriminators):
             y_d_r, fmap_r = d(y)
             y_d_g, fmap_g = d(y_hat)
 
-            y_d_rs.append(y_d_r)
-            y_d_gs.append(y_d_g)
-            fmap_rs.append(fmap_r)
-            fmap_gs.append(fmap_g)
+            y_d_rs[i] = y_d_r
+            y_d_gs[i] = y_d_g
+            fmap_rs[i] = fmap_r
+            fmap_gs[i] = fmap_g
 
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
 

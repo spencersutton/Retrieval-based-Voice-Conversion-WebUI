@@ -38,11 +38,7 @@ from infer.lib.train.losses import (
 )
 from infer.lib.train.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 
-# Initialize these as None; they will be set when training is actually started
-hps: params.HParams | None = None
-n_gpus: int = 0
-global_step = 0
-
+# Constants
 DEVICE_TYPE = (
     "cuda"
     if torch.cuda.is_available()
@@ -50,12 +46,22 @@ DEVICE_TYPE = (
     if torch.backends.mps.is_available()
     else "cpu"
 )
+torch.set_default_device(DEVICE_TYPE)
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
 def latest_checkpoint_path(dir_path: Path, pattern: str = "G_*.pth") -> Path:
+    """Find the latest checkpoint file matching the given pattern.
+
+    Args:
+        dir_path: Directory to search for checkpoints
+        pattern: Glob pattern to match checkpoint files
+
+    Returns:
+        Path to the latest checkpoint file
+    """
     files = sorted(
         dir_path.glob(pattern),
         key=lambda f: int("".join(filter(str.isdigit, f.stem))),
@@ -89,6 +95,17 @@ def load_checkpoint(
     optimizer: torch.optim.Optimizer | None = None,
     load_opt: int = 1,
 ) -> int:
+    """Load model and optionally optimizer state from checkpoint.
+
+    Args:
+        checkpoint_path: Path to checkpoint file
+        model: Model to load state into
+        optimizer: Optional optimizer to load state into
+        load_opt: Whether to load optimizer state (1) or not (0)
+
+    Returns:
+        Training iteration/epoch number
+    """
     assert checkpoint_path.is_file()
     checkpoint_dict = torch.load(str(checkpoint_path), map_location="cpu")
 
@@ -117,11 +134,17 @@ def load_checkpoint(
     iteration = checkpoint_dict["iteration"]
 
     # If loading optimizer state fails or optimizer is None, reinitialize it.
-    # If empty, may affect LR scheduler updates, so catch at the outermost train file.
     if optimizer is not None and load_opt == 1:
         optimizer.load_state_dict(checkpoint_dict["optimizer"])
 
     logger.info(f"Loaded checkpoint '{checkpoint_path}' (epoch {iteration})")
+
+    # Clean up checkpoint dict to free memory
+    del checkpoint_dict
+    del saved_state_dict
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     return iteration
 
 
@@ -132,6 +155,15 @@ def save_checkpoint(
     iteration: int,
     checkpoint_path: Path,
 ) -> None:
+    """Save model and optimizer state to checkpoint file.
+
+    Args:
+        model: Model to save
+        optimizer: Optimizer to save
+        learning_rate: Current learning rate
+        iteration: Current training iteration/epoch
+        checkpoint_path: Path to save checkpoint to
+    """
     logger.info(
         f"Saving model and optimizer state at epoch {iteration} to {checkpoint_path}"
     )
@@ -143,6 +175,11 @@ def save_checkpoint(
     }
     torch.save(checkpoint, checkpoint_path)
 
+    # Clean up to reduce memory after save
+    del checkpoint
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
 
 def save_weights(
     ckpt: dict[str, torch.Tensor],
@@ -152,7 +189,21 @@ def save_weights(
     epoch: int,
     hps: params.HParams,
 ) -> str:
+    """Extract and save model weights for inference.
+
+    Args:
+        ckpt: Model state dict
+        sr: Sample rate
+        if_f0: Whether model uses f0
+        name: Model name for filename
+        epoch: Current epoch
+        hps: Hyperparameters
+
+    Returns:
+        Success message or error traceback
+    """
     try:
+        # Convert to half precision and exclude encoder_q for inference
         weights = {k: v.half() for k, v in ckpt.items() if "enc_q" not in k}
         config = [
             hps.data.filter_length // 2 + 1,
@@ -181,17 +232,26 @@ def save_weights(
             "sr": sr,
             "f0": if_f0,
         }
-        torch.save(opt, Path("assets/weights") / f"{name}.pth")
+        save_path = Path("assets/weights") / f"{name}.pth"
+        torch.save(opt, save_path)
+
+        # Clean up
+        del weights
+        del opt
+
         return "Success."
     except Exception:
         return traceback.format_exc()
 
 
 class EpochRecorder:
+    """Records time elapsed between epoch events for logging."""
+
     def __init__(self) -> None:
         self.last_time = ttime()
 
     def record(self) -> str:
+        """Record current time and return formatted elapsed time string."""
         now_time = ttime()
         elapsed = now_time - self.last_time
         self.last_time = now_time
@@ -200,16 +260,15 @@ class EpochRecorder:
         return f"[{timestamp}] | ({elapsed_str})"
 
 
-def main() -> None:
-    assert hps is not None
-
+def main(hps: params.HParams) -> None:
+    """Initialize training environment and launch training processes."""
     # Determine number of GPUs
     if torch.cuda.is_available():
         n_gpus = torch.cuda.device_count()
     elif torch.backends.mps.is_available():
         n_gpus = 1
     else:
-        print("NO GPU DETECTED: falling back to CPU - this may take a while")
+        logger.warning("NO GPU DETECTED: falling back to CPU - this may take a while")
         n_gpus = 1
 
     # Set up distributed training environment
@@ -228,8 +287,7 @@ def main() -> None:
 
     # Launch training processes
     processes = [
-        mp.Process(target=run, args=(rank, n_gpus, hps, logger))
-        for rank in range(n_gpus)
+        mp.Process(target=run, args=(rank, n_gpus, hps)) for rank in range(n_gpus)
     ]
     for proc in processes:
         proc.start()
@@ -237,9 +295,14 @@ def main() -> None:
         proc.join()
 
 
-def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> None:
-    global global_step
+def run(rank: int, n_gpus: int, hps: params.HParams) -> None:
+    """Main training loop for a single GPU process.
 
+    Args:
+        rank: GPU rank for distributed training
+        n_gpus: Total number of GPUs
+        hps: Hyperparameters
+    """
     # Distributed setup
     dist.init_process_group(
         backend="gloo", init_method="env://", world_size=n_gpus, rank=rank
@@ -311,6 +374,7 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
     optim_d = torch.optim.AdamW(net_d.parameters(), **optim_params)
 
     # Resume or load pretrained
+    global_step = 0
     try:
         model_dir = Path(hps.model_dir)
         load_checkpoint(latest_checkpoint_path(model_dir, "D_*.pth"), net_d, optim_d)
@@ -324,15 +388,21 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
         epoch_str = 1
         global_step = 0
         if hps.pretrainG:
+            if rank == 0:
+                logger.info(f"Loading pretrained G: {hps.pretrainG}")
             ckpt = torch.load(hps.pretrainG, map_location="cpu")["model"]
             load_model_state_dict(net_g, ckpt)
-            if rank == 0:
-                logger.info(f"Loaded pretrained G: {hps.pretrainG}")
+            del ckpt  # Free memory immediately
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         if hps.pretrainD:
+            if rank == 0:
+                logger.info(f"Loading pretrained D: {hps.pretrainD}")
             ckpt = torch.load(hps.pretrainD, map_location="cpu")["model"]
             load_model_state_dict(net_d, ckpt)
-            if rank == 0:
-                logger.info(f"Loaded pretrained D: {hps.pretrainD}")
+            del ckpt  # Free memory immediately
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     scaler = torch.GradScaler(enabled=hps.train.fp16_run)
     cache: list[object] = []
@@ -364,7 +434,7 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
 
         epoch_recorder = EpochRecorder()
 
-        for info in data_iterator:
+        for batch_idx, info in enumerate(data_iterator):
             # Unpack batch data
             if hps.if_f0:
                 (
@@ -481,6 +551,10 @@ def run(rank: int, n_gpus: int, hps: params.HParams, logger: logging.Logger) -> 
             scaler.update()
 
             global_step += 1
+
+            # Periodic memory cleanup to reduce fragmentation
+            if batch_idx % 100 == 0 and torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         # Save checkpoints
         if epoch % hps.save_every_epoch == 0 and rank == 0:
@@ -612,7 +686,6 @@ if __name__ == "__main__":
     hps.data.training_files = f"{experiment_dir}/filelist.txt"
 
     os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
-    n_gpus = len(hps.gpus.split("-"))
 
     # Disable deterministic and benchmark for cuDNN
     torch.backends.cudnn.deterministic = False
@@ -620,4 +693,4 @@ if __name__ == "__main__":
 
     # Use 'spawn' method for multiprocessing
     mp.set_start_method("spawn")
-    main()
+    main(hps)

@@ -4,40 +4,47 @@ import torch
 def feature_loss(
     fmap_r: list[list[torch.Tensor]], fmap_g: list[list[torch.Tensor]]
 ) -> torch.Tensor:
-    loss = 0
+    """Calculate feature matching loss between real and generated feature maps.
+
+    Accumulates mean absolute difference between corresponding feature maps.
+    """
+    loss = torch.tensor(0.0, dtype=torch.float32)
     for dr, dg in zip(fmap_r, fmap_g):
         for rl, gl in zip(dr, dg):
-            rl = rl.float().detach()
-            gl = gl.float()
+            rl = rl.float().detach()  # noqa: PLW2901
+            gl = gl.float()  # noqa: PLW2901
             loss += torch.mean(torch.abs(rl - gl))
 
-    return torch.Tensor(loss * 2)
+    return loss * 2
 
 
 def discriminator_loss(
     disc_real_outputs: list[torch.Tensor], disc_generated_outputs: list[torch.Tensor]
 ) -> torch.Tensor:
-    loss = 0
+    """Calculate discriminator loss using least-squares GAN objective.
+
+    Real outputs should be close to 1, generated outputs should be close to 0.
+    """
+    loss = torch.tensor(0.0, dtype=torch.float32)
     for dr, dg in zip(disc_real_outputs, disc_generated_outputs):
         r_loss = torch.mean((1 - dr.float()) ** 2)
         g_loss = torch.mean(dg.float() ** 2)
-        loss += r_loss + g_loss
+        loss = loss + r_loss + g_loss
 
-    return torch.Tensor(loss)
+    return loss
 
 
 def generator_loss(
     disc_outputs: list[torch.Tensor],
 ) -> tuple[torch.Tensor, list[torch.Tensor]]:
-    loss = 0
     gen_losses: list[torch.Tensor] = []
     for dg in disc_outputs:
-        dg = dg.float()
-        l = torch.mean((1 - dg) ** 2)
+        l = torch.mean((1 - dg.float()) ** 2)
         gen_losses.append(l)
-        loss += l
 
-    return torch.Tensor(loss), gen_losses
+    # Sum all losses - avoid accumulating as scalar
+    loss = torch.stack(gen_losses).sum() if gen_losses else torch.tensor(0.0)
+    return loss, gen_losses
 
 
 def kl_loss(
