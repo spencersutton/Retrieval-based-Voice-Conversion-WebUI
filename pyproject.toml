@@ -47,6 +47,9 @@ gtk = [
 [tool.setuptools]
 packages = ["infer", "lib", "tabs", "i18n"]
 
+[[tool.uv.index]]
+url = "https://download.pytorch.org/whl/cu130"
+
 [tool.uv]
 package = true
 
