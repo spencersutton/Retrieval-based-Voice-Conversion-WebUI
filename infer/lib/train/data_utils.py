@@ -44,24 +44,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         self.hop_length = hparams.hop_length
         self.win_length = hparams.win_length
         self.sampling_rate = hparams.sampling_rate
-        self.min_text_len = getattr(hparams, "min_text_len", 1)
-        self.max_text_len = getattr(hparams, "max_text_len", 5000)
-        self._filter()
-
-    def _filter(self) -> None:
-        """
-        Filter text & store spec lengths
-        """
-        # Store spectrogram lengths for Bucketing
-
-        audiopaths_and_text_new = []
-        lengths = []
-        for audiopath, text, pitch, pitchf, dv in self.audiopaths_and_text:
-            if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
-                audiopaths_and_text_new.append([audiopath, text, pitch, pitchf, dv])
-                lengths.append(os.path.getsize(audiopath) // (3 * self.hop_length))
-        self.audiopaths_and_text = audiopaths_and_text_new
-        self.lengths = lengths
+        self.lengths = []
 
     def get_audio_text_pair(self, audiopath_and_text: list[object]) -> tuple:
         # separate filename and text
@@ -253,24 +236,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
         self.hop_length = hparams.hop_length
         self.win_length = hparams.win_length
         self.sampling_rate = hparams.sampling_rate
-        self.min_text_len = getattr(hparams, "min_text_len", 1)
-        self.max_text_len = getattr(hparams, "max_text_len", 5000)
-        self._filter()
-
-    def _filter(self) -> None:
-        """
-        Filter text & store spec lengths
-        """
-        # Store spectrogram lengths for Bucketing
-
-        audiopaths_and_text_new = []
-        lengths = []
-        for audiopath, text, dv in self.audiopaths_and_text:
-            if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
-                audiopaths_and_text_new.append([audiopath, text, dv])
-                lengths.append(os.path.getsize(audiopath) // (3 * self.hop_length))
-        self.audiopaths_and_text = audiopaths_and_text_new
-        self.lengths = lengths
+        self.lengths = []
 
     def get_audio_text_pair(self, audiopath_and_text: list[object]) -> tuple:
         # separate filename and text
