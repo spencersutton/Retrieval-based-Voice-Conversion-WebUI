@@ -6,16 +6,14 @@
 #                  Do Not Use All Of Non-Torch Types!                #
 #                                                                    #
 ############################## Warning! ##############################
-import copy
 import math
 from typing import Optional
 
-import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
 
-from infer.lib.infer_pack import commons, modules
+from infer.lib.infer_pack import commons
 from infer.lib.infer_pack.modules import LayerNorm
 
 
@@ -267,9 +265,9 @@ class MultiHeadAttention(nn.Module):
         if mask is not None:
             scores = scores.masked_fill(mask == 0, -1e4)
             if self.block_length is not None:
-                assert (
-                    t_s == t_t
-                ), "Local attention is only available for self-attention."
+                assert t_s == t_t, (
+                    "Local attention is only available for self-attention."
+                )
                 block_mask = (
                     torch.ones_like(scores)
                     .triu(-self.block_length)

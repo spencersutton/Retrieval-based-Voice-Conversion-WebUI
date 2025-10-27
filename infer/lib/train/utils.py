@@ -5,7 +5,6 @@ import logging
 import os
 import subprocess
 import sys
-import shutil
 
 import numpy as np
 import torch
@@ -284,7 +283,6 @@ def plot_alignment_to_numpy(alignment, info=None):
     #     mpl_logger = logging.getLogger("matplotlib")
     #     mpl_logger.setLevel(logging.WARNING)
     # import matplotlib.pylab as plt
-    import numpy as np
 
     # fig, ax = plt.subplots(figsize=(6, 4))
     # im = ax.imshow(

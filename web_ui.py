@@ -1,11 +1,7 @@
 import shared
-import fairseq
 import torch
 import gradio as gr
 import git
-import logging
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.middleware import Middleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
 from tabs.ckpt_processing_tab import create_ckpt_processing_tab

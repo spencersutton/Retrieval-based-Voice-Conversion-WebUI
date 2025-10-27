@@ -35,7 +35,9 @@ class MultiPeriodDiscriminator(torch.nn.Module):
             ]
         )
 
-    def __call__(self, y: torch.Tensor, y_hat: torch.Tensor) -> Tuple[
+    def __call__(
+        self, y: torch.Tensor, y_hat: torch.Tensor
+    ) -> Tuple[
         List[torch.Tensor],
         List[torch.Tensor],
         List[List[torch.Tensor]],
@@ -43,7 +45,9 @@ class MultiPeriodDiscriminator(torch.nn.Module):
     ]:
         return super().__call__(y, y_hat)
 
-    def forward(self, y: torch.Tensor, y_hat: torch.Tensor) -> Tuple[
+    def forward(
+        self, y: torch.Tensor, y_hat: torch.Tensor
+    ) -> Tuple[
         List[torch.Tensor],
         List[torch.Tensor],
         List[List[torch.Tensor]],

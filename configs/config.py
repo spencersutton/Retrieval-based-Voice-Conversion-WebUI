@@ -4,13 +4,11 @@ import sys
 import json
 import shutil
 from multiprocessing import cpu_count
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 
 try:
-    import intel_extension_for_pytorch as ipex  # pylint: disable=import-error, unused-import
-
     if torch.xpu.is_available():
         from infer.modules.ipex import ipex_init
 
@@ -31,7 +29,7 @@ version_config_list: list[str] = [
 ]
 
 from functools import wraps
-from typing import Type, TypeVar, Dict
+from typing import Type, TypeVar
 
 T = TypeVar("T")
 

@@ -1,4 +1,4 @@
-from typing import Any, Literal, TypeVar
+from typing import Literal
 
 # Define the allowed strings as a Literal type
 PitchMethod = Literal["pm", "harvest", "crepe", "rmvpe", "fcpe"]

@@ -1,5 +1,5 @@
 import os
-from typing import List, Tuple, Union
+from typing import List
 
 from fairseq import checkpoint_utils
 from configs.config import Config

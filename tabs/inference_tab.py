@@ -52,7 +52,6 @@ def get_index_paths() -> List[str]:
 
 
 def create_inference_tab(app: gr.Blocks):
-
     with gr.TabItem(i18n("Inference")):
         gr.api(
             get_model_list,

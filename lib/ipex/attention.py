@@ -1,5 +1,4 @@
 import torch
-import intel_extension_for_pytorch as ipex  # pylint: disable=import-error, unused-import
 
 # pylint: disable=protected-access, missing-function-docstring, line-too-long
 
@@ -57,9 +56,7 @@ def torch_bmm(input, mat2, *, out=None):
             start_idx = i * split_slice_size
             end_idx = (i + 1) * split_slice_size
             if do_split_2:
-                for i2 in range(
-                    input_tokens // split_2_slice_size
-                ):  # pylint: disable=invalid-name
+                for i2 in range(input_tokens // split_2_slice_size):  # pylint: disable=invalid-name
                     start_idx_2 = i2 * split_2_slice_size
                     end_idx_2 = (i2 + 1) * split_2_slice_size
                     hidden_states[start_idx:end_idx, start_idx_2:end_idx_2] = (
@@ -132,9 +129,7 @@ def scaled_dot_product_attention(
             start_idx = i * split_slice_size
             end_idx = (i + 1) * split_slice_size
             if do_split_2:
-                for i2 in range(
-                    query_tokens // split_2_slice_size
-                ):  # pylint: disable=invalid-name
+                for i2 in range(query_tokens // split_2_slice_size):  # pylint: disable=invalid-name
                     start_idx_2 = i2 * split_2_slice_size
                     end_idx_2 = (i2 + 1) * split_2_slice_size
                     if no_shape_one:

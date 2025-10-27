@@ -4,7 +4,6 @@ import parselmouth
 import torch
 import torchcrepe
 from scipy import signal
-from typing import Optional
 import warnings
 from functools import lru_cache
 import hashlib

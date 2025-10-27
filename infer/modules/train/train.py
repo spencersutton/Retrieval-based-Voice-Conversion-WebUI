@@ -20,19 +20,16 @@ from random import randint, shuffle
 import torch
 
 try:
-    import intel_extension_for_pytorch as ipex  # pylint: disable=import-error, unused-import
-
     if torch.xpu.is_available():
         from infer.modules.ipex import ipex_init
         from infer.modules.ipex.gradscaler import gradscaler_init
-        from torch.xpu.amp import autocast
 
         GradScaler = gradscaler_init()
         ipex_init()
     else:
-        from torch.cuda.amp import GradScaler, autocast
+        pass
 except Exception:
-    from torch.cuda.amp import GradScaler, autocast
+    pass
 
 torch.backends.cudnn.deterministic = False
 torch.backends.cudnn.benchmark = False

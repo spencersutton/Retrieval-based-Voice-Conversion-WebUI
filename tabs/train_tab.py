@@ -203,7 +203,6 @@ def extract_f0_feature(
     gpus_rmvpe: str,
     progress: gr.Progress = gr.Progress(),
 ) -> Generator[str, None, None]:
-
     def update_progress(content: str):
         now, all = parse_f0_feature_log(content)
         progress(float(now) / all, desc=f"{now}/{all} Features extracted...")
@@ -624,8 +623,11 @@ def click_train(
                 # The yield statement is necessary to update the Gradio UI in real-time
                 # within a loop.
                 print(f"history: {scalar_history}")
-                yield "", df  # Yielding the empty string updates info3, and plot_data updates the plot
-            except Exception as e:
+                yield (
+                    "",
+                    df,
+                )  # Yielding the empty string updates info3, and plot_data updates the plot
+            except Exception:
                 # continue
                 pass
 
@@ -634,8 +636,9 @@ def click_train(
 
     return_code = p.wait()
     # return f"Training finished with exit code {return_code}. You can view the training log in the console or train.log in the experiment folder."
-    yield "Training finished with exit code {return_code}.", pd.DataFrame(
-        scalar_history
+    yield (
+        "Training finished with exit code {return_code}.",
+        pd.DataFrame(scalar_history),
     )
 
 
@@ -813,7 +816,6 @@ def one_click_training(
 
 
 def create_train_tab():
-
     with gr.TabItem(i18n("Train")):
         with gr.Group():
             gr.Markdown(value=i18n("## Experiment Config"))

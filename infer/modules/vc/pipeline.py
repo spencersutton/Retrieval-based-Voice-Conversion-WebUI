@@ -33,7 +33,7 @@ sys.path.append(now_dir)
 bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
 
 from infer.modules.vc.f0_extractors import *
-from lib.types.f0 import PitchMethod, PITCH_METHODS
+from lib.types.f0 import PitchMethod
 
 
 def change_rms(
@@ -360,7 +360,7 @@ class Pipeline(object):
         for i, t in enumerate(opt_ts):
             progress(
                 (i / total_segments) * 0.7 + 0.25,
-                desc=f"Converting segment {i+1}/{total_segments}...",
+                desc=f"Converting segment {i + 1}/{total_segments}...",
             )  # Progress update
             t = t // self.window * self.window
             if if_f0 == 1:
