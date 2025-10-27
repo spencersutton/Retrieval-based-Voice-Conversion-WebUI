@@ -1,7 +1,9 @@
+from collections.abc import Callable
+
 import git
 import gradio as gr
 import torch
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 import shared
@@ -54,7 +56,7 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
         )
 
         @fastapi_app.middleware("http")
-        async def _cors_and_private_network(request, call_next):
+        async def _cors_and_private_network(request: Request, call_next: Callable):
             response = await call_next(request)
             response.headers["Access-Control-Allow-Private-Network"] = "true"
             origin = request.headers.get("origin")

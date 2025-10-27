@@ -38,10 +38,8 @@ os.environ["TEMP"] = str(cwd / "TEMP")
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
-
 config: Config = Config()
 vc = VC(config)
-
 
 if config.dml:
 
@@ -104,10 +102,11 @@ else:
     gpus = ""
 
 
-weight_root = os.getenv("WEIGHT_ROOT", "assets/weights")
-index_root = os.getenv("INDEX_ROOT", "logs")
-outside_index_root = os.getenv("OUTSIDE_INDEX_ROOT", "assets/indices")
-rmvpe_root = os.getenv("RMVPE_ROOT", "assets/rmvpe")
+
+weight_root = Path(os.getenv("WEIGHT_ROOT", "assets/weights"))
+index_root = Path(os.getenv("INDEX_ROOT", "logs"))
+outside_index_root = Path(os.getenv("OUTSIDE_INDEX_ROOT", "assets/indices"))
+rmvpe_root = Path(os.getenv("RMVPE_ROOT", "assets/rmvpe"))
 
 names = []
 for path in Path(weight_root).iterdir():
@@ -118,17 +117,12 @@ for path in Path(weight_root).iterdir():
 index_paths = [""]  # Fix for gradio 5
 
 
-def lookup_indices(root: str):
-    # shared.index_paths
-    index_paths.extend(
-        [
-            f"{root_dir}/{name}"
-            for root_dir, dirs, files in os.walk(root, topdown=False)
-            for name in files
-            if name.endswith(".index") and "trained" not in name
-        ]
-    )
 
+def lookup_indices(root: Path):
+    # Add .index files (excluding those with 'trained' in name) from root to index_paths
+    for file in root.rglob("*.index"):
+        if "trained" not in file.name:
+            index_paths.append(str(file))
 
 for r in [index_root, outside_index_root]:
     lookup_indices(r)
