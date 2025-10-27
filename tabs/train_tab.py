@@ -840,7 +840,7 @@ def create_train_tab():
                     )
                     gpus_rmvpe = gr.Textbox(
                         label=i18n(
-                            "rmvpe卡号配置:以-分隔输入使用的不同进程卡号,例如0-0-1使用在卡0上跑2个进程并在卡1上跑1个进程"
+                            "rmvpe卡号配置：以-分隔输入使用的不同进程卡号,例如0-0-1使用在卡0上跑2个进程并在卡1上跑1个进程"
                         ),
                         value=f"{shared.gpus}-{shared.gpus}",
                         interactive=True,
