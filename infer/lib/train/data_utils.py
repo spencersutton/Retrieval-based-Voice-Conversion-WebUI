@@ -394,7 +394,7 @@ class TextAudioCollate:
         )
 
 
-class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
+class DistributedBucketSampler(torch.utils.data.DistributedSampler):
     """
     Maintain similar input lengths in a batch.
     Length groups are specified by boundaries.
