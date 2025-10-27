@@ -450,6 +450,7 @@ def train_and_evaluate(
             spec = spec.cuda(rank, non_blocking=True)
             spec_lengths = spec_lengths.cuda(rank, non_blocking=True)
             wave = wave.cuda(rank, non_blocking=True)
+            wave_lengths = wave_lengths.cuda(rank, non_blocking=True)
 
         # Calculate
         with torch.autocast("cuda", enabled=hps.train.fp16_run):

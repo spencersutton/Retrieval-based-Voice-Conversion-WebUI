@@ -410,11 +410,15 @@ def click_train(
     f0_dir = exp_dir / "2a_f0"
     f0nsf_dir = exp_dir / "2b-f0nsf"
     if if_f0_3:
+        # F0 files have .wav.npy extension, so we need to remove .wav from stem
+        # GT: 0_0.wav -> stem: 0_0
+        # Feature: 0_0.npy -> stem: 0_0
+        # F0: 0_0.wav.npy -> stem: 0_0.wav -> need to strip .wav to get 0_0
         names = (
             {name.stem for name in gt_wavs_dir.iterdir() if name.is_file()}
             & {name.stem for name in feature_dir.iterdir() if name.is_file()}
-            & {name.stem for name in f0_dir.iterdir() if name.is_file()}
-            & {name.stem for name in f0nsf_dir.iterdir() if name.is_file()}
+            & {Path(name.stem).stem for name in f0_dir.iterdir() if name.is_file()}
+            & {Path(name.stem).stem for name in f0nsf_dir.iterdir() if name.is_file()}
         )
     else:
         names = {name.stem for name in gt_wavs_dir.iterdir() if name.is_file()} & {
@@ -428,6 +432,19 @@ def click_train(
             )
         else:
             opt.append(f"{gt_wavs_dir}/{name}.wav|{feature_dir}/{name}.npy|{spk_id5}")
+
+    # Warn if no training samples were found
+    if len(opt) == 0:
+        shared.logger.warning(
+            f"No matching training samples found! Check that preprocessing completed successfully.\n"
+            f"  GT wavs: {len(list(gt_wavs_dir.glob('*.wav')))} files\n"
+            f"  Features: {len(list(feature_dir.glob('*.npy')))} files\n"
+            f"  F0: {len(list(f0_dir.glob('*.npy')))} files (if f0 enabled)\n"
+            f"  F0NSF: {len(list(f0nsf_dir.glob('*.npy')))} files (if f0 enabled)"
+        )
+    else:
+        shared.logger.info(f"Found {len(opt)} training samples")
+
     fea_dim = 256 if version19 == "v1" else 768
     if if_f0_3:
         mute_lines = [
