@@ -1,8 +1,10 @@
 import os
 import sys
 import traceback
+from pathlib import Path
 
 import fairseq
+import fairseq.checkpoint_utils
 import numpy as np
 import soundfile as sf
 import torch
@@ -13,58 +15,61 @@ from torch.serialization import safe_globals
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
 
-device = sys.argv[1]
-n_part = int(sys.argv[2])
-i_part = int(sys.argv[3])
+_device = sys.argv[1]
+_n_part = int(sys.argv[2])
+_i_part = int(sys.argv[3])
 if len(sys.argv) == 7:
-    exp_dir = sys.argv[4]
-    version = sys.argv[5]
-    is_half = sys.argv[6].lower() == "true"
+    _exp_dir = Path(sys.argv[4])
+    _version = sys.argv[5]
+    _is_half = sys.argv[6].lower() == "true"
 else:
     i_gpu = sys.argv[4]
-    exp_dir = sys.argv[5]
+    _exp_dir = Path(sys.argv[5])
     os.environ["CUDA_VISIBLE_DEVICES"] = str(i_gpu)
-    version = sys.argv[6]
-    is_half = sys.argv[7].lower() == "true"
+    _version = sys.argv[6]
+    _is_half = sys.argv[7].lower() == "true"
 
-if "privateuseone" not in device:
-    device = "cpu"
+if "privateuseone" not in _device:
+    _device = "cpu"
     if torch.cuda.is_available():
-        device = "cuda"
+        _device = "cuda"
     elif torch.backends.mps.is_available():
-        device = "mps"
+        _device = "mps"
 else:
-    import torch_directml
+    import torch_directml  # pyright: ignore[reportMissingImports]
 
-    device = torch_directml.device(torch_directml.default_device())
+    _device = torch_directml.device(torch_directml.default_device())
 
-    def forward_dml(ctx, x, scale):
+    def forward_dml(
+        ctx: fairseq.modules.grad_multiply.GradMultiply,  # pyright: ignore[reportAttributeAccessIssue]
+        x: torch.Tensor,
+        scale: float,
+    ) -> torch.Tensor:
         ctx.scale = scale
         res = x.clone().detach()
         return res
 
-    fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
+    fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml  # pyright: ignore[reportAttributeAccessIssue]
 
-f = open(f"{exp_dir}/extract_f0_feature.log", "a+")
+_f = (_exp_dir / "extract_f0_feature.log").open("a+")
 
 
-def printt(strr):
+def printt(strr: str):
     print(strr)
-    f.write(f"{strr}\n")
-    f.flush()
+    _f.write(f"{strr}\n")
+    _f.flush()
 
 
 printt(" ".join(sys.argv))
 model_path = "assets/hubert/hubert_base.pt"
 
-printt("exp_dir: " + exp_dir)
-wavPath = f"{exp_dir}/1_16k_wavs"
-outPath = f"{exp_dir}/3_feature256" if version == "v1" else f"{exp_dir}/3_feature768"
-os.makedirs(outPath, exist_ok=True)
+wav_dir = _exp_dir / "1_16k_wavs"
+out_path = _exp_dir / ("3_feature256" if _version == "v1" else "3_feature768")
+out_path.mkdir(parents=True, exist_ok=True)
 
 
 # wave must be 16k, hop_size=320
-def readwave(wav_path, normalize=False):
+def _readwave(wav_path: Path, normalize: bool = False):
     wav, sr = sf.read(wav_path)
     assert sr == 16000
     feats = torch.from_numpy(wav).float()
@@ -88,20 +93,19 @@ if not os.access(model_path, os.F_OK):
     exit(0)
 
 with safe_globals([Dictionary]):
-    # torch.serialization.add_safe_globals([Dictionary])
     models, saved_cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(
         [model_path],
         suffix="",
     )
 model = models[0]
-model = model.to(device)
-printt(f"move model to {device}")
-if is_half:
-    if device not in ["mps", "cpu"]:
+model = model.to(_device)
+printt(f"move model to {_device}")
+if _is_half:
+    if _device not in ["mps", "cpu"]:
         model = model.half()
 model.eval()
 
-todo = sorted(os.listdir(wavPath))[i_part::n_part]
+todo = sorted([p.name for p in wav_dir.iterdir() if p.is_file()])[_i_part::_n_part]
 n = max(1, len(todo) // 10)  # 最多打印十条
 if len(todo) == 0:
     printt("no-feature-todo")
@@ -110,27 +114,28 @@ else:
     for idx, file in enumerate(todo):
         try:
             if file.endswith(".wav"):
-                wav_path = f"{wavPath}/{file}"
-                out_path = "{}/{}".format(outPath, file.replace("wav", "npy"))
+                wav_path = wav_dir / file
+                out_path = out_path / file.replace("wav", "npy")
 
-                if os.path.exists(out_path):
+                if out_path.exists():
                     continue
 
-                feats = readwave(wav_path, normalize=saved_cfg.task.normalize)
+                assert saved_cfg is not None
+                feats = _readwave(wav_path, normalize=saved_cfg.task.normalize)
                 padding_mask = torch.BoolTensor(feats.shape).fill_(False)
                 inputs = {
                     "source": (
-                        feats.half().to(device)
-                        if is_half and device not in ["mps", "cpu"]
-                        else feats.to(device)
+                        feats.half().to(_device)
+                        if _is_half and _device not in ["mps", "cpu"]
+                        else feats.to(_device)
                     ),
-                    "padding_mask": padding_mask.to(device),
-                    "output_layer": 9 if version == "v1" else 12,  # layer 9
+                    "padding_mask": padding_mask.to(_device),
+                    "output_layer": 9 if _version == "v1" else 12,  # layer 9
                 }
                 with torch.no_grad():
                     logits = model.extract_features(**inputs)
                     feats = (
-                        model.final_proj(logits[0]) if version == "v1" else logits[0]
+                        model.final_proj(logits[0]) if _version == "v1" else logits[0]
                     )
 
                 feats = feats.squeeze(0).float().cpu().numpy()
