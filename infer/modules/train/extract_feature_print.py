@@ -2,6 +2,14 @@ import os
 import sys
 import traceback
 
+import fairseq
+import numpy as np
+import soundfile as sf
+import torch
+import torch.nn.functional as F
+from fairseq.data.dictionary import Dictionary
+from torch.serialization import safe_globals
+
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
 
@@ -18,11 +26,6 @@ else:
     os.environ["CUDA_VISIBLE_DEVICES"] = str(i_gpu)
     version = sys.argv[6]
     is_half = sys.argv[7].lower() == "true"
-import fairseq
-import numpy as np
-import soundfile as sf
-import torch
-import torch.nn.functional as F
 
 if "privateuseone" not in device:
     device = "cpu"
@@ -83,9 +86,6 @@ if not os.access(model_path, os.F_OK):
         f"Error: Extracting is shut down because {model_path} does not exist, you may download it from https://huggingface.co/lj1995/VoiceConversionWebUI/tree/main"
     )
     exit(0)
-
-from fairseq.data.dictionary import Dictionary
-from torch.serialization import safe_globals
 
 with safe_globals([Dictionary]):
     # torch.serialization.add_safe_globals([Dictionary])

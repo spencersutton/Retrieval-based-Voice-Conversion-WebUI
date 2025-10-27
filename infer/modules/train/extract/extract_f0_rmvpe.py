@@ -2,12 +2,12 @@ import os
 import sys
 import traceback
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-
 import numpy as np
 
 from infer.lib.audio import load_audio
+
+now_dir = os.getcwd()
+sys.path.append(now_dir)
 
 n_part = int(sys.argv[1])
 i_part = int(sys.argv[2])

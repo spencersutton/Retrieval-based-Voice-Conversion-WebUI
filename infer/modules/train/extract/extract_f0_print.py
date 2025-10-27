@@ -1,18 +1,16 @@
 import os
 import sys
 import traceback
-
-import parselmouth
-
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-
 from multiprocessing import Process
 
 import numpy as np
+import parselmouth
 import pyworld
 
 from infer.lib.audio import load_audio
+
+now_dir = os.getcwd()
+sys.path.append(now_dir)
 
 exp_dir = sys.argv[1]
 f = open(f"{exp_dir}/extract_f0_feature.log", "a+")

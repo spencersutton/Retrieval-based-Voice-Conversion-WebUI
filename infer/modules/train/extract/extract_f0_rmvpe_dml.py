@@ -2,15 +2,15 @@ import os
 import sys
 import traceback
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-
 import numpy as np
+import torch_directml
 
 from infer.lib.audio import load_audio
 
+now_dir = os.getcwd()
+sys.path.append(now_dir)
+
 exp_dir = sys.argv[1]
-import torch_directml
 
 device = torch_directml.device(torch_directml.default_device())
 f = open(f"{exp_dir}/extract_f0_feature.log", "a+")
