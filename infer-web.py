@@ -456,40 +456,38 @@ def _train_index(exp_dir1: str) -> Generator[str]:
     feature_dir = exp_dir / "3_feature768"
 
     if not feature_dir.exists():
-        return "请先进行特征提取!"
+        yield "Please run feature extraction first!"
+        return
 
-    listdir_res = sorted([p for p in feature_dir.iterdir() if p.is_file()])
-    if len(listdir_res) == 0:
-        return "请先进行特征提取"
+    feature_files = sorted([p for p in feature_dir.iterdir() if p.is_file()])
+    if not feature_files:
+        yield "Please run feature extraction first!"
+        return
 
     # Load and concatenate all feature files
     infos: list[str] = []
-    npys: list[np.ndarray] = []
-    for path in listdir_res:
-        npys.append(np.load(str(path)))
+    features: list[np.ndarray] = [np.load(str(p)) for p in feature_files]
+    big_npy = np.concatenate(features, axis=0)
 
-    big_npy = np.concatenate(npys, 0)
+    # Shuffle features
+    indices = np.arange(big_npy.shape[0])
+    rng = np.random.default_rng()
+    rng.shuffle(indices)
+    big_npy = big_npy[indices]
 
-    # Shuffle and optionally compress features
-    big_npy_idx = np.arange(big_npy.shape[0])
-    np.random.shuffle(big_npy_idx)
-    big_npy = big_npy[big_npy_idx]
-
+    # Compress with kmeans if too large
     if big_npy.shape[0] > 2e5:
-        infos.append(f"Trying doing kmeans {big_npy.shape[0]} shape to 10k centers.")
+        infos.append(f"Trying kmeans: {big_npy.shape[0]} samples to 10k centers.")
         yield "\n".join(infos)
         try:
-            big_npy = (
-                MiniBatchKMeans(
-                    n_clusters=10000,
-                    verbose=True,
-                    batch_size=256 * _config.n_cpu,
-                    compute_labels=False,
-                    init="random",
-                )
-                .fit(big_npy)
-                .cluster_centers_
+            kmeans = MiniBatchKMeans(
+                n_clusters=10000,
+                verbose=True,
+                batch_size=256 * _config.n_cpu,
+                compute_labels=False,
+                init="random",
             )
+            big_npy = kmeans.fit(big_npy).cluster_centers_
         except Exception:
             infos.append(traceback.format_exc())
             _logger.info(infos[-1])
