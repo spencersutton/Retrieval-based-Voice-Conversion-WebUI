@@ -86,7 +86,7 @@ def preprocess_dataset(
         yield error_msg
         return
     sr: int = shared.sr_dict[sr]
-    exp_log_dir = Path(shared.now_dir) / "logs" / exp_dir
+    exp_log_dir = Path(shared.cwd) / "logs" / exp_dir
     exp_log_dir.mkdir(parents=True, exist_ok=True)
     preprocess_log_path = exp_log_dir / "preprocess.log"
     preprocess_log_path.write_text("")
@@ -103,7 +103,7 @@ def preprocess_dataset(
         ),
     ).start()
 
-    log_path = Path(shared.now_dir) / "logs" / exp_dir / "preprocess.log"
+    log_path = Path(shared.cwd) / "logs" / exp_dir / "preprocess.log"
     while True:
         with log_path.open() as f:
             file_content = f.read()
@@ -195,16 +195,16 @@ def extract_f0_feature(
         progress(float(now) / all, desc=f"{now}/{all} Features extracted...")
 
     gpus: list[str] = gpus.split("-")
-    exp_log_dir = Path(shared.now_dir) / "logs" / exp_dir
+    exp_log_dir = Path(shared.cwd) / "logs" / exp_dir
     exp_log_dir.mkdir(parents=True, exist_ok=True)
     log_file = exp_log_dir / "extract_f0_feature.log"
     log_file.write_text("")
     if if_f0:
         if f0method != "rmvpe_gpu":
-            cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{shared.now_dir}/logs/{exp_dir}" {n_p} {f0method}'
+            cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{shared.cwd}/logs/{exp_dir}" {n_p} {f0method}'
             shared.logger.info("Execute: " + cmd)
             p = Popen(
-                cmd, shell=True, cwd=shared.now_dir
+                cmd, shell=True, cwd=shared.cwd
             )  # , stdin=PIPE, stdout=PIPE,stderr=PIPE
             # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
             done = [False]
@@ -221,10 +221,10 @@ def extract_f0_feature(
                 length = len(gpus_rmvpe)
                 ps = []
                 for idx, n_g in enumerate(gpus_rmvpe):
-                    cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {length} {idx} {n_g} "{shared.now_dir}/logs/{exp_dir}" {shared.config.is_half} '
+                    cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {length} {idx} {n_g} "{shared.cwd}/logs/{exp_dir}" {shared.config.is_half} '
                     shared.logger.info("Execute: " + cmd)
                     p = Popen(
-                        cmd, shell=True, cwd=shared.now_dir
+                        cmd, shell=True, cwd=shared.cwd
                     )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
                     ps.append(p)
                 done = [False]
@@ -238,13 +238,13 @@ def extract_f0_feature(
             else:
                 cmd = (
                     shared.config.python_cmd
-                    + f' infer/modules/train/extract/extract_f0_rmvpe_dml.py "{shared.now_dir}/logs/{exp_dir}" '
+                    + f' infer/modules/train/extract/extract_f0_rmvpe_dml.py "{shared.cwd}/logs/{exp_dir}" '
                 )
                 shared.logger.info("Execute: " + cmd)
-                p = Popen(cmd, shell=True, cwd=shared.now_dir)
+                p = Popen(cmd, shell=True, cwd=shared.cwd)
                 p.wait()
                 done = [True]
-        log_path = Path(shared.now_dir) / "logs" / exp_dir / "extract_f0_feature.log"
+        log_path = Path(shared.cwd) / "logs" / exp_dir / "extract_f0_feature.log"
         while True:
             with log_path.open() as f:
                 update_progress(f.read())
@@ -259,10 +259,10 @@ def extract_f0_feature(
     length = len(gpus)
     ps = []
     for idx, n_g in enumerate(gpus):
-        cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract_feature_print.py {shared.config.device} {length} {idx} {n_g} "{shared.now_dir}/logs/{exp_dir}" {version19} {shared.config.is_half}'
+        cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract_feature_print.py {shared.config.device} {length} {idx} {n_g} "{shared.cwd}/logs/{exp_dir}" {version19} {shared.config.is_half}'
         shared.logger.info("Execute: " + cmd)
         p = Popen(
-            cmd, shell=True, cwd=shared.now_dir
+            cmd, shell=True, cwd=shared.cwd
         )  # , shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=now_dir
         ps.append(p)
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
@@ -274,7 +274,7 @@ def extract_f0_feature(
             ps,
         ),
     ).start()
-    log_path = Path(shared.now_dir) / "logs" / exp_dir / "extract_f0_feature.log"
+    log_path = Path(shared.cwd) / "logs" / exp_dir / "extract_f0_feature.log"
     while True:
         with log_path.open() as f:
             update_progress(f.read())
@@ -400,7 +400,7 @@ def click_train(
     progress: gr.Progress = gr.Progress(),
 ) -> Generator[tuple[str, pd.DataFrame]]:
     # Generating file list
-    exp_dir = Path(shared.now_dir) / "logs" / exp_dir1
+    exp_dir = Path(shared.cwd) / "logs" / exp_dir1
     exp_dir.mkdir(parents=True, exist_ok=True)
     gt_wavs_dir = exp_dir / "0_gt_wavs"
     feature_dir = (
@@ -431,13 +431,13 @@ def click_train(
     fea_dim = 256 if version19 == "v1" else 768
     if if_f0_3:
         mute_lines = [
-            f"{Path(shared.now_dir) / 'logs' / 'mute' / '0_gt_wavs' / f'mute{sr2}.wav'}|{Path(shared.now_dir) / 'logs' / 'mute' / f'3_feature{fea_dim}' / 'mute.npy'}|{Path(shared.now_dir) / 'logs' / 'mute' / '2a_f0' / 'mute.wav.npy'}|{Path(shared.now_dir) / 'logs' / 'mute' / '2b-f0nsf' / 'mute.wav.npy'}|{spk_id5}"
+            f"{Path(shared.cwd) / 'logs' / 'mute' / '0_gt_wavs' / f'mute{sr2}.wav'}|{Path(shared.cwd) / 'logs' / 'mute' / f'3_feature{fea_dim}' / 'mute.npy'}|{Path(shared.cwd) / 'logs' / 'mute' / '2a_f0' / 'mute.wav.npy'}|{Path(shared.cwd) / 'logs' / 'mute' / '2b-f0nsf' / 'mute.wav.npy'}|{spk_id5}"
             for _ in range(2)
         ]
         opt.extend(mute_lines)
     else:
         mute_lines = [
-            f"{Path(shared.now_dir) / 'logs' / 'mute' / '0_gt_wavs' / f'mute{sr2}.wav'}|{Path(shared.now_dir) / 'logs' / 'mute' / f'3_feature{fea_dim}' / 'mute.npy'}|{spk_id5}"
+            f"{Path(shared.cwd) / 'logs' / 'mute' / '0_gt_wavs' / f'mute{sr2}.wav'}|{Path(shared.cwd) / 'logs' / 'mute' / f'3_feature{fea_dim}' / 'mute.npy'}|{spk_id5}"
             for _ in range(2)
         ]
         opt.extend(mute_lines)
@@ -501,7 +501,7 @@ def click_train(
         )
     shared.logger.info("Execute: " + cmd)
     current_epoch = 0
-    p = Popen(cmd, shell=True, cwd=shared.now_dir, stdout=subprocess.PIPE)
+    p = Popen(cmd, shell=True, cwd=shared.cwd, stdout=subprocess.PIPE)
     scalar_count = 0
     while True:
         if p.stdout is None:

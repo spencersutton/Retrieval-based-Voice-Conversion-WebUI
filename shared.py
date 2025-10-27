@@ -19,21 +19,21 @@ for lib in ["numba", "httpx", "fairseq"]:
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 logger = logging.getLogger(__name__)
-now_dir = Path.cwd()
+cwd = Path.cwd()
 
 # Directories to clean up
 cleanup_dirs = [
-    now_dir / "TEMP",
-    now_dir / "runtime" / "Lib" / "site-packages" / "infer_pack",
-    now_dir / "runtime" / "Lib" / "site-packages" / "uvr5_pack",
+    cwd / "TEMP",
+    cwd / "runtime" / "Lib" / "site-packages" / "infer_pack",
+    cwd / "runtime" / "Lib" / "site-packages" / "uvr5_pack",
 ]
 for d in cleanup_dirs:
     shutil.rmtree(d, ignore_errors=True)
 
 # Ensure required directories exist
-for d in [now_dir / "TEMP", now_dir / "logs", now_dir / "assets" / "weights"]:
+for d in [cwd / "TEMP", cwd / "logs", cwd / "assets" / "weights"]:
     d.mkdir(exist_ok=True)
-os.environ["TEMP"] = str(now_dir / "TEMP")
+os.environ["TEMP"] = str(cwd / "TEMP")
 
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
