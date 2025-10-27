@@ -33,3 +33,4 @@ ffprobe.*
 .gradio/flagged/dataset1.csv
 
 /.env
+*.egg-info/

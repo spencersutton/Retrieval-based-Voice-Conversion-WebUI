@@ -77,6 +77,12 @@ typeCheckingMode = "standard"
 reportMissingParameterType = true
 
 [dependency-groups]
-dev = [
-    "pyright>=1.1.407",
-]
+dev = ["pyright>=1.1.407"]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["infer*", "i18n*"]
