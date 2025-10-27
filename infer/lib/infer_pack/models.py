@@ -132,7 +132,7 @@ class ResidualCouplingBlock(nn.Module):
 
     def remove_weight_norm(self):
         for i in range(self.n_flows):
-            self.flows[i * 2].remove_weight_norm()
+            self.flows[i * 2].remove_weight_norm()  # pyright: ignore[reportCallIssue]
 
     def __prepare_scriptable__(self):
         for i in range(self.n_flows):
@@ -206,7 +206,7 @@ class Generator(torch.nn.Module):
     def __init__(
         self,
         initial_channel: int,
-        resblock: str,
+        resblock_str: str,
         resblock_kernel_sizes: list[int],
         resblock_dilation_sizes: list[int],
         upsample_rates: list[int],
@@ -220,7 +220,7 @@ class Generator(torch.nn.Module):
         self.conv_pre = Conv1d(
             initial_channel, upsample_initial_channel, 7, 1, padding=3
         )
-        resblock = modules.ResBlock1 if resblock == "1" else modules.ResBlock2
+        resblock = modules.ResBlock1 if resblock_str == "1" else modules.ResBlock2
 
         self.ups = nn.ModuleList()
         for i, (u, k) in enumerate(zip(upsample_rates, upsample_kernel_sizes)):
@@ -237,8 +237,9 @@ class Generator(torch.nn.Module):
             )
 
         self.resblocks = nn.ModuleList()
+        ch = 0
         for i in range(len(self.ups)):
-            ch = upsample_initial_channel // (2 ** (i + 1))
+            ch = upsample_initial_channel // int(2 ** (i + 1))
             for j, (k, d) in enumerate(
                 zip(resblock_kernel_sizes, resblock_dilation_sizes)
             ):
@@ -274,6 +275,7 @@ class Generator(torch.nn.Module):
                     xs = self.resblocks[i * self.num_kernels + j](x)
                 else:
                     xs += self.resblocks[i * self.num_kernels + j](x)
+            assert xs is not None
             x = xs / self.num_kernels
         x = F.leaky_relu(x)
         x = self.conv_post(x)
@@ -307,7 +309,7 @@ class Generator(torch.nn.Module):
         for l in self.ups:
             remove_weight_norm(l)
         for l in self.resblocks:
-            l.remove_weight_norm()
+            l.remove_weight_norm()  # pyright: ignore[reportCallIssue]
 
 
 class SineGen(torch.nn.Module):
@@ -328,12 +330,12 @@ class SineGen(torch.nn.Module):
 
     def __init__(
         self,
-        samp_rate,
-        harmonic_num=0,
-        sine_amp=0.1,
-        noise_std=0.003,
-        voiced_threshold=0,
-        flag_for_pulse=False,
+        samp_rate: int,
+        harmonic_num: int = 0,
+        sine_amp: float = 0.1,
+        noise_std: float = 0.003,
+        voiced_threshold: float = 0,
+        flag_for_pulse: bool = False,
     ):
         super().__init__()
         self.sine_amp = sine_amp
@@ -343,7 +345,7 @@ class SineGen(torch.nn.Module):
         self.sampling_rate = samp_rate
         self.voiced_threshold = voiced_threshold
 
-    def _f02uv(self, f0):
+    def _f02uv(self, f0: torch.Tensor):
         # generate uv signal
         uv = torch.ones_like(f0)
         uv = uv * (f0 > self.voiced_threshold)
@@ -351,7 +353,7 @@ class SineGen(torch.nn.Module):
             uv = uv.float()
         return uv
 
-    def _f02sine(self, f0, upp):
+    def _f02sine(self, f0: torch.Tensor, upp: int):
         """f0: (batchsize, length, dim)
         where dim indicates fundamental tone and overtones
         """
@@ -411,12 +413,12 @@ class SourceModuleHnNSF(torch.nn.Module):
 
     def __init__(
         self,
-        sampling_rate,
-        harmonic_num=0,
-        sine_amp=0.1,
-        add_noise_std=0.003,
-        voiced_threshod=0,
-        is_half=True,
+        sampling_rate: int,
+        harmonic_num: int = 0,
+        sine_amp: float = 0.1,
+        add_noise_std: float = 0.003,
+        voiced_threshold: float = 0,
+        is_half: bool = True,
     ):
         super().__init__()
 
@@ -425,7 +427,7 @@ class SourceModuleHnNSF(torch.nn.Module):
         self.is_half = is_half
         # to produce sine waveforms
         self.l_sin_gen = SineGen(
-            sampling_rate, harmonic_num, sine_amp, add_noise_std, voiced_threshod
+            sampling_rate, harmonic_num, sine_amp, add_noise_std, voiced_threshold
         )
 
         # to merge source harmonics into a single excitation
@@ -442,15 +444,15 @@ class SourceModuleHnNSF(torch.nn.Module):
 class GeneratorNSF(torch.nn.Module):
     def __init__(
         self,
-        initial_channel,
-        resblock,
-        resblock_kernel_sizes,
-        resblock_dilation_sizes,
-        upsample_rates,
-        upsample_initial_channel,
-        upsample_kernel_sizes,
-        gin_channels,
-        sr,
+        initial_channel: int,
+        resblock_str: str,
+        resblock_kernel_sizes: list[int],
+        resblock_dilation_sizes: list[int],
+        upsample_rates: list[int],
+        upsample_initial_channel: int,
+        upsample_kernel_sizes: list[int],
+        gin_channels: int,
+        sr: int,
         is_half: bool = False,
     ):
         super().__init__()
@@ -465,7 +467,7 @@ class GeneratorNSF(torch.nn.Module):
         self.conv_pre = Conv1d(
             initial_channel, upsample_initial_channel, 7, 1, padding=3
         )
-        resblock = modules.ResBlock1 if resblock == "1" else modules.ResBlock2
+        resblock = modules.ResBlock1 if resblock_str == "1" else modules.ResBlock2
 
         self.ups = nn.ModuleList()
         for i, (u, k) in enumerate(zip(upsample_rates, upsample_kernel_sizes)):
@@ -496,8 +498,9 @@ class GeneratorNSF(torch.nn.Module):
                 self.noise_convs.append(Conv1d(1, c_cur, kernel_size=1))
 
         self.resblocks = nn.ModuleList()
+        ch = 0
         for i in range(len(self.ups)):
-            ch = upsample_initial_channel // (2 ** (i + 1))
+            ch = upsample_initial_channel // int(2 ** (i + 1))
             for j, (k, d) in enumerate(
                 zip(resblock_kernel_sizes, resblock_dilation_sizes)
             ):
@@ -515,8 +518,8 @@ class GeneratorNSF(torch.nn.Module):
 
     def forward(
         self,
-        x,
-        f0,
+        x: torch.Tensor,
+        f0: torch.Tensor,
         g: torch.Tensor | None = None,
         n_res: torch.Tensor | None = None,
     ):
@@ -562,7 +565,7 @@ class GeneratorNSF(torch.nn.Module):
         for l in self.ups:
             remove_weight_norm(l)
         for l in self.resblocks:
-            l.remove_weight_norm()
+            l.remove_weight_norm()  # pyright: ignore[reportCallIssue]
 
     def __prepare_scriptable__(self):
         for l in self.ups:
@@ -945,8 +948,8 @@ class SynthesizerTrnMs256NSFsid_nono(nn.Module):
         y: torch.Tensor,
         y_lengths: torch.Tensor,
         ds: torch.Tensor,
-    ):  # 这里ds是id，[bs,1]
-        g = self.emb_g(ds).unsqueeze(-1)  # [b, 256, 1]##1是t，广播的
+    ):  # Here, ds is the id, [bs, 1]
+        g = self.emb_g(ds).unsqueeze(-1)  # [b, 256, 1]; 1 is t, for broadcasting
         m_p, logs_p, x_mask = self.enc_p(phone, None, phone_lengths)
         z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
         z_p = self.flow(z, y_mask, g=g)
