@@ -44,6 +44,12 @@ gtk = [
 ]
 
 
+[tool.setuptools]
+packages = ["infer", "lib", "tabs", "i18n"]
+
+[tool.uv]
+package = true
+
 [tool.uv.sources]
 fairseq = { git = "https://github.com/yamada-sexta/fairseq.git" }
 
@@ -78,11 +84,3 @@ reportMissingParameterType = true
 
 [dependency-groups]
 dev = ["pyright>=1.1.407"]
-
-[build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["infer*", "i18n*"]
