@@ -504,6 +504,16 @@ def train_and_evaluate(
                 loss_disc, losses_disc_r, losses_disc_g = discriminator_loss(
                     y_d_hat_r, y_d_hat_g
                 )
+
+        # Save discriminator loss values for logging before clearing
+        loss_disc_value = loss_disc.item()
+        losses_disc_r_values = [
+            x.item() if isinstance(x, torch.Tensor) else x for x in losses_disc_r
+        ]
+        losses_disc_g_values = [
+            x.item() if isinstance(x, torch.Tensor) else x for x in losses_disc_g
+        ]
+
         optim_d.zero_grad()
         assert isinstance(loss_disc, torch.Tensor)
         scaler.scale(loss_disc).backward()
@@ -511,6 +521,11 @@ def train_and_evaluate(
         grad_norm_d = commons.clip_grad_value_(net_d.parameters(), None)
         scaler.step(optim_d)
         schedulers[1].step()
+
+        # Clear discriminator outputs after step to free memory
+        del y_d_hat_r, y_d_hat_g, loss_disc, losses_disc_r, losses_disc_g
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         with torch.autocast(enabled=hps.train.fp16_run, device_type=DEVICE_TYPE):
             # Generator
@@ -521,6 +536,17 @@ def train_and_evaluate(
                 loss_fm = feature_loss(fmap_r, fmap_g)
                 loss_gen, losses_gen = generator_loss(y_d_hat_g)
                 loss_gen_all = loss_gen + loss_fm + loss_mel + loss_kl
+
+        # Save generator loss values for logging before clearing
+        loss_gen_value = loss_gen.item()
+        loss_gen_all_value = loss_gen_all.item()
+        loss_fm_value = loss_fm.item()
+        loss_mel_value = loss_mel.item()
+        loss_kl_value = loss_kl.item()
+        losses_gen_values = [
+            x.item() if isinstance(x, torch.Tensor) else x for x in losses_gen
+        ]
+
         optim_g.zero_grad()
         scaler.scale(loss_gen_all).backward()
         scaler.unscale_(optim_g)
@@ -530,7 +556,11 @@ def train_and_evaluate(
         scaler.update()
 
         # Clean up GPU memory after generator backward/step
-        torch.cuda.empty_cache()
+        del y_hat, y_mel, y_hat_mel, mel, y_d_hat_r, y_d_hat_g, fmap_r, fmap_g
+        del loss_mel, loss_kl, loss_fm, loss_gen, losses_gen, loss_gen_all
+        del z_p, logs_q, m_p, logs_p, z_mask, ids_slice
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         if rank == 0:
             if global_step % hps.train.log_interval == 0:
@@ -540,36 +570,38 @@ def train_and_evaluate(
                     f"Train Epoch: {epoch} [{100.0 * batch_idx / len(train_loader):.0f}%]"
                 )
                 # Amor For Tensorboard display
-                if loss_mel > 75:
-                    loss_mel = 75
-                if loss_kl > 9:
-                    loss_kl = 9
+                if loss_mel_value > 75:
+                    loss_mel_value = 75
+                if loss_kl_value > 9:
+                    loss_kl_value = 9
 
                 logger.info([global_step, lr])
                 logger.info(
-                    f"loss_disc={loss_disc:.3f}, loss_gen={loss_gen:.3f}, loss_fm={loss_fm:.3f},loss_mel={loss_mel:.3f}, loss_kl={loss_kl:.3f}"
+                    f"loss_disc={loss_disc_value:.3f}, loss_gen={loss_gen_value:.3f}, loss_fm={loss_fm_value:.3f},loss_mel={loss_mel_value:.3f}, loss_kl={loss_kl_value:.3f}"
                 )
                 scalar_dict = {
-                    "loss/g/total": loss_gen_all,
-                    "loss/d/total": loss_disc,
+                    "loss/g/total": loss_gen_all_value,
+                    "loss/d/total": loss_disc_value,
                     "learning_rate": lr,
                     "grad_norm_d": grad_norm_d,
                     "grad_norm_g": grad_norm_g,
                 }
                 scalar_dict.update(
                     {
-                        "loss/g/fm": loss_fm,
-                        "loss/g/mel": loss_mel,
-                        "loss/g/kl": loss_kl,
+                        "loss/g/fm": loss_fm_value,
+                        "loss/g/mel": loss_mel_value,
+                        "loss/g/kl": loss_kl_value,
                     }
                 )
 
-                scalar_dict.update({f"loss/g/{i}": v for i, v in enumerate(losses_gen)})
                 scalar_dict.update(
-                    {f"loss/d_r/{i}": v for i, v in enumerate(losses_disc_r)}
+                    {f"loss/g/{i}": v for i, v in enumerate(losses_gen_values)}
                 )
                 scalar_dict.update(
-                    {f"loss/d_g/{i}": v for i, v in enumerate(losses_disc_g)}
+                    {f"loss/d_r/{i}": v for i, v in enumerate(losses_disc_r_values)}
+                )
+                scalar_dict.update(
+                    {f"loss/d_g/{i}": v for i, v in enumerate(losses_disc_g_values)}
                 )
 
                 print(
