@@ -213,14 +213,15 @@ def run(rank: int, n_gpus: int, hps: utils.HParams, logger: logging.Logger):
         net_g = DDP(net_g)
         net_d = DDP(net_d)
 
+    model_dir = Path(hps.model_dir)
     try:  # 如果能加载自动resume
         _, _, _, epoch_str = utils.load_checkpoint(
-            utils.latest_checkpoint_path(hps.model_dir, "D_*.pth"), net_d, optim_d
+            utils.latest_checkpoint_path(model_dir, "D_*.pth"), net_d, optim_d
         )  # D多半加载没事
         if rank == 0:
             logger.info("loaded D")
         _, _, _, epoch_str = utils.load_checkpoint(
-            utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g
+            utils.latest_checkpoint_path(model_dir, "G_*.pth"), net_g, optim_g
         )
         global_step = (epoch_str - 1) * len(train_loader)
     except Exception:  # 如果首次不能加载, 加载pretrain

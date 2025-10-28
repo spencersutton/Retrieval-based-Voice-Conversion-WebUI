@@ -1,11 +1,11 @@
 import argparse
-import glob
 import json
 import logging
 import os
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -15,8 +15,13 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging
 
 
-def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt: int = 1):
-    assert os.path.isfile(checkpoint_path)
+def load_checkpoint(
+    checkpoint_path: Path,
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer | None = None,
+    load_opt: int = 1,
+):
+    assert checkpoint_path.is_file()
     checkpoint_dict = torch.load(
         checkpoint_path, map_location="cpu", weights_only=False
     )
@@ -76,11 +81,11 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path)
     )
 
 
-def latest_checkpoint_path(dir_path: str, regex="G_*.pth"):
-    f_list = glob.glob(os.path.join(dir_path, regex))
+def latest_checkpoint_path(dir_path: Path, regex: str = "G_*.pth"):
+    f_list = list(dir_path.glob(regex))
     if len(f_list) == 0:
         return None
-    f_list.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
+    f_list.sort(key=lambda f: int("".join(filter(str.isdigit, str(f)))))
     x = f_list[-1]
     logger.debug(x)
     return x
