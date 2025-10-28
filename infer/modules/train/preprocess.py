@@ -23,7 +23,7 @@ per = float(sys.argv[6])
 f = Path(f"{exp_dir}/preprocess.log").open("a+")
 
 
-def println(strr: str) -> None:
+def println(strr: str):
     print(strr)
     f.write(f"{strr}\n")
     f.flush()
@@ -66,9 +66,7 @@ class PreProcess:
         self.gt_wavs_dir.mkdir(parents=True, exist_ok=True)
         self.wavs16k_dir.mkdir(parents=True, exist_ok=True)
 
-    def norm_write(
-        self: "PreProcess", tmp_audio: np.ndarray, idx0: int, idx1: int
-    ) -> None:
+    def norm_write(self: "PreProcess", tmp_audio: np.ndarray, idx0: int, idx1: int):
         tmp_max = np.abs(tmp_audio).max()
         if tmp_max > 2.5:
             print(f"{idx0}-{idx1}-{tmp_max}-filtered")
@@ -90,7 +88,7 @@ class PreProcess:
             tmp_audio.astype(np.float32),
         )
 
-    def pipeline(self: "PreProcess", path: str, idx0: int) -> None:
+    def pipeline(self: "PreProcess", path: str, idx0: int):
         try:
             audio = load_audio(path, self.sr)
             # zero phased digital filter cause pre-ringing noise...
@@ -117,11 +115,11 @@ class PreProcess:
         except Exception:
             println(f"{path}\t-> {traceback.format_exc()}")
 
-    def pipeline_mp(self: "PreProcess", infos: list[tuple[str, int]]) -> None:
+    def pipeline_mp(self: "PreProcess", infos: list[tuple[str, int]]):
         for path, idx0 in infos:
             self.pipeline(path, idx0)
 
-    def pipeline_mp_inp_dir(self: "PreProcess", inp_root: str, n_p: int) -> None:
+    def pipeline_mp_inp_dir(self: "PreProcess", inp_root: str, n_p: int):
         try:
             inp_root_path = Path(inp_root)
             infos = [
@@ -151,7 +149,7 @@ def preprocess_trainset(
     n_p: int,
     exp_dir: str,
     per: float,
-) -> None:
+):
     pp = PreProcess(sr, exp_dir, per)
     println("start preprocess")
     pp.pipeline_mp_inp_dir(inp_root, n_p)
