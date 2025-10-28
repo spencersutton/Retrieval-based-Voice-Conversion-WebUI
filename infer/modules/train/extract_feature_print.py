@@ -64,8 +64,8 @@ printt(" ".join(sys.argv))
 model_path = "assets/hubert/hubert_base.pt"
 
 wav_dir = _exp_dir / "1_16k_wavs"
-out_path = _exp_dir / ("3_feature256" if _version == "v1" else "3_feature768")
-out_path.mkdir(parents=True, exist_ok=True)
+out_dir = _exp_dir / ("3_feature256" if _version == "v1" else "3_feature768")
+out_dir.mkdir(parents=True, exist_ok=True)
 
 
 # wave must be 16k, hop_size=320
@@ -115,7 +115,7 @@ else:
         try:
             if file.endswith(".wav"):
                 wav_path = wav_dir / file
-                out_path = out_path / file.replace("wav", "npy")
+                out_path = out_dir / file.replace("wav", "npy")
 
                 if out_path.exists():
                     continue
