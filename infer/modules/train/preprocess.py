@@ -23,7 +23,7 @@ per = float(sys.argv[6])
 f = Path(f"{exp_dir}/preprocess.log").open("a+")
 
 
-def println(strr: str):
+def println(strr: str) -> None:
     print(strr)
     f.write(f"{strr}\n")
     f.flush()
@@ -90,7 +90,7 @@ class PreProcess:
             tmp_audio.astype(np.float32),
         )
 
-    def pipeline(self: "PreProcess", path: str, idx0: int):
+    def pipeline(self: "PreProcess", path: str, idx0: int) -> None:
         try:
             audio = load_audio(path, self.sr)
             # zero phased digital filter cause pre-ringing noise...
@@ -145,7 +145,13 @@ class PreProcess:
             println(f"Fail. {traceback.format_exc()}")
 
 
-def preprocess_trainset(inp_root: str, sr: int, n_p: int, exp_dir: str, per: float):
+def preprocess_trainset(
+    inp_root: str,
+    sr: int,
+    n_p: int,
+    exp_dir: str,
+    per: float,
+) -> None:
     pp = PreProcess(sr, exp_dir, per)
     println("start preprocess")
     pp.pipeline_mp_inp_dir(inp_root, n_p)
