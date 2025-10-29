@@ -7,7 +7,7 @@ from .utils import activate_add_tanh_sigmoid_multiply
 
 class LayerNorm(nn.Module):
     def __init__(self, channels: int, eps: float = 1e-5):
-        super(LayerNorm, self).__init__()
+        super().__init__()
         self.channels = channels
         self.eps = eps
 
@@ -30,7 +30,7 @@ class WN(torch.nn.Module):
         gin_channels: int = 0,
         p_dropout: int = 0,
     ):
-        super(WN, self).__init__()
+        super().__init__()
         assert kernel_size % 2 == 1
         self.hidden_channels = hidden_channels
         self.kernel_size = (kernel_size,)

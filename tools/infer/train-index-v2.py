@@ -22,7 +22,7 @@ inp_root = r"./logs/anz/3_feature768"
 npys = []
 listdir_res = list(os.listdir(inp_root))
 for name in sorted(listdir_res):
-    phone = np.load("%s/%s" % (inp_root, name))
+    phone = np.load(f"{inp_root}/{name}")
     npys.append(phone)
 big_npy = np.concatenate(npys, 0)
 big_npy_idx = np.arange(big_npy.shape[0])
@@ -31,7 +31,7 @@ big_npy = big_npy[big_npy_idx]
 logger.debug(big_npy.shape)  # (6196072, 192)#fp32#4.43G
 if big_npy.shape[0] > 2e5:
     # if(1):
-    info = "Trying doing kmeans %s shape to 10k centers." % big_npy.shape[0]
+    info = f"Trying doing kmeans {big_npy.shape[0]} shape to 10k centers."
     logger.info(info)
     try:
         big_npy = (
@@ -54,20 +54,20 @@ np.save("tools/infer/big_src_feature_mi.npy", big_npy)
 ##################train+add
 # big_npy=np.load("/bili-coeus/jupyter/jupyterhub-liujing04/vits_ch/inference_f0/big_src_feature_mi.npy")
 n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
-index = faiss.index_factory(768, "IVF%s,Flat" % n_ivf)  # mi
+index = faiss.index_factory(768, f"IVF{n_ivf},Flat")  # mi
 logger.info("Training...")
 index_ivf = faiss.extract_index_ivf(index)  #
 index_ivf.nprobe = 1
 index.train(big_npy)
 faiss.write_index(
-    index, "tools/infer/trained_IVF%s_Flat_baseline_src_feat_v2.index" % (n_ivf)
+    index, f"tools/infer/trained_IVF{n_ivf}_Flat_baseline_src_feat_v2.index"
 )
 logger.info("Adding...")
 batch_size_add = 8192
 for i in range(0, big_npy.shape[0], batch_size_add):
     index.add(big_npy[i : i + batch_size_add])
 faiss.write_index(
-    index, "tools/infer/added_IVF%s_Flat_mi_baseline_src_feat.index" % (n_ivf)
+    index, f"tools/infer/added_IVF{n_ivf}_Flat_mi_baseline_src_feat.index"
 )
 """
 大小（都是FP32）

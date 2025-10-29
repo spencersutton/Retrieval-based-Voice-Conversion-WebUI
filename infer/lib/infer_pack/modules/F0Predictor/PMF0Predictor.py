@@ -72,7 +72,7 @@ class PMF0Predictor(F0Predictor):
         pad_size = (p_len - len(f0) + 1) // 2
         if pad_size > 0 or p_len - len(f0) - pad_size > 0:
             f0 = np.pad(f0, [[pad_size, p_len - len(f0) - pad_size]], mode="constant")
-        f0, uv = self.interpolate_f0(f0)
+        f0, _uv = self.interpolate_f0(f0)
         return f0
 
     def compute_f0_uv(self, wav, p_len=None):

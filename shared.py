@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 now_dir = os.getcwd()
 tmp = os.path.join(now_dir, "TEMP")
 shutil.rmtree(tmp, ignore_errors=True)
-shutil.rmtree("%s/runtime/Lib/site-packages/infer_pack" % (now_dir), ignore_errors=True)
-shutil.rmtree("%s/runtime/Lib/site-packages/uvr5_pack" % (now_dir), ignore_errors=True)
+shutil.rmtree(f"{now_dir}/runtime/Lib/site-packages/infer_pack", ignore_errors=True)
+shutil.rmtree(f"{now_dir}/runtime/Lib/site-packages/uvr5_pack", ignore_errors=True)
 os.makedirs(tmp, exist_ok=True)
 os.makedirs(os.path.join(now_dir, "logs"), exist_ok=True)
 os.makedirs(os.path.join(now_dir, "assets/weights"), exist_ok=True)
@@ -37,7 +37,7 @@ config: Config = Config()
 vc = VC(config)
 
 
-if config.dml == True:
+if config.dml:
 
     def forward_dml(ctx, x, scale):
         ctx.scale = scale
@@ -84,7 +84,7 @@ if torch.cuda.is_available() or ngpu != 0:
         ):
             # A10#A100#V100#A40#P40#M40#K80#A4500
             if_gpu_ok = True  # 至少有一张能用的N卡
-            gpu_infos.append("%s\t%s" % (i, gpu_name))
+            gpu_infos.append(f"{i}\t{gpu_name}")
             mem.append(
                 int(
                     torch.cuda.get_device_properties(i).total_memory
@@ -123,7 +123,7 @@ def lookup_indices(root: str):
     for root, dirs, files in os.walk(root, topdown=False):
         for name in files:
             if name.endswith(".index") and "trained" not in name:
-                index_paths.append("%s/%s" % (root, name))
+                index_paths.append(f"{root}/{name}")
 
 
 lookup_indices(index_root)

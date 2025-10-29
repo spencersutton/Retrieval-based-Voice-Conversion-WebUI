@@ -36,7 +36,7 @@ T = TypeVar("T")
 _singleton_instances: dict[type, object] = {}
 
 
-def singleton_class(cls: type[T]) -> type[T]:
+def singleton_class[T](cls: type[T]) -> type[T]:
     @wraps(cls)
     def wrapper(*args, **kwargs):
         if cls not in _singleton_instances:
@@ -240,11 +240,8 @@ class Config:
             x_max = 32
         if self.dml:
             logger.info("Use DirectML instead")
-            if (
-                os.path.exists(
-                    r"runtime\\Lib\site-packages\\onnxruntime\\capi\\DirectML.dll"
-                )
-                == False
+            if not os.path.exists(
+                r"runtime\\Lib\site-packages\\onnxruntime\\capi\\DirectML.dll"
             ):
                 try:
                     os.rename(
@@ -268,11 +265,8 @@ class Config:
         else:
             if self.instead:
                 logger.info(f"Use {self.instead} instead")
-            if (
-                os.path.exists(
-                    "runtime\\Lib\\site-packages\\onnxruntime\\capi\\onnxruntime_providers_cuda.dll"
-                )
-                == False
+            if not os.path.exists(
+                "runtime\\Lib\\site-packages\\onnxruntime\\capi\\onnxruntime_providers_cuda.dll"
             ):
                 try:
                     os.rename(
@@ -289,7 +283,6 @@ class Config:
                 except:
                     pass
         logger.info(
-            "Half-precision floating-point: %s, device: %s"
-            % (self.is_half, self.device)
+            f"Half-precision floating-point: {self.is_half}, device: {self.device}"
         )
         return x_pad, x_query, x_center, x_max

@@ -97,7 +97,7 @@ class EpochRecorder:
 def main():
     n_gpus = torch.cuda.device_count()
 
-    if torch.cuda.is_available() == False and torch.backends.mps.is_available() == True:
+    if not torch.cuda.is_available() and torch.backends.mps.is_available():
         n_gpus = 1
     if n_gpus < 1:
         # patch to unblock people without gpus. there is probably a better way.
@@ -226,7 +226,7 @@ def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
         global_step = 0
         if hps.pretrainG != "":
             if rank == 0:
-                logger.info("loaded pretrained %s" % (hps.pretrainG))
+                logger.info(f"loaded pretrained {hps.pretrainG}")
             if hasattr(net_g, "module"):
                 logger.info(
                     net_g.module.load_state_dict(
@@ -245,7 +245,7 @@ def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
                 )  ##测试不加载优化器
         if hps.pretrainD != "":
             if rank == 0:
-                logger.info("loaded pretrained %s" % (hps.pretrainD))
+                logger.info(f"loaded pretrained {hps.pretrainD}")
             if hasattr(net_d, "module"):
                 logger.info(
                     net_d.module.load_state_dict(
@@ -322,7 +322,7 @@ def train_and_evaluate(
 ):
     net_g, net_d = nets
     optim_g, optim_d = optims
-    train_loader, eval_loader = loaders
+    train_loader, _eval_loader = loaders
     # if writers is not None:
     #     writer, writer_eval = writers
 
@@ -333,7 +333,7 @@ def train_and_evaluate(
     net_d.train()
 
     # Prepare data iterator
-    if hps.if_cache_data_in_gpu == True:
+    if hps.if_cache_data_in_gpu:
         # Use Cache
         data_iterator = cache
         if cache == []:
@@ -435,7 +435,7 @@ def train_and_evaluate(
         else:
             phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
         ## Load on CUDA
-        if (hps.if_cache_data_in_gpu == False) and torch.cuda.is_available():
+        if (not hps.if_cache_data_in_gpu) and torch.cuda.is_available():
             phone = phone.cuda(rank, non_blocking=True)
             phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
             if hps.if_f0 == 1:
@@ -461,9 +461,9 @@ def train_and_evaluate(
                 (
                     y_hat,
                     ids_slice,
-                    x_mask,
+                    _x_mask,
                     z_mask,
-                    (z, z_p, m_p, logs_p, m_q, logs_q),
+                    (_z, z_p, m_p, logs_p, _m_q, logs_q),
                 ) = net_g(phone, phone_lengths, spec, spec_lengths, sid)
             mel = spec_to_mel_torch(
                 spec,
@@ -487,7 +487,7 @@ def train_and_evaluate(
                     hps.data.mel_fmin,
                     hps.data.mel_fmax,
                 )
-            if hps.train.fp16_run == True:
+            if hps.train.fp16_run:
                 y_hat_mel = y_hat_mel.half()
             wave = commons.slice_segments(
                 wave, ids_slice * hps.data.hop_length, hps.train.segment_size
@@ -622,15 +622,14 @@ def train_and_evaluate(
             else:
                 ckpt = net_g.state_dict()
             logger.info(
-                "saving ckpt %s_e%s:%s"
-                % (
+                "saving ckpt {}_e{}:{}".format(
                     hps.name,
                     epoch,
                     savee(
                         ckpt,
                         hps.sample_rate,
                         hps.if_f0,
-                        hps.name + "_e%s_s%s" % (epoch, global_step),
+                        hps.name + f"_e{epoch}_s{global_step}",
                         epoch,
                         hps.version,
                         hps,
@@ -648,8 +647,7 @@ def train_and_evaluate(
         else:
             ckpt = net_g.state_dict()
         logger.info(
-            "saving final ckpt:%s"
-            % (
+            "saving final ckpt:{}".format(
                 savee(
                     ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps.version, hps
                 )

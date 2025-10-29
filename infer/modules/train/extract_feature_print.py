@@ -42,12 +42,12 @@ else:
 
     fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
 
-f = open("%s/extract_f0_feature.log" % exp_dir, "a+")
+f = open(f"{exp_dir}/extract_f0_feature.log", "a+")
 
 
 def printt(strr):
     print(strr)
-    f.write("%s\n" % strr)
+    f.write(f"{strr}\n")
     f.flush()
 
 
@@ -55,10 +55,8 @@ printt(" ".join(sys.argv))
 model_path = "assets/hubert/hubert_base.pt"
 
 printt("exp_dir: " + exp_dir)
-wavPath = "%s/1_16k_wavs" % exp_dir
-outPath = (
-    "%s/3_feature256" % exp_dir if version == "v1" else "%s/3_feature768" % exp_dir
-)
+wavPath = f"{exp_dir}/1_16k_wavs"
+outPath = f"{exp_dir}/3_feature256" if version == "v1" else f"{exp_dir}/3_feature768"
 os.makedirs(outPath, exist_ok=True)
 
 
@@ -80,10 +78,9 @@ def readwave(wav_path, normalize=False):
 # HuBERT model
 printt(f"load model(s) from {model_path}")
 # if hubert model is exist
-if os.access(model_path, os.F_OK) == False:
+if not os.access(model_path, os.F_OK):
     printt(
-        "Error: Extracting is shut down because %s does not exist, you may download it from https://huggingface.co/lj1995/VoiceConversionWebUI/tree/main"
-        % model_path
+        f"Error: Extracting is shut down because {model_path} does not exist, you may download it from https://huggingface.co/lj1995/VoiceConversionWebUI/tree/main"
     )
     exit(0)
 
@@ -98,23 +95,23 @@ with safe_globals([Dictionary]):
     )
 model = models[0]
 model = model.to(device)
-printt("move model to %s" % device)
+printt(f"move model to {device}")
 if is_half:
     if device not in ["mps", "cpu"]:
         model = model.half()
 model.eval()
 
-todo = sorted(list(os.listdir(wavPath)))[i_part::n_part]
+todo = sorted(os.listdir(wavPath))[i_part::n_part]
 n = max(1, len(todo) // 10)  # 最多打印十条
 if len(todo) == 0:
     printt("no-feature-todo")
 else:
-    printt("all-feature-%s" % len(todo))
+    printt(f"all-feature-{len(todo)}")
     for idx, file in enumerate(todo):
         try:
             if file.endswith(".wav"):
-                wav_path = "%s/%s" % (wavPath, file)
-                out_path = "%s/%s" % (outPath, file.replace("wav", "npy"))
+                wav_path = f"{wavPath}/{file}"
+                out_path = "{}/{}".format(outPath, file.replace("wav", "npy"))
 
                 if os.path.exists(out_path):
                     continue
@@ -140,9 +137,9 @@ else:
                 if np.isnan(feats).sum() == 0:
                     np.save(out_path, feats, allow_pickle=False)
                 else:
-                    printt("%s-contains nan" % file)
+                    printt(f"{file}-contains nan")
                 if idx % n == 0:
-                    printt("now-%s,all-%s,%s,%s" % (len(todo), idx, file, feats.shape))
+                    printt(f"now-{len(todo)},all-{idx},{file},{feats.shape}")
         except:
             printt(traceback.format_exc())
     printt("all-feature-done")

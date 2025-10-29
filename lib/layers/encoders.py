@@ -19,7 +19,7 @@ class Encoder(nn.Module):
         p_dropout: float = 0.0,
         window_size: int = 10,
     ):
-        super(Encoder, self).__init__()
+        super().__init__()
 
         self.hidden_channels = hidden_channels
         self.filter_channels = filter_channels
@@ -93,7 +93,7 @@ class TextEncoder(nn.Module):
         p_dropout: float,
         f0: bool = True,
     ):
-        super(TextEncoder, self).__init__()
+        super().__init__()
 
         self.out_channels = out_channels
         self.hidden_channels = hidden_channels
@@ -105,7 +105,7 @@ class TextEncoder(nn.Module):
 
         self.emb_phone = nn.Linear(in_channels, hidden_channels)
         self.lrelu = nn.LeakyReLU(0.1, inplace=True)
-        if f0 == True:
+        if f0:
             self.emb_pitch = nn.Embedding(256, hidden_channels)  # pitch 256
         self.encoder = Encoder(
             hidden_channels,
@@ -169,7 +169,7 @@ class PosteriorEncoder(nn.Module):
         n_layers: int,
         gin_channels=0,
     ):
-        super(PosteriorEncoder, self).__init__()
+        super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.hidden_channels = hidden_channels
