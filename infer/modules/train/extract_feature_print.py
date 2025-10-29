@@ -88,7 +88,6 @@ from fairseq.data.dictionary import Dictionary
 from torch.serialization import safe_globals
 
 with safe_globals([Dictionary]):
-    # torch.serialization.add_safe_globals([Dictionary])
     models, saved_cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(
         [model_path],
         suffix="",

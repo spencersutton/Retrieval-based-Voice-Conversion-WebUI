@@ -12,7 +12,6 @@ from infer.lib.train.process_ckpt import (
 from shared import i18n
 
 
-#                    ckpt_path2.change(change_info_,[ckpt_path2],[sr__,if_f0__])
 def change_info_(ckpt_path):
     if not os.path.exists(ckpt_path.replace(os.path.basename(ckpt_path), "train.log")):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
@@ -89,7 +88,7 @@ def create_ckpt_processing_tab():
                 ],
                 info4,
                 api_name="ckpt_merge",
-            )  # def merge(path1,path2,alpha1,sr,f0,info):
+            )
         with gr.Group():
             gr.Markdown(
                 value=i18n("修改模型信息(仅支持weights文件夹下提取的小模型文件)")

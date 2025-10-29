@@ -93,7 +93,6 @@ def ipex_init():  # pylint: disable=too-many-statements
         torch.cuda.CharStorage = torch.xpu.CharStorage
         torch.cuda.__file__ = torch.xpu.__file__
         torch.cuda._is_in_bad_fork = torch.xpu.lazy_init._is_in_bad_fork
-        # torch.cuda.is_current_stream_capturing = torch.xpu.is_current_stream_capturing
 
         # Memory:
         torch.cuda.memory = torch.xpu.memory

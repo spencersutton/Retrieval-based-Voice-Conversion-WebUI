@@ -11,8 +11,6 @@ import numpy as np
 import torch
 from scipy.io.wavfile import read
 
-# MATPLOTLIB_FLAG = False
-
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging
 
@@ -45,7 +43,6 @@ def load_checkpoint_d(
                     )  #
                     raise KeyError
             except:
-                # logger.info(traceback.format_exc())
                 logger.info("%s is not in the checkpoint", k)  # pretrain缺失的
                 new_state_dict[k] = v  # 模型自带的随机值
         if hasattr(model, "module"):
@@ -64,43 +61,11 @@ def load_checkpoint_d(
     if (
         optimizer is not None and load_opt == 1
     ):  ###加载不了，如果是空的的话，重新初始化，可能还会影响lr时间表的更新，因此在train文件最外围catch
-        #   try:
         optimizer.load_state_dict(checkpoint_dict["optimizer"])
-    #   except:
-    #     traceback.print_exc()
     logger.info(f"Loaded checkpoint '{checkpoint_path}' (epoch {iteration})")
     return model, optimizer, learning_rate, iteration
 
 
-# def load_checkpoint(checkpoint_path, model, optimizer=None):
-#   assert os.path.isfile(checkpoint_path)
-#   checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
-#   iteration = checkpoint_dict['iteration']
-#   learning_rate = checkpoint_dict['learning_rate']
-#   if optimizer is not None:
-#     optimizer.load_state_dict(checkpoint_dict['optimizer'])
-#   # print(1111)
-#   saved_state_dict = checkpoint_dict['model']
-#   # print(1111)
-#
-#   if hasattr(model, 'module'):
-#     state_dict = model.module.state_dict()
-#   else:
-#     state_dict = model.state_dict()
-#   new_state_dict= {}
-#   for k, v in state_dict.items():
-#     try:
-#       new_state_dict[k] = saved_state_dict[k]
-#     except:
-#       logger.info("%s is not in the checkpoint" % k)
-#       new_state_dict[k] = v
-#   if hasattr(model, 'module'):
-#     model.module.load_state_dict(new_state_dict)
-#   else:
-#     model.load_state_dict(new_state_dict)
-#   logger.info("Loaded checkpoint '{}' (epoch {})" .format(
-#     checkpoint_path, iteration))
-#   return model, optimizer, learning_rate, iteration
 def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt: int = 1):
     assert os.path.isfile(checkpoint_path)
     checkpoint_dict = torch.load(
@@ -125,7 +90,6 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt: int = 1):
                 )  #
                 raise KeyError
         except:
-            # logger.info(traceback.format_exc())
             logger.info("%s is not in the checkpoint", k)  # pretrain缺失的
             new_state_dict[k] = v  # 模型自带的随机值
     if hasattr(model, "module"):
@@ -139,10 +103,7 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt: int = 1):
     if (
         optimizer is not None and load_opt == 1
     ):  ###加载不了，如果是空的的话，重新初始化，可能还会影响lr时间表的更新，因此在train文件最外围catch
-        #   try:
         optimizer.load_state_dict(checkpoint_dict["optimizer"])
-    #   except:
-    #     traceback.print_exc()
     logger.info(f"Loaded checkpoint '{checkpoint_path}' (epoch {iteration})")
     return model, optimizer, learning_rate, iteration
 
@@ -222,81 +183,34 @@ def latest_checkpoint_path(dir_path: str, regex="G_*.pth"):
 def plot_spectrogram_to_numpy(spectrogram) -> np.ndarray:
     # global MATPLOTLIB_FLAG
     # if not MATPLOTLIB_FLAG:
-    #     import matplotlib
 
-    #     matplotlib.use("Agg")
-    #     MATPLOTLIB_FLAG = True
-    #     mpl_logger = logging.getLogger("matplotlib")
-    #     mpl_logger.setLevel(logging.WARNING)
-    # import matplotlib.pylab as plt
-    # import numpy as np
-
-    # fig, ax = plt.subplots(figsize=(10, 2))
-    # im = ax.imshow(spectrogram, aspect="auto", origin="lower", interpolation="none")
-    # plt.colorbar(im, ax=ax)
-    # plt.xlabel("Frames")
-    # plt.ylabel("Channels")
-    # plt.tight_layout()
-
-    # fig.canvas.draw()
-    # # data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-    # # data = np.fromstring(fig.canvas.tostring_argb(), dtype=np.uint8, sep="")
-    # # data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    # # plt.close()
-    # # return data
     # # --- Start of the fix ---
     # # 1. Get the ARGB string from the canvas
-    # s_argb = fig.canvas.tostring_argb()
 
     # # 2. Convert the ARGB string to a NumPy array
     # #    np.frombuffer is preferred over the deprecated np.fromstring
-    # img_argb_flat = np.frombuffer(s_argb, dtype=np.uint8)
 
     # # 3. Get canvas dimensions (height, width)
     # #    fig.canvas.get_width_height() returns (width, height)
     # #    [::-1] reverses it to (height, width)
-    # height, width = fig.canvas.get_width_height()[::-1]
 
     # # 4. Reshape the flat array to (height, width, 4) for ARGB
-    # img_argb = img_argb_flat.reshape(height, width, 4)
 
     # # 5. Extract the RGB channels from ARGB.
     # #    ARGB order means channels are Alpha, Red, Green, Blue.
     # #    We select channels 1, 2, and 3 (Red, Green, Blue).
-    # img_rgb = img_argb[:, :, 1:4]
     # # --- End of the fix ---
 
-    # plt.close(fig)
     return img_rgb
 
 
 def plot_alignment_to_numpy(alignment, info=None):
     # global MATPLOTLIB_FLAG
     # if not MATPLOTLIB_FLAG:
-    #     import matplotlib
 
-    #     matplotlib.use("Agg")
-    #     MATPLOTLIB_FLAG = True
-    #     mpl_logger = logging.getLogger("matplotlib")
-    #     mpl_logger.setLevel(logging.WARNING)
-    # import matplotlib.pylab as plt
-
-    # fig, ax = plt.subplots(figsize=(6, 4))
-    # im = ax.imshow(
     #     alignment.transpose(), aspect="auto", origin="lower", interpolation="none"
-    # )
-    # fig.colorbar(im, ax=ax)
-    # xlabel = "Decoder timestep"
     # if info is not None:
-    #     xlabel += "\n\n" + info
-    # plt.xlabel(xlabel)
-    # plt.ylabel("Encoder timestep")
-    # plt.tight_layout()
 
-    # fig.canvas.draw()
-    # data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-    # data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    # plt.close()
     return data
 
 

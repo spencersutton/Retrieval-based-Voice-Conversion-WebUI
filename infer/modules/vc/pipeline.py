@@ -39,7 +39,6 @@ from lib.types.f0 import PitchMethod
 def change_rms(
     data1: np.ndarray, sr1: int, data2: np.ndarray, sr2: int, rate: float
 ):  # 1是输入音频，2是输出音频,rate是2的占比
-    # print(data1.max(),data2.max())
     rms1 = librosa.feature.rms(
         y=data1, frame_length=sr1 // 2 * 2, hop_length=sr1 // 2
     )  # 每半秒一个点
@@ -77,8 +76,6 @@ class Pipeline:
             config.x_max,
             config.is_half,
         )
-        # self.sr: int = 16000  # hubert输入采样率
-        # self.window: int = 160  # 每帧点数
         type PitchExtractorDict = dict[str, "PitchExtractor"]
         self.t_pad: int = self.sr * self.x_pad  # 每条前后pad时间
         self.t_pad_tgt: int = tgt_sr * self.x_pad
@@ -198,9 +195,6 @@ class Pipeline:
             feats = model.final_proj(logits[0]) if version == "v1" else logits[0]
         if protect < 0.5 and pitch is not None and pitchf is not None:
             feats0 = feats.clone()
-            #    not isinstance(index, type(None))
-            # and not isinstance(big_npy, type(None))
-            # and index_rate != 0
 
         if index is not None and big_npy is not None and index_rate != 0:
             npy = feats[0].cpu().numpy()
@@ -262,14 +256,12 @@ class Pipeline:
         | SynthesizerTrnMs768NSFsid_nono,
         sid: int,
         audio: np.ndarray,
-        # input_audio_path: str,
         times: list[int],
         f0_up_key: int,
         f0_method: PitchMethod,
         file_index: str,
         index_rate: float,
         if_f0: int,
-        # filter_radius: int,
         tgt_sr: int,
         resample_sr: int,
         rms_mix_rate: float,
@@ -280,16 +272,9 @@ class Pipeline:
     ) -> np.ndarray:
         progress(0.01, desc="Initializing...")  # Initial progress
 
-        if (
-            file_index != ""
-            # and file_big_npy != ""
-            # and os.path.exists(file_big_npy) == True
-            and os.path.exists(file_index)
-            and index_rate != 0
-        ):
+        if file_index != "" and os.path.exists(file_index) and index_rate != 0:
             try:
                 index: faiss.Index = faiss.read_index(file_index)
-                # big_npy = np.load(file_big_npy)
                 big_npy: np.ndarray = index.reconstruct_n(0, index.ntotal)
             except:
                 traceback.print_exc()
@@ -339,7 +324,6 @@ class Pipeline:
                 p_len=p_len,
                 f0_up_key=f0_up_key,
                 f0_method=f0_method,
-                # filter_radius=filter_radius,
                 inp_f0=inp_f0,
             )
             pitch = pitch[:p_len]
@@ -352,7 +336,6 @@ class Pipeline:
         times[1] += t2 - t1
 
         total_segments = len(opt_ts) + 1  # +1 for the last segment
-        # for t in opt_ts:
         for i, t in enumerate(opt_ts):
             progress(
                 (i / total_segments) * 0.7 + 0.25,

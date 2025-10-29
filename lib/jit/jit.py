@@ -46,7 +46,6 @@ def export_jit_model(
     model_jit.to(device)
     model_jit = model_jit.half() if is_half else model_jit.float()
     buffer = BytesIO()
-    # model_jit=model_jit.cpu()
     torch.jit.save(model_jit, buffer)
     del model_jit
     cpt = OrderedDict()

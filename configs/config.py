@@ -46,16 +46,6 @@ def singleton_class[T](cls: type[T]) -> type[T]:
     return wrapper  # Type is preserved
 
 
-# def singleton_variable(func: Callable[..., Any]) -> Callable[..., Any]:
-#     def wrapper(*args, **kwargs):
-#         if not wrapper.instance:
-#             wrapper.instance = func(*args, **kwargs)
-#         return wrapper.instance
-
-#     wrapper.instance = None
-#     return wrapper
-
-
 @singleton_class
 class Config:
     device: str
@@ -257,7 +247,6 @@ class Config:
                     )
                 except:
                     pass
-            # if self.device != "cpu":
             import torch_directml
 
             self.device = torch_directml.device(torch_directml.default_device())

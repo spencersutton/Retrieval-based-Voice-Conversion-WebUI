@@ -95,7 +95,6 @@ class GUIConfig:
     index_rate: float = 0.0
     n_cpu: int = min(n_cpu, 4)
     f0method: Literal["harvest", "crepe", "rmvpe", "fcpe"] = "fcpe"
-    # sg_hostapi: str = ""
     sg_input_device: str = ""
     sg_output_device: str = ""
     samplerate: int = -1
@@ -468,7 +467,6 @@ class StateEncoder(json.JSONEncoder):
     def default(self, o):
         if o == Config:
             return "Config {...}"
-        # if isinstance(o, (UiState, GUIConfig, Config)):
         # Convert custom objects to their dictionary representation
         if isinstance(o, sd.Stream):
             # Cannot serialize a stream object, return a placeholder
@@ -498,10 +496,8 @@ def update_devices(state: UiState, hostapi_name: str | None = None):
     sd._terminate()
     sd._initialize()
     devices = sd.query_devices()
-    # print(f"devices: {devices}")
     hostapis = sd.query_hostapis()
     for hostapi in hostapis:
-        # print(f"Hostapi: {hostapi}")
         for device_idx in hostapi["devices"]:
             devices[device_idx]["hostapi_name"] = hostapi["name"]
 
@@ -697,27 +693,18 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Handle the dialog response
         def on_response(dialog: Gtk.FileDialog, result):
-            # if response == Gtk.ResponseType.ACCEPT:
-            #     file_path = dialog.get_file().get_path()
-            #     entry_row.set_text(file_path)
-            # dialog.get_data
             try:
                 file = dialog.open_finish(result)
                 if file is not None:
                     file_path = file.get_path()
                     print(f"File path is {file_path}")
                     entry_row.set_text(file_path)
-                    # self.state.gui_config.
-                    # on_file_path()
                     if on_file_path is not None:
                         on_file_path(file_path)
                 # Handle loading file from here
             except GLib.Error as error:
                 print(f"Error opening file: {error.message}")
 
-            # dialog.destroy()
-
-        # dialog.connect("response", on_response)
         dialog.open(parent=self, callback=on_response)
 
     def reload_device(self, button: Gtk.Button | None):
@@ -756,21 +743,14 @@ class MainWindow(Adw.ApplicationWindow):
         if selected_item is not None:
             device_name = selected_item.get_string()
             print(f"🔊 Output device selected: {device_name}")
-            # set_devices(device_name)
             set_devices(state=self.state, output_device=device_name)
 
     def on_start_stop_clicked(self, widget):
         if self.state.stream is None:
             # --- START SEQUENCE ---
             # 1. Enter loading state: disable buttons and start spinner
-            # self.start_stop_btn.set_sensitive(False)
-            # self.reload_device_btn.set_sensitive(False)
-            # self.header_spinner.start()
 
             # # 2. Run blocking function in a background thread
-            # thread = threading.Thread(target=self._start_vc_thread)
-            # thread.daemon = True
-            # thread.start()
             self.state.start_vc()
         else:
             # --- STOP SEQUENCE ---

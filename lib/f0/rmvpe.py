@@ -158,5 +158,4 @@ class RMVPE(F0Predictor):
         cents_pred = self._to_local_average_cents(hidden, threshold=thred)
         f0 = 10 * (2 ** (cents_pred / 1200))
         f0[f0 == 10] = 0
-        # f0 = np.array([10 * (2 ** (cent_pred / 1200)) if cent_pred else 0 for cent_pred in cents_pred])
         return f0

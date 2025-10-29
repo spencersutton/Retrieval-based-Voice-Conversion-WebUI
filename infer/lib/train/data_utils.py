@@ -36,8 +36,6 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         Filter text & store spec lengths
         """
         # Store spectrogram lengths for Bucketing
-        # wav_length ~= file_size / (wav_channels * Bytes per dim) = file_size / (1 * 2)
-        # spec_length = wav_length // hop_length
         audiopaths_and_text_new = []
         lengths = []
         for audiopath, text, pitch, pitchf, dv in self.audiopaths_and_text:
@@ -65,7 +63,6 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
 
         len_phone = phone.size()[0]
         len_spec = spec.size()[-1]
-        # print(123,phone.shape,pitch.shape,spec.shape)
         if len_phone != len_spec:
             len_min = min(len_phone, len_spec)
             # amor
@@ -86,7 +83,6 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         pitch = np.load(pitch)
         pitchf = np.load(pitchf)
         n_num = min(phone.shape[0], 900)  # DistributedBucketSampler
-        # print(234,phone.shape,pitch.shape)
         phone = phone[:n_num, :]
         pitch = pitch[:n_num]
         pitchf = pitchf[:n_num]
@@ -102,8 +98,6 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
                 f"{sampling_rate} SR doesn't match target {self.sampling_rate} SR"
             )
         audio_norm = audio
-        #        audio_norm = audio / self.max_wav_value
-        #        audio_norm = audio / np.abs(audio).max()
 
         audio_norm = audio_norm.unsqueeze(0)
         spec_filename = filename.replace(".wav", ".spec.pt")
@@ -178,7 +172,6 @@ class TextAudioCollateMultiNSFsid:
         phone_padded.zero_()
         pitch_padded.zero_()
         pitchf_padded.zero_()
-        # dv = torch.FloatTensor(len(batch), 256)#gin=256
         sid = torch.LongTensor(len(batch))
 
         for i in range(len(ids_sorted_decreasing)):
@@ -201,7 +194,6 @@ class TextAudioCollateMultiNSFsid:
             pitchf = row[4]
             pitchf_padded[i, : pitchf.size(0)] = pitchf
 
-            # dv[i] = row[5]
             sid[i] = row[5]
 
         return (
@@ -213,7 +205,6 @@ class TextAudioCollateMultiNSFsid:
             spec_lengths,
             wave_padded,
             wave_lengths,
-            # dv
             sid,
         )
 
@@ -242,8 +233,6 @@ class TextAudioLoader(torch.utils.data.Dataset):
         Filter text & store spec lengths
         """
         # Store spectrogram lengths for Bucketing
-        # wav_length ~= file_size / (wav_channels * Bytes per dim) = file_size / (1 * 2)
-        # spec_length = wav_length // hop_length
         audiopaths_and_text_new = []
         lengths = []
         for audiopath, text, dv in self.audiopaths_and_text:
@@ -292,8 +281,6 @@ class TextAudioLoader(torch.utils.data.Dataset):
                 f"{sampling_rate} SR doesn't match target {self.sampling_rate} SR"
             )
         audio_norm = audio
-        #        audio_norm = audio / self.max_wav_value
-        #        audio_norm = audio / np.abs(audio).max()
 
         audio_norm = audio_norm.unsqueeze(0)
         spec_filename = filename.replace(".wav", ".spec.pt")

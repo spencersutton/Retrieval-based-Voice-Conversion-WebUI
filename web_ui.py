@@ -6,9 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import shared
 from tabs.ckpt_processing_tab import create_ckpt_processing_tab
-
-# from tabs.faq_tab import create_faq_tab
-# from tabs.onnx_tab import create_onnx_tab
 from tabs.inference_tab import create_inference_tab
 from tabs.train_tab import create_train_tab
 from tabs.vocal_tab import create_vocal_tab
@@ -78,12 +75,6 @@ with gr.Blocks(title="RVC WebUI Fork") as app:
             return RedirectResponse(url="/gradio")
 
         import uvicorn
-
-        # reduce noisy logs
-        # logging.getLogger("uvicorn.access").disabled = True
-        # logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
-        # logging.getLogger("fastapi").setLevel(logging.WARNING)
-        # logging.getLogger("gradio").setLevel(logging.WARNING)
 
         print(f"Listening on port http://0.0.0.0:{shared.config.listen_port}")
 

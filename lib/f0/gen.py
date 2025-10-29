@@ -18,7 +18,6 @@ def post_process(
     manual_f0: np.ndarray | list | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     f0 = np.multiply(f0, pow(2, f0_up_key / 12))
-    # with open("test.txt","w")as f:f.write("\n".join([str(i)for i in f0.tolist()]))
     if manual_f0 is not None:
         delta_t = np.round(
             (manual_f0[:, 0].max() - manual_f0[:, 0].min()) * tf0 + 1
@@ -30,7 +29,6 @@ def post_process(
         f0[manual_x_pad * tf0 : manual_x_pad * tf0 + len(replace_f0)] = replace_f0[
             :shape
         ]
-    # with open("test_opt.txt","w")as f:f.write("\n".join([str(i)for i in f0.tolist()]))
     f0_mel = 1127 * np.log(1 + f0 / 700)
     f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - f0_mel_min) * 254 / (
         f0_mel_max - f0_mel_min
@@ -109,7 +107,6 @@ class Generator:
                     str(self.rmvpe_root / "rmvpe.pt"),
                     is_half=self.is_half,
                     device=self.device,
-                    # use_jit=self.config.use_jit,
                 )
             f0 = self.rmvpe.compute_f0(x, p_len=p_len, filter_radius=0.03)
             if "privateuseone" in str(self.device):  # clean ortruntime memory

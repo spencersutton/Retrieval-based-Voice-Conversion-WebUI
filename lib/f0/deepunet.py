@@ -32,7 +32,6 @@ class ConvBlockRes(nn.Module):
             nn.BatchNorm2d(out_channels, momentum=momentum),
             nn.ReLU(),
         )
-        # self.shortcut:Optional[nn.Module] = None
         if in_channels != out_channels:
             self.shortcut = nn.Conv2d(in_channels, out_channels, (1, 1))
 

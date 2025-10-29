@@ -159,7 +159,6 @@ class MultiHeadAttention(nn.Module):
         return ret
 
     def _get_relative_embeddings(self, relative_embeddings, length: int):
-        # max_relative_position = 2 * self.window_size + 1
         # Pad first before slice to avoid using cond ops.
         pad_length: int = max(length - (self.window_size + 1), 0)
         slice_start_position = max((self.window_size + 1) - length, 0)
@@ -277,7 +276,6 @@ class FFN(nn.Module):
             return x
         pad_l: int = self.kernel_size - 1
         pad_r: int = 0
-        # padding = [[0, 0], [0, 0], [pad_l, pad_r]]
         x = F.pad(x, [pad_l, pad_r, 0, 0, 0, 0])
         return x
 
@@ -286,6 +284,5 @@ class FFN(nn.Module):
             return x
         pad_l: int = (self.kernel_size - 1) // 2
         pad_r: int = self.kernel_size // 2
-        # padding = [[0, 0], [0, 0], [pad_l, pad_r]]
         x = F.pad(x, [pad_l, pad_r, 0, 0, 0, 0])
         return x

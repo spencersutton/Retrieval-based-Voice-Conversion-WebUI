@@ -43,7 +43,6 @@ from torch.nn import functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 
-# from torch.utils.tensorboard import SummaryWriter
 from infer.lib.infer_pack import commons
 from infer.lib.train.data_utils import (
     DistributedBucketSampler,
@@ -126,8 +125,6 @@ def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
         logger = utils.get_logger(hps.model_dir)
         logger.info(hps)
         utils.check_git_hash(hps.model_dir)
-        # writer = SummaryWriter(log_dir=hps.model_dir)
-        # writer_eval = SummaryWriter(log_dir=os.path.join(hps.model_dir, "eval"))
 
     dist.init_process_group(
         backend="gloo", init_method="env://", world_size=n_gpus, rank=rank
@@ -143,7 +140,6 @@ def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
     train_sampler = DistributedBucketSampler(
         train_dataset,
         hps.train.batch_size * n_gpus,
-        # [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1200,1400],  # 16s
         [100, 200, 300, 400, 500, 600, 700, 800, 900],  # 16s
         num_replicas=n_gpus,
         rank=rank,
@@ -197,8 +193,6 @@ def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
         betas=hps.train.betas,
         eps=hps.train.eps,
     )
-    # net_g = DDP(net_g, device_ids=[rank], find_unused_parameters=True)
-    # net_d = DDP(net_d, device_ids=[rank], find_unused_parameters=True)
     if hasattr(torch, "xpu") and torch.xpu.is_available():
         pass
     elif torch.cuda.is_available():
@@ -214,15 +208,11 @@ def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
         )  # D多半加载没事
         if rank == 0:
             logger.info("loaded D")
-        # _, _, _, epoch_str = utils.load_checkpoint(utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g,load_opt=0)
         _, _, _, epoch_str = utils.load_checkpoint(
             utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g
         )
         global_step = (epoch_str - 1) * len(train_loader)
-        # epoch_str = 1
-        # global_step = 0
     except:  # 如果首次不能加载，加载pretrain
-        # traceback.print_exc()
         epoch_str = 1
         global_step = 0
         if hps.pretrainG != "":
@@ -286,7 +276,6 @@ def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
                 scaler,
                 [train_loader, None],
                 logger,
-                # [writer, writer_eval],
                 None,
                 cache,
             )
@@ -304,8 +293,6 @@ def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
                 None,
                 cache,
             )
-        # scheduler_g.step()
-        # scheduler_d.step()
 
 
 def train_and_evaluate(
@@ -324,8 +311,6 @@ def train_and_evaluate(
     net_g, net_d = nets
     optim_g, optim_d = optims
     train_loader, _eval_loader = loaders
-    # if writers is not None:
-    #     writer, writer_eval = writers
 
     train_loader.batch_sampler.set_epoch(epoch)
     global global_step
@@ -418,7 +403,6 @@ def train_and_evaluate(
     # Run steps
     epoch_recorder = EpochRecorder()
     for batch_idx, info in data_iterator:
-        # print(f"BATCH_IDX: {batch_idx}")
         # Data
         ## Unpack
         if hps.if_f0 == 1:
@@ -446,7 +430,6 @@ def train_and_evaluate(
             spec = spec.cuda(rank, non_blocking=True)
             spec_lengths = spec_lengths.cuda(rank, non_blocking=True)
             wave = wave.cuda(rank, non_blocking=True)
-            # wave_lengths = wave_lengths.cuda(rank, non_blocking=True)
 
         # Calculate
         with torch.amp.autocast("cuda", enabled=hps.train.fp16_run):
@@ -566,23 +549,6 @@ def train_and_evaluate(
                 print(
                     f"SCALAR_DICT: {json.dumps({k: v.item() if isinstance(v, torch.Tensor) else v for k, v in scalar_dict.items()})}"
                 )
-                # image_dict = {
-                #     "slice/mel_org": utils.plot_spectrogram_to_numpy(
-                #         y_mel[0].data.cpu().numpy()
-                #     ),
-                #     "slice/mel_gen": utils.plot_spectrogram_to_numpy(
-                #         y_hat_mel[0].data.cpu().numpy()
-                #     ),
-                #     "all/mel": utils.plot_spectrogram_to_numpy(
-                #         mel[0].data.cpu().numpy()
-                #     ),
-                # }
-                # utils.summarize(
-                #     writer=writer,
-                #     global_step=global_step,
-                #     images=image_dict,
-                #     scalars=scalar_dict,
-                # )
         global_step += 1
     # /Run steps
 

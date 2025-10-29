@@ -577,7 +577,6 @@ class SynthesizerTrnMsNSFsidM(nn.Module):
         self.upsample_kernel_sizes = upsample_kernel_sizes
         self.segment_size = segment_size
         self.gin_channels = gin_channels
-        # self.hop_length = hop_length#
         self.spk_embed_dim = spk_embed_dim
         if version == "v1":
             self.enc_p = TextEncoder256(
@@ -661,7 +660,6 @@ class MultiPeriodDiscriminator(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
         super().__init__()
         periods = [2, 3, 5, 7, 11, 17]
-        # periods = [3, 5, 7, 11, 17, 23, 37]
 
         discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
         discs = discs + [
@@ -677,8 +675,6 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         for i, d in enumerate(self.discriminators):
             y_d_r, fmap_r = d(y)
             y_d_g, fmap_g = d(y_hat)
-            # for j in range(len(fmap_r)):
-            #     print(i,j,y.shape,y_hat.shape,fmap_r[j].shape,fmap_g[j].shape)
             y_d_rs.append(y_d_r)
             y_d_gs.append(y_d_g)
             fmap_rs.append(fmap_r)
@@ -690,7 +686,6 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 class MultiPeriodDiscriminatorV2(torch.nn.Module):
     def __init__(self, use_spectral_norm=False):
         super().__init__()
-        # periods = [2, 3, 5, 7, 11, 17]
         periods = [2, 3, 5, 7, 11, 17, 23, 37]
 
         discs = [DiscriminatorS(use_spectral_norm=use_spectral_norm)]
@@ -707,8 +702,6 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
         for i, d in enumerate(self.discriminators):
             y_d_r, fmap_r = d(y)
             y_d_g, fmap_g = d(y_hat)
-            # for j in range(len(fmap_r)):
-            #     print(i,j,y.shape,y_hat.shape,fmap_r[j].shape,fmap_g[j].shape)
             y_d_rs.append(y_d_r)
             y_d_gs.append(y_d_g)
             fmap_rs.append(fmap_r)

@@ -12,10 +12,8 @@ import parselmouth
 import torch
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-# import torchcrepe
 from time import time as ttime
 
-# import pyworld
 import librosa
 import numpy as np
 import soundfile as sf
@@ -23,16 +21,9 @@ import torch.nn.functional as F
 from fairseq import checkpoint_utils
 from scipy.io import wavfile
 
-# from models import SynthesizerTrn256#hifigan_nonsf
-# from lib.infer_pack.models import SynthesizerTrn256NSF as SynthesizerTrn256#hifigan_nsf
 from infer.lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid as SynthesizerTrn256,
 )  # hifigan_nsf
-
-# from lib.infer_pack.models import SynthesizerTrnMs256NSFsid_sim as SynthesizerTrn256#hifigan_nsf
-# from models import SynthesizerTrn256NSFsim as SynthesizerTrn256#hifigan_nsf
-# from models import SynthesizerTrn256NSFsimFlow as SynthesizerTrn256#hifigan_nsf
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_path = r"E:\codes\py39\vits_vc_gpu_train\assets\hubert\hubert_base.pt"  #
@@ -46,8 +37,6 @@ model = model.to(device)
 model = model.half()
 model.eval()
 
-# net_g = SynthesizerTrn256(1025,32,192,192,768,2,6,3,0.1,"1", [3,7,11],[[1,3,5], [1,3,5], [1,3,5]],[10,10,2,2],512,[16,16,4,4],183,256,is_half=True)#hifigan#512#256
-# net_g = SynthesizerTrn256(1025,32,192,192,768,2,6,3,0.1,"1", [3,7,11],[[1,3,5], [1,3,5], [1,3,5]],[10,10,2,2],512,[16,16,4,4],109,256,is_half=True)#hifigan#512#256
 net_g = SynthesizerTrn256(
     1025,
     32,
@@ -68,16 +57,8 @@ net_g = SynthesizerTrn256(
     256,
     is_half=True,
 )  # hifigan#512#256#no_dropout
-# net_g = SynthesizerTrn256(1025,32,192,192,768,2,3,3,0.1,"1", [3,7,11],[[1,3,5], [1,3,5], [1,3,5]],[10,10,2,2],512,[16,16,4,4],0)#ts3
-# net_g = SynthesizerTrn256(1025,32,192,192,768,2,6,3,0.1,"1", [3,7,11],[[1,3,5], [1,3,5], [1,3,5]],[10,10,2],512,[16,16,4],0)#hifigan-ps-sr
 #
-# net_g = SynthesizerTrn(1025, 32, 192, 192, 768, 2, 6, 3, 0.1, "1", [3, 7, 11], [[1, 3, 5], [1, 3, 5], [1, 3, 5]], [5,5], 512, [15,15], 0)#ms
-# net_g = SynthesizerTrn(1025, 32, 192, 192, 768, 2, 6, 3, 0.1, "1", [3, 7, 11], [[1, 3, 5], [1, 3, 5], [1, 3, 5]], [10,10], 512, [16,16], 0)#idwt2
 
-# weights=torch.load("infer/ft-mi_1k-noD.pt")
-# weights=torch.load("infer/ft-mi-freeze-vocoder-flow-enc_q_1k.pt")
-# weights=torch.load("infer/ft-mi-freeze-vocoder_true_1k.pt")
-# weights=torch.load("infer/ft-mi-sim1k.pt")
 weights = torch.load("infer/ft-mi-no_opt-no_dropout.pt")
 logger.debug(net_g.load_state_dict(weights, strict=True))
 
@@ -115,7 +96,6 @@ def get_f0(x, p_len, f0_up_key=0):
     ) + 1
     f0_mel[f0_mel <= 1] = 1
     f0_mel[f0_mel > 255] = 255
-    # f0_mel[f0_mel > 188] = 188
     f0_coarse = np.rint(f0_mel).astype(np.int32)
     return f0_coarse, f0bak
 
@@ -129,7 +109,7 @@ for idx, name in enumerate(
     [
         "冬之花clip1.wav",
     ]
-):  ##
+):
     wav_path = f"todo-songs/{name}"  #
     f0_up_key = -2  #
     audio, sampling_rate = sf.read(wav_path)
@@ -167,7 +147,6 @@ for idx, name in enumerate(
     if torch.cuda.is_available():
         torch.cuda.synchronize()
     t1 = ttime()
-    # p_len = min(feats.shape[1],10000,pitch.shape[0])#太大了爆显存
     p_len = min(feats.shape[1], 10000)  #
     pitch, pitchf = get_f0(audio, p_len, f0_up_key)
     p_len = min(feats.shape[1], 10000, pitch.shape[0])  # 太大了爆显存
@@ -194,9 +173,6 @@ for idx, name in enumerate(
     ta0 += t1 - t0
     ta1 += t2 - t1
     ta2 += t3 - t2
-    # wavfile.write("ft-mi_1k-index256-noD-%s.wav"%name, 40000, audio)##
-    # wavfile.write("ft-mi-freeze-vocoder-flow-enc_q_1k-%s.wav"%name, 40000, audio)##
-    # wavfile.write("ft-mi-sim1k-%s.wav"%name, 40000, audio)##
     wavfile.write(f"ft-mi-no_opt-no_dropout-{name}.wav", 40000, audio)  ##
 
 

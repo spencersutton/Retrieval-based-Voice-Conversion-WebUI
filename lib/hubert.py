@@ -327,7 +327,5 @@ def get_hubert(model_path="assets/hubert/hubert_base.pt", device=torch.device("c
         return feats
 
     hubert_model.infer = infer
-    # hubert_model.forward=infer
-    # hubert_model.forward
 
     return hubert_model
