@@ -115,7 +115,7 @@ class PreProcess:
                         break
                 self.norm_write(tmp_audio, idx0, idx1)
             println(f"{path}\t-> Success")
-        except:
+        except Exception:
             println(f"{path}\t-> {traceback.format_exc()}")
 
     def pipeline_mp(self: "PreProcess", infos: list[tuple[str, int]]) -> None:
@@ -141,7 +141,7 @@ class PreProcess:
                     p.start()
                 for i in range(n_p):
                     ps[i].join()
-        except:
+        except Exception:
             println(f"Fail. {traceback.format_exc()}")
 
 

@@ -212,7 +212,7 @@ def run(rank: int, n_gpus: int, hps, logger: logging.Logger):
             utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g
         )
         global_step = (epoch_str - 1) * len(train_loader)
-    except:  # 如果首次不能加载，加载pretrain
+    except Exception:  # 如果首次不能加载，加载pretrain
         epoch_str = 1
         global_step = 0
         if hps.pretrainG != "":

@@ -592,7 +592,7 @@ def train_index(exp_dir1: str, version19: str, progress=gr.Progress()):
                 .fit(big_npy)
                 .cluster_centers_
             )
-        except:
+        except Exception:
             info = traceback.format_exc()
             shared.logger.info(info)
             infos.append(info)
@@ -632,7 +632,7 @@ def train_index(exp_dir1: str, version19: str, progress=gr.Progress()):
         infos.append(
             f"Linked index to external directory: {shared.outside_index_root}"
         )  # Original: "链接索引到外部-%s"
-    except:
+    except Exception:
         infos.append(
             f"Failed to link index to external directory: {shared.outside_index_root}"
         )  # Original: "链接索引到外部-%s失败"

@@ -132,7 +132,7 @@ class FeatureInput:
                         coarse_pit,
                         allow_pickle=False,
                     )  # ori
-                except:
+                except Exception:
                     printt(f"f0fail-{idx}-{inp_path}-{traceback.format_exc()}")
 
 

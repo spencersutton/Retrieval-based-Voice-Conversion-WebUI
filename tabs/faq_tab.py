@@ -12,5 +12,5 @@ def create_faq_tab(i18n: I18nAuto):
             with open("docs/en/faq_en.md", encoding="utf8") as f:
                 info = f.read()
             gr.Markdown(value=info)
-        except:
+        except Exception:
             gr.Markdown(traceback.format_exc())

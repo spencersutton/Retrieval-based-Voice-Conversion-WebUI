@@ -139,6 +139,6 @@ else:
                     printt(f"{file}-contains nan")
                 if idx % n == 0:
                     printt(f"now-{len(todo)},all-{idx},{file},{feats.shape}")
-        except:
+        except Exception:
             printt(traceback.format_exc())
     printt("all-feature-done")

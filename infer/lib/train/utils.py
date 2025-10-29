@@ -42,7 +42,7 @@ def load_checkpoint_d(
                         saved_state_dict[k].shape,
                     )  #
                     raise KeyError
-            except:
+            except Exception:
                 logger.info("%s is not in the checkpoint", k)  # pretrain缺失的
                 new_state_dict[k] = v  # 模型自带的随机值
         if hasattr(model, "module"):
@@ -89,7 +89,7 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt: int = 1):
                     saved_state_dict[k].shape,
                 )  #
                 raise KeyError
-        except:
+        except Exception:
             logger.info("%s is not in the checkpoint", k)  # pretrain缺失的
             new_state_dict[k] = v  # 模型自带的随机值
     if hasattr(model, "module"):

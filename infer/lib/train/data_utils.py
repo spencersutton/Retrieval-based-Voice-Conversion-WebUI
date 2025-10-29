@@ -104,7 +104,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         if os.path.exists(spec_filename):
             try:
                 spec = torch.load(spec_filename, weights_only=False)
-            except:
+            except Exception:
                 logger.warning("%s %s", spec_filename, traceback.format_exc())
                 spec = spectrogram_torch(
                     audio_norm,
@@ -287,7 +287,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
         if os.path.exists(spec_filename):
             try:
                 spec = torch.load(spec_filename, weights_only=False)
-            except:
+            except Exception:
                 logger.warning("%s %s", spec_filename, traceback.format_exc())
                 spec = spectrogram_torch(
                     audio_norm,
