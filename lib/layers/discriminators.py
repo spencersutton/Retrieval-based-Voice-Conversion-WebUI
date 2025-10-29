@@ -1,5 +1,3 @@
-from typing import List, Tuple
-
 import torch
 from torch import nn
 from torch.nn import Conv1d, Conv2d
@@ -35,19 +33,23 @@ class MultiPeriodDiscriminator(torch.nn.Module):
             ]
         )
 
-    def __call__(self, y: torch.Tensor, y_hat: torch.Tensor) -> Tuple[
-        List[torch.Tensor],
-        List[torch.Tensor],
-        List[List[torch.Tensor]],
-        List[List[torch.Tensor]],
+    def __call__(
+        self, y: torch.Tensor, y_hat: torch.Tensor
+    ) -> tuple[
+        list[torch.Tensor],
+        list[torch.Tensor],
+        list[list[torch.Tensor]],
+        list[list[torch.Tensor]],
     ]:
         return super().__call__(y, y_hat)
 
-    def forward(self, y: torch.Tensor, y_hat: torch.Tensor) -> Tuple[
-        List[torch.Tensor],
-        List[torch.Tensor],
-        List[List[torch.Tensor]],
-        List[List[torch.Tensor]],
+    def forward(
+        self, y: torch.Tensor, y_hat: torch.Tensor
+    ) -> tuple[
+        list[torch.Tensor],
+        list[torch.Tensor],
+        list[list[torch.Tensor]],
+        list[list[torch.Tensor]],
     ]:
         y_d_rs = []
         y_d_gs = []
@@ -82,10 +84,10 @@ class DiscriminatorS(torch.nn.Module):
         )
         self.conv_post = norm_f(Conv1d(1024, 1, 3, 1, padding=1))
 
-    def __call__(self, x: torch.Tensor) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+    def __call__(self, x: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor]]:
         return super().__call__(x)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor]]:
         fmap = []
 
         for l in self.convs:
@@ -142,10 +144,10 @@ class DiscriminatorP(torch.nn.Module):
         )
         self.conv_post = norm_f(Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
 
-    def __call__(self, x: torch.Tensor) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+    def __call__(self, x: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor]]:
         return super().__call__(x)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor]]:
         fmap = []
 
         # 1d to 2d

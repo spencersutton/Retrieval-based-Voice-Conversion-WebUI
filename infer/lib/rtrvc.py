@@ -1,7 +1,7 @@
-from io import BytesIO
 import os
-from typing import Union, Literal, Optional
+from io import BytesIO
 from pathlib import Path
+from typing import Literal
 
 import fairseq
 import faiss
@@ -19,13 +19,13 @@ from lib.types import FileLike
 class RVC:
     def __init__(
         self,
-        key: Union[int, float],
-        formant: Union[int, float],
+        key: int | float,
+        formant: int | float,
         pth_path: FileLike,  # type: ignore
         index_path: str,
-        index_rate: Union[int, float],
+        index_rate: int | float,
         n_cpu: int = os.cpu_count(),
-        device: Union[str, torch.device, int] = "cpu",
+        device: str | torch.device | int = "cpu",
         use_jit: bool = False,
         is_half: bool = False,
         is_dml: bool = False,
@@ -91,7 +91,7 @@ class RVC:
         hubert_model.eval()
         self.hubert = hubert_model
 
-        self.net_g: Optional[nn.Module] = None
+        self.net_g: nn.Module | None = None
 
         def set_default_model():
             self.net_g, cpt = load_synthesizer(self.pth_path, self.device)
@@ -151,7 +151,7 @@ class RVC:
         block_frame_16k: int,
         skip_head: int,
         return_length: int,
-        f0method: Union[tuple, str],
+        f0method: tuple | str,
         protect: float = 1.0,
     ) -> np.ndarray:
         with torch.no_grad():
@@ -276,8 +276,8 @@ class RVC:
     def _get_f0(
         self,
         x: torch.Tensor,
-        f0_up_key: Union[int, float],
-        filter_radius: Optional[Union[int, float]] = None,
+        f0_up_key: int | float,
+        filter_radius: int | float | None = None,
         method: Literal["crepe", "rmvpe", "fcpe", "pm", "harvest", "dio"] = "fcpe",
     ):
         c, f = self.f0_gen.calculate(x, None, f0_up_key, method, filter_radius)

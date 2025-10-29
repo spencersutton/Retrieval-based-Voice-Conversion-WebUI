@@ -1,12 +1,8 @@
-import copy
 import math
-from typing import Optional, Tuple
 
-import numpy as np
-import scipy
 import torch
 from torch import nn
-from torch.nn import AvgPool1d, Conv1d, Conv2d, ConvTranspose1d
+from torch.nn import Conv1d
 from torch.nn import functional as F
 from torch.nn.utils import remove_weight_norm, weight_norm
 
@@ -118,7 +114,7 @@ class DDSConv(nn.Module):
             self.norms_1.append(LayerNorm(channels))
             self.norms_2.append(LayerNorm(channels))
 
-    def forward(self, x, x_mask, g: Optional[torch.Tensor] = None):
+    def forward(self, x, x_mask, g: torch.Tensor | None = None):
         if g is not None:
             x = x + g
         for i in range(self.n_layers):
@@ -186,7 +182,7 @@ class WN(torch.nn.Module):
             self.res_skip_layers.append(res_skip_layer)
 
     def forward(
-        self, x: torch.Tensor, x_mask: torch.Tensor, g: Optional[torch.Tensor] = None
+        self, x: torch.Tensor, x_mask: torch.Tensor, g: torch.Tensor | None = None
     ):
         output = torch.zeros_like(x)
         n_channels_tensor = torch.IntTensor([self.hidden_channels])
@@ -325,7 +321,7 @@ class ResBlock1(torch.nn.Module):
         self.convs2.apply(init_weights)
         self.lrelu_slope = LRELU_SLOPE
 
-    def forward(self, x: torch.Tensor, x_mask: Optional[torch.Tensor] = None):
+    def forward(self, x: torch.Tensor, x_mask: torch.Tensor | None = None):
         for c1, c2 in zip(self.convs1, self.convs2):
             xt = F.leaky_relu(x, self.lrelu_slope)
             if x_mask is not None:
@@ -394,7 +390,7 @@ class ResBlock2(torch.nn.Module):
         self.convs.apply(init_weights)
         self.lrelu_slope = LRELU_SLOPE
 
-    def forward(self, x, x_mask: Optional[torch.Tensor] = None):
+    def forward(self, x, x_mask: torch.Tensor | None = None):
         for c in self.convs:
             xt = F.leaky_relu(x, self.lrelu_slope)
             if x_mask is not None:
@@ -425,9 +421,9 @@ class Log(nn.Module):
         self,
         x: torch.Tensor,
         x_mask: torch.Tensor,
-        g: Optional[torch.Tensor] = None,
+        g: torch.Tensor | None = None,
         reverse: bool = False,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         if not reverse:
             y = torch.log(torch.clamp_min(x, 1e-5)) * x_mask
             logdet = torch.sum(-y, [1, 2])
@@ -445,9 +441,9 @@ class Flip(nn.Module):
         self,
         x: torch.Tensor,
         x_mask: torch.Tensor,
-        g: Optional[torch.Tensor] = None,
+        g: torch.Tensor | None = None,
         reverse: bool = False,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         x = torch.flip(x, [1])
         if not reverse:
             logdet = torch.zeros(x.size(0)).to(dtype=x.dtype, device=x.device)
@@ -513,7 +509,7 @@ class ResidualCouplingLayer(nn.Module):
         self,
         x: torch.Tensor,
         x_mask: torch.Tensor,
-        g: Optional[torch.Tensor] = None,
+        g: torch.Tensor | None = None,
         reverse: bool = False,
     ):
         x0, x1 = torch.split(x, [self.half_channels] * 2, 1)
@@ -580,7 +576,7 @@ class ConvFlow(nn.Module):
         self,
         x: torch.Tensor,
         x_mask: torch.Tensor,
-        g: Optional[torch.Tensor] = None,
+        g: torch.Tensor | None = None,
         reverse=False,
     ):
         x0, x1 = torch.split(x, [self.half_channels] * 2, 1)

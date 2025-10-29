@@ -1,10 +1,10 @@
 from math import log
 from pathlib import Path
-from typing import Optional, Union, Literal, Tuple
+from typing import Literal
 
-from numba import jit
 import numpy as np
 import torch
+from numba import jit
 
 
 @jit(nopython=True)
@@ -15,8 +15,8 @@ def post_process(
     manual_x_pad: int,
     f0_mel_min: float,
     f0_mel_max: float,
-    manual_f0: Optional[Union[np.ndarray, list]] = None,
-) -> Tuple[np.ndarray, np.ndarray]:
+    manual_f0: np.ndarray | list | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
     f0 = np.multiply(f0, pow(2, f0_up_key / 12))
     # with open("test.txt","w")as f:f.write("\n".join([str(i)for i in f0.tolist()]))
     if manual_f0 is not None:
@@ -41,7 +41,7 @@ def post_process(
     return f0_coarse, f0  # 1-0
 
 
-class Generator(object):
+class Generator:
     def __init__(
         self,
         rmvpe_root: Path,
@@ -61,12 +61,12 @@ class Generator(object):
     def calculate(
         self,
         x: np.ndarray,
-        p_len: Optional[int],
+        p_len: int | None,
         f0_up_key: int,
         f0_method: Literal["pm", "dio", "harvest", "crepe", "rmvpe", "fcpe"],
-        filter_radius: Optional[Union[int, float]],
-        manual_f0: Optional[Union[np.ndarray, list]] = None,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        filter_radius: int | float | None,
+        manual_f0: np.ndarray | list | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
         if torch.is_tensor(x):
             x = x.cpu().numpy()
         f0_min = 50

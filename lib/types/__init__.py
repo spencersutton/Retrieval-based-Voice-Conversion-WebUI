@@ -1,2 +1,2 @@
+from .f0 import PITCH_METHODS, PitchMethod
 from .io import FileLike
-from .f0 import PitchMethod, PITCH_METHODS

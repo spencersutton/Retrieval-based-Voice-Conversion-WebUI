@@ -1,7 +1,8 @@
 import platform
-import numpy as np
-import av
 import re
+
+import av
+import numpy as np
 
 
 def wav2(input_path: str, output_path: str, format: str):

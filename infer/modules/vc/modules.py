@@ -1,6 +1,7 @@
-import traceback
 import logging
-from typing import Any, Dict, Optional, Union
+import traceback
+from typing import Any
+
 import gradio as gr
 import resampy
 
@@ -9,6 +10,7 @@ from configs.config import Config
 logger = logging.getLogger(__name__)
 import numpy as np
 import torch
+
 from infer.lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid,
     SynthesizerTrnMs256NSFsid_nono,
@@ -50,21 +52,20 @@ def resample_audio(
 class VC:
     def __init__(self: "VC", config: Config):
         # self.config = config
-        self.n_spk: Optional[int] = None
-        self.tgt_sr: Optional[int] = None
-        self.net_g: Optional[
-            Union[
-                SynthesizerTrnMs256NSFsid,
-                SynthesizerTrnMs256NSFsid_nono,
-                SynthesizerTrnMs768NSFsid,
-                SynthesizerTrnMs768NSFsid_nono,
-            ]
-        ] = None
-        self.pipeline: Optional[Pipeline] = None
-        self.cpt: Optional[Dict[str, Any]] = None
-        self.version: Optional[str] = None
-        self.if_f0: Optional[int] = None
-        self.hubert_model: Optional[HubertModel] = None
+        self.n_spk: int | None = None
+        self.tgt_sr: int | None = None
+        self.net_g: (
+            SynthesizerTrnMs256NSFsid
+            | SynthesizerTrnMs256NSFsid_nono
+            | SynthesizerTrnMs768NSFsid
+            | SynthesizerTrnMs768NSFsid_nono
+            | None
+        ) = None
+        self.pipeline: Pipeline | None = None
+        self.cpt: dict[str, Any] | None = None
+        self.version: str | None = None
+        self.if_f0: int | None = None
+        self.hubert_model: HubertModel | None = None
         self.config: Config = config
 
         # ## Real-time inference state ##
@@ -77,7 +78,7 @@ class VC:
             self.config.device
         )
 
-    def get_vc(self: "VC", sid: Optional[str], *to_return_protect):
+    def get_vc(self: "VC", sid: str | None, *to_return_protect):
         if sid is None or sid == "":
             logger.warning("No SID")
             return (
@@ -188,16 +189,16 @@ class VC:
 
     def vc_single(
         self: "VC",
-        sr_and_audio: Optional[Tuple[int, np.ndarray]],
+        sr_and_audio: Tuple[int, np.ndarray] | None,
         f0_up_key: int,
         f0_method: str,
-        file_index: Optional[str],  # Path to .index file from dropdown
+        file_index: str | None,  # Path to .index file from dropdown
         index_rate: float,
         resample_sr: int,  # Target sample rate
         rms_mix_rate: float,
         protect: float,
         progress: gr.Progress = gr.Progress(),
-    ) -> Tuple[str, Optional[Tuple[int, np.ndarray]]]:
+    ) -> Tuple[str, Tuple[int, np.ndarray] | None]:
         file_index = None
         f0_file = None
         sid = 0
@@ -261,17 +262,17 @@ class VC:
 
     def vc_realtime(
         self: "VC",
-        sr_and_audio: Optional[Tuple[int, np.ndarray]],
+        sr_and_audio: Tuple[int, np.ndarray] | None,
         f0_up_key: int,
         f0_method: str,
-        file_index: Optional[str],  # Path to .index file from dropdown
+        file_index: str | None,  # Path to .index file from dropdown
         index_rate: float,
         resample_sr: int,  # Target sample rate
         rms_mix_rate: float,
         protect: float,
         block_size: int = 5120,  # default chunk size in samples at 16kHz (~320ms)
         crossfade_size: int = 512,  # overlap for smoother transitions
-    ) -> Optional[Tuple[int, np.ndarray]]:
+    ) -> Tuple[int, np.ndarray] | None:
         """
         Real-time voice conversion with buffering and pitch caching.
         Reuses vc_single() internally to avoid code duplication.

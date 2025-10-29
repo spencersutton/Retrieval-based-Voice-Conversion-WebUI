@@ -1,7 +1,4 @@
-from typing import List, Optional, Union
-
 import torch
-
 from rvc.layers.synthesizers import SynthesizerTrnMsNSFsid as SynthesizerBase
 
 
@@ -18,14 +15,14 @@ class SynthesizerTrnMsNSFsid(SynthesizerBase):
         kernel_size: int,
         p_dropout: int,
         resblock: str,
-        resblock_kernel_sizes: List[int],
-        resblock_dilation_sizes: List[List[int]],
-        upsample_rates: List[int],
+        resblock_kernel_sizes: list[int],
+        resblock_dilation_sizes: list[list[int]],
+        upsample_rates: list[int],
         upsample_initial_channel: int,
-        upsample_kernel_sizes: List[int],
+        upsample_kernel_sizes: list[int],
         spk_embed_dim: int,
         gin_channels: int,
-        sr: Optional[Union[str, int]],
+        sr: str | int | None,
         encoder_dim: int,
     ):
         super().__init__(

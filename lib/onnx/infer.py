@@ -1,17 +1,16 @@
-import typing
 import os
+import typing
 
 import librosa
 import numpy as np
 import onnxruntime
-
 from rvc.f0 import Generator
 
 
 class Model:
     def __init__(
         self,
-        path: typing.Union[str, bytes, os.PathLike],
+        path: str | bytes | os.PathLike,
         device: typing.Literal["cpu", "cuda", "dml"] = "cpu",
     ):
         if device == "cpu":
@@ -28,7 +27,7 @@ class Model:
 class ContentVec(Model):
     def __init__(
         self,
-        vec_path: typing.Union[str, bytes, os.PathLike],
+        vec_path: str | bytes | os.PathLike,
         device: typing.Literal["cpu", "cuda", "dml"] = "cpu",
     ):
         super().__init__(vec_path, device)
@@ -49,10 +48,10 @@ class ContentVec(Model):
 class RVC(Model):
     def __init__(
         self,
-        model_path: typing.Union[str, bytes, os.PathLike],
+        model_path: str | bytes | os.PathLike,
         hop_len=512,
         model_sr=40000,
-        vec_path: typing.Union[str, bytes, os.PathLike] = "vec-768-layer-12.onnx",
+        vec_path: str | bytes | os.PathLike = "vec-768-layer-12.onnx",
         device: typing.Literal["cpu", "cuda", "dml"] = "cpu",
     ):
         super().__init__(model_path, device)

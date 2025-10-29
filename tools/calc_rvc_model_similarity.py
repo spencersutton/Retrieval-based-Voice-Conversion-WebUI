@@ -1,7 +1,7 @@
 # This code references https://huggingface.co/JosephusCheung/ASimilarityCalculatior/blob/main/qwerty.py
 # Fill in the path of the model to be queried and the root directory of the reference models, and this script will return the similarity between the model to be queried and all reference models.
-import os
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 

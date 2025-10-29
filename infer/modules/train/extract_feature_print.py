@@ -78,7 +78,7 @@ def readwave(wav_path, normalize=False):
 
 
 # HuBERT model
-printt("load model(s) from {}".format(model_path))
+printt(f"load model(s) from {model_path}")
 # if hubert model is exist
 if os.access(model_path, os.F_OK) == False:
     printt(

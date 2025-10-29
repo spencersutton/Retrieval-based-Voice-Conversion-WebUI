@@ -1,7 +1,5 @@
-from typing import Optional
-
-import torch
 import numpy as np
+import torch
 from librosa.filters import mel
 
 from .stft import STFT
@@ -15,7 +13,7 @@ class MelSpectrogram(torch.nn.Module):
         sampling_rate: int,
         win_length: int,
         hop_length: int,
-        n_fft: Optional[int] = None,
+        n_fft: int | None = None,
         mel_fmin: int = 0,
         mel_fmax: int = None,
         clamp: float = 1e-5,

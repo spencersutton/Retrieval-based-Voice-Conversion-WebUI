@@ -1,11 +1,9 @@
 import logging
-
 import os
 import shutil
-
 import warnings
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
 
 load_dotenv()
 logging.getLogger("numba").setLevel(logging.WARNING)
@@ -20,7 +18,6 @@ import torch
 from configs.config import Config
 from i18n.i18n import I18nAuto
 from infer.modules.vc.modules import VC
-
 
 logger = logging.getLogger(__name__)
 now_dir = os.getcwd()

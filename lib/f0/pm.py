@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import parselmouth
 
@@ -13,8 +11,8 @@ class PM(F0Predictor):
     def compute_f0(
         self,
         wav: np.ndarray,
-        p_len: Optional[int] = None,
-        filter_radius: Optional[int] = None,
+        p_len: int | None = None,
+        filter_radius: int | None = None,
     ):
         x = wav
         if p_len is None:

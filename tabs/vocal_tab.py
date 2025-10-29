@@ -1,6 +1,4 @@
 import gradio as gr
-import shared
-
 from PolUVR.utils import PolUVR_UI
 
 

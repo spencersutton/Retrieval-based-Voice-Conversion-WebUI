@@ -2,14 +2,10 @@ import os
 import sys
 import traceback
 
-import parselmouth
-
 now_dir = os.getcwd()
 sys.path.append(now_dir)
-import logging
 
 import numpy as np
-import pyworld
 
 from infer.lib.audio import load_audio
 
@@ -28,7 +24,7 @@ def printt(strr):
     f.flush()
 
 
-class FeatureInput(object):
+class FeatureInput:
     def __init__(self, samplerate=16000, hop_size=160):
         self.fs = samplerate
         self.hop = hop_size

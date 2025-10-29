@@ -1,9 +1,10 @@
-from io import BytesIO
 import pickle
 import time
+from collections import OrderedDict
+from io import BytesIO
+
 import torch
 from tqdm import tqdm
-from collections import OrderedDict
 
 
 def load_inputs(path, device, is_half=False):
@@ -27,7 +28,7 @@ def benchmark(
         start_time = time.perf_counter()
         o = model(**parm)
         total_ts += time.perf_counter() - start_time
-    print(f"num_epoch: {epoch} | avg time(ms): {(total_ts*1000)/epoch}")
+    print(f"num_epoch: {epoch} | avg time(ms): {(total_ts * 1000) / epoch}")
 
 
 def jit_warm_up(model, inputs_path, device=torch.device("cpu"), epoch=5, is_half=False):

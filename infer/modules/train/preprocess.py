@@ -1,7 +1,6 @@
 import multiprocessing
 import os
 import sys
-from typing import List, Tuple
 
 from scipy import signal
 
@@ -120,7 +119,7 @@ class PreProcess:
         except:
             println("%s\t-> %s" % (path, traceback.format_exc()))
 
-    def pipeline_mp(self: "PreProcess", infos: List[Tuple[str, int]]) -> None:
+    def pipeline_mp(self: "PreProcess", infos: list[tuple[str, int]]) -> None:
         for path, idx0 in infos:
             self.pipeline(path, idx0)
 

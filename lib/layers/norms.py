@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -78,7 +76,7 @@ class WN(torch.nn.Module):
         self,
         x: torch.Tensor,
         x_mask: torch.Tensor,
-        g: Optional[torch.Tensor] = None,
+        g: torch.Tensor | None = None,
     ) -> torch.Tensor:
         return super().__call__(x, x_mask, g=g)
 
@@ -86,7 +84,7 @@ class WN(torch.nn.Module):
         self,
         x: torch.Tensor,
         x_mask: torch.Tensor,
-        g: Optional[torch.Tensor] = None,
+        g: torch.Tensor | None = None,
     ) -> torch.Tensor:
         output = torch.zeros_like(x)
 

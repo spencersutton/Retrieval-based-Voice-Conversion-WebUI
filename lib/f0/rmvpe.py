@@ -1,15 +1,13 @@
-from io import BytesIO
 import os
-from typing import Any, Optional, Union
+from io import BytesIO
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+from rvc.jit import export_jit_model, get_jit_model, load_inputs, save_pickle
 
-from rvc.jit import load_inputs, get_jit_model, export_jit_model, save_pickle
-
-from .mel import MelSpectrogram
 from .f0 import F0Predictor
+from .mel import MelSpectrogram
 from .models import get_rmvpe
 
 
@@ -96,8 +94,8 @@ class RMVPE(F0Predictor):
     def compute_f0(
         self,
         wav: np.ndarray,
-        p_len: Optional[int] = None,
-        filter_radius: Optional[Union[int, float]] = None,
+        p_len: int | None = None,
+        filter_radius: int | float | None = None,
     ):
         if p_len is None:
             p_len = wav.shape[0] // self.hop_length
