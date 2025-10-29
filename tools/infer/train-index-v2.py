@@ -5,14 +5,13 @@
 import logging
 import os
 import traceback
-
-logger = logging.getLogger(__name__)
-
 from multiprocessing import cpu_count
 
 import faiss
 import numpy as np
 from sklearn.cluster import MiniBatchKMeans
+
+logger = logging.getLogger(__name__)
 
 # ###########如果是原始特征要先写save
 n_cpu = 0

@@ -1,23 +1,10 @@
 import logging
 import os
-import sys
 import traceback
-
-import gradio as gr
-
-from configs.config import Config
-from infer.lib.infer_pack.models import (
-    SynthesizerTrnMs256NSFsid,
-    SynthesizerTrnMs256NSFsid_nono,
-    SynthesizerTrnMs768NSFsid,
-    SynthesizerTrnMs768NSFsid_nono,
-)
-
-logger = logging.getLogger(__name__)
-
 from time import time as ttime
 
 import faiss
+import gradio as gr
 import librosa
 import numpy as np
 import torch
@@ -27,13 +14,19 @@ from fairseq.models.hubert.hubert import (
 )  # Renamed for clarity in this example
 from scipy import signal
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-
-bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
-
+from configs.config import Config
+from infer.lib.infer_pack.models import (
+    SynthesizerTrnMs256NSFsid,
+    SynthesizerTrnMs256NSFsid_nono,
+    SynthesizerTrnMs768NSFsid,
+    SynthesizerTrnMs768NSFsid_nono,
+)
 from infer.modules.vc.f0_extractors import *
 from lib.types.f0 import PitchMethod
+
+logger = logging.getLogger(__name__)
+
+bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
 
 
 def change_rms(

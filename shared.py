@@ -3,7 +3,13 @@ import os
 import shutil
 import warnings
 
+import fairseq
+import torch
 from dotenv import load_dotenv
+
+from configs.config import Config
+from i18n.i18n import I18nAuto
+from infer.modules.vc.modules import VC
 
 load_dotenv()
 logging.getLogger("numba").setLevel(logging.WARNING)
@@ -11,13 +17,6 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("fairseq").setLevel(logging.WARNING)
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-
-import fairseq
-import torch
-
-from configs.config import Config
-from i18n.i18n import I18nAuto
-from infer.modules.vc.modules import VC
 
 logger = logging.getLogger(__name__)
 now_dir = os.getcwd()

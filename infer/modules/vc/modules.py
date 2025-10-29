@@ -3,14 +3,11 @@ import traceback
 from typing import Any
 
 import gradio as gr
-import resampy
-
-from configs.config import Config
-
-logger = logging.getLogger(__name__)
 import numpy as np
+import resampy
 import torch
 
+from configs.config import Config
 from infer.lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid,
     SynthesizerTrnMs256NSFsid_nono,
@@ -19,6 +16,8 @@ from infer.lib.infer_pack.models import (
 )
 from infer.modules.vc.pipeline import Pipeline
 from infer.modules.vc.utils import *
+
+logger = logging.getLogger(__name__)
 
 
 def resample_audio(

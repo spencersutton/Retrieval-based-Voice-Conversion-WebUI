@@ -2,9 +2,6 @@ import os
 import sys
 import traceback
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-
 import numpy as np
 
 from infer.lib.audio import load_audio

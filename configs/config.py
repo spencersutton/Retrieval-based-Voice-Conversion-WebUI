@@ -1,10 +1,12 @@
 import argparse
 import json
+import logging
 import os
 import shutil
 import sys
+from functools import wraps
 from multiprocessing import cpu_count
-from typing import Any
+from typing import Any, TypeVar
 
 import torch
 
@@ -15,7 +17,6 @@ try:
         ipex_init()
 except Exception:  # pylint: disable=broad-exception-caught
     pass
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,6 @@ version_config_list: list[str] = [
     "v2/48k.json",
     "v2/32k.json",
 ]
-
-from functools import wraps
-from typing import TypeVar
 
 T = TypeVar("T")
 

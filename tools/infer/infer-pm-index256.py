@@ -5,18 +5,14 @@
 
 import logging
 import os
-
-logger = logging.getLogger(__name__)
-
-import parselmouth
-import torch
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 from time import time as ttime
 
+import faiss
 import librosa
 import numpy as np
+import parselmouth
 import soundfile as sf
+import torch
 import torch.nn.functional as F
 from fairseq import checkpoint_utils
 from scipy.io import wavfile
@@ -24,6 +20,10 @@ from scipy.io import wavfile
 from infer.lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid as SynthesizerTrn256,
 )  # hifigan_nsf
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+logger = logging.getLogger(__name__)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_path = r"E:\codes\py39\vits_vc_gpu_train\assets\hubert\hubert_base.pt"  #
@@ -99,8 +99,6 @@ def get_f0(x, p_len, f0_up_key=0):
     f0_coarse = np.rint(f0_mel).astype(np.int32)
     return f0_coarse, f0bak
 
-
-import faiss
 
 index = faiss.read_index("infer/added_IVF512_Flat_mi_baseline_src_feat.index")
 big_npy = np.load("infer/big_src_feature_mi.npy")

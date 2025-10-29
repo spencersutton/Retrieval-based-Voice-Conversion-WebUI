@@ -7,9 +7,6 @@ from multiprocessing import Queue, cpu_count
 from typing import Literal, Optional
 
 import gi
-
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
 import librosa
 import numpy as np
 import sounddevice as sd
@@ -23,13 +20,14 @@ from configs.config import Config
 from infer.lib import rtrvc as rvc_for_realtime
 from tools.torchgate import TorchGate
 
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+
 # --- Environment and Path Setup ---
 load_dotenv()
 os.environ["OMP_NUM_THREADS"] = "4"
 if sys.platform == "darwin":
     os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
-now_dir = os.getcwd()
-sys.path.append(now_dir)
 
 
 def printt(strr: str, *args):
