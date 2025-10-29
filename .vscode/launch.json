@@ -1,0 +1,16 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "train.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "infer/modules/train/train.py",
+            "args": " -e experiment_2025-10-27 -sr 40k -f0 1 -bs 1 -g 0 -te 20 -se 5 -pg assets/pretrained_v2/f0G40k.pth -pd assets/pretrained_v2/f0D40k.pth -l 0 -c 0 -sw 0 -v v2",
+            "console": "integratedTerminal"
+        }
+    ]
+}

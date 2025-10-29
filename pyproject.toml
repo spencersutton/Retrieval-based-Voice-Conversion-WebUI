@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "av>=15.0.0",
-    # "cython>=3.1.1",
     "fairseq",
     "faiss-cpu>=1.7.3",
     "fsspec>=2022.11.0",
@@ -44,5 +43,46 @@ gtk = [
 ]
 
 
+[tool.setuptools]
+packages = ["infer", "lib", "tabs", "i18n"]
+
+[[tool.uv.index]]
+url = "https://download.pytorch.org/whl/cu130"
+
+[tool.uv]
+package = true
+
 [tool.uv.sources]
 fairseq = { git = "https://github.com/yamada-sexta/fairseq.git" }
+
+[tool.ruff.lint]
+extend-select = [
+    "C4",
+    "COM",
+    "ERA",
+    "F",
+    "FLY",
+    "FURB",
+    "I",
+    "ICN",
+    "ISC",
+    "N",
+    "NPY",
+    "PERF",
+    "PIE",
+    "PL",
+    "PTH",
+    "Q",
+    "RUF",
+    "TC",
+    "TID",
+    "UP",
+]
+ignore = ["E741", "COM812", "N", "PLR", "PLW0603"]
+
+[tool.pyright]
+typeCheckingMode = "standard"
+reportMissingParameterType = true
+
+[dependency-groups]
+dev = ["pyright>=1.1.407"]
