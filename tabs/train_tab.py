@@ -764,7 +764,11 @@ def create_train_tab():
                     )
                 with gr.Column():
                     preprocessing_btn = gr.Button(i18n("Preprocess"), variant="primary")
-                    info1 = gr.Textbox(label=i18n("Info"), value="")
+                    info1 = gr.Textbox(
+                        label=i18n("Info"),
+                        value="",
+                        lines=4,
+                    )
                     preprocessing_btn.click(
                         preprocess_meta,
                         [
