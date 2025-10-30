@@ -389,7 +389,9 @@ def click_train(
 
     # Build filelist for training
     opt = []
-    fea_dim = 256 if version == "v1" else 768
+    fea_dim = (
+        shared.FEATURE_DIMENSION if version == "v1" else shared.FEATURE_DIMENSION_V2
+    )
     mute_dir = Path.cwd() / "logs" / "mute"
     mute_gt_wavs = mute_dir / shared.GT_WAVS_DIR_NAME / f"mute{sample_rate}.wav"
     mute_feature = mute_dir / f"3_feature{fea_dim}" / "mute.npy"
@@ -584,7 +586,10 @@ def train_index(
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
     infos.append(f"{big_npy.shape},{n_ivf}")
     progress(0.5, desc="Training FAISS index...")  # Progress update for training
-    index = faiss.index_factory(256 if version == "v1" else 768, f"IVF{n_ivf},Flat")
+    index = faiss.index_factory(
+        shared.FEATURE_DIMENSION if version == "v1" else shared.FEATURE_DIMENSION_V2,
+        f"IVF{n_ivf},Flat",
+    )
     infos.append("training")
     index_ivf = faiss.extract_index_ivf(index)  #
     index_ivf.nprobe = 1
