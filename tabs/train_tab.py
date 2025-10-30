@@ -218,19 +218,31 @@ def extract_f0_feature(
 
     if if_f0:
         if f0method != "rmvpe_gpu":
-            cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{log_dir_path}" {n_p} {f0method}'
+            cmd = (
+                f'"{shared.config.python_cmd}" '
+                "infer/modules/train/extract/extract_f0_print.py "
+                f'"{log_dir_path}" {n_p} {f0method}'
+            )
             log = run_and_monitor([cmd], wait_all=False)
         else:
             if gpus_rmvpe != "-":
                 gpus_rmvpe_list = gpus_rmvpe.split("-")
                 length = len(gpus_rmvpe_list)
                 cmds = [
-                    f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {length} {idx} {n_g} "{log_dir_path}" {shared.config.is_half} '
+                    (
+                        f'"{shared.config.python_cmd}" '
+                        "infer/modules/train/extract/extract_f0_rmvpe.py "
+                        f'{length} {idx} {n_g} "{log_dir_path}" {shared.config.is_half} '
+                    )
                     for idx, n_g in enumerate(gpus_rmvpe_list)
                 ]
                 log = run_and_monitor(cmds)
             else:
-                cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe_dml.py "{log_dir_path}" '
+                cmd = (
+                    f'"{shared.config.python_cmd}" '
+                    "infer/modules/train/extract/extract_f0_rmvpe_dml.py "
+                    f'"{log_dir_path}" '
+                )
                 shared.logger.info("Execute: " + cmd)
                 p = Popen(cmd, shell=True, cwd=Path.cwd())
                 p.wait()
@@ -242,7 +254,11 @@ def extract_f0_feature(
     gpus = gpus_str.split("-")
     length = len(gpus)
     cmds = [
-        f'"{shared.config.python_cmd}" infer/modules/train/extract_feature_print.py {shared.config.device} {length} {idx} {n_g} "{log_dir_path}" {version} {shared.config.is_half}'
+        (
+            f'"{shared.config.python_cmd}" '
+            f"infer/modules/train/extract_feature_print.py "
+            f'{shared.config.device} {length} {idx} {n_g} "{log_dir_path}" {version} {shared.config.is_half}'
+        )
         for idx, n_g in enumerate(gpus)
     ]
     log = run_and_monitor(cmds)
