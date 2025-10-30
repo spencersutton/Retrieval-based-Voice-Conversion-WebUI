@@ -178,7 +178,7 @@ class VC:
 
     def vc_single(
         self: "VC",
-        sr_and_audio: Tuple[int, np.ndarray] | None,
+        sr_and_audio: tuple[int, np.ndarray] | None,
         f0_up_key: int,
         f0_method: str,
         file_index: str | None,  # Path to .index file from dropdown
@@ -187,7 +187,7 @@ class VC:
         rms_mix_rate: float,
         protect: float,
         progress: gr.Progress = gr.Progress(),
-    ) -> Tuple[str, Tuple[int, np.ndarray] | None]:
+    ) -> tuple[str, tuple[int, np.ndarray] | None]:
         file_index = None
         f0_file = None
         sid = 0
@@ -247,7 +247,7 @@ class VC:
 
     def vc_realtime(
         self: "VC",
-        sr_and_audio: Tuple[int, np.ndarray] | None,
+        sr_and_audio: tuple[int, np.ndarray] | None,
         f0_up_key: int,
         f0_method: str,
         file_index: str | None,  # Path to .index file from dropdown
@@ -257,7 +257,7 @@ class VC:
         protect: float,
         block_size: int = 5120,  # default chunk size in samples at 16kHz (~320ms)
         crossfade_size: int = 512,  # overlap for smoother transitions
-    ) -> Tuple[int, np.ndarray] | None:
+    ) -> tuple[int, np.ndarray] | None:
         """
         Real-time voice conversion with buffering and pitch caching.
         Reuses vc_single() internally to avoid code duplication.
