@@ -40,14 +40,18 @@ def if_done(done_flag: list[bool], p: Popen):
     done_flag[0] = True
 
 
-def if_done_multi(done_flag, p_objs):
+def if_done_multi(done_flag: list[bool], p_objs: list[Popen]):
     for p_obj in p_objs:
         p_obj.wait()
     done_flag[0] = True
 
 
 def preprocess_dataset(
-    audio_dir: str, exp_dir: str, sr: int, n_p: int, progress=gr.Progress()
+    audio_dir: str,
+    exp_dir: str,
+    sr: str,  # pyright: ignore[reportRedeclaration]
+    n_p: int,
+    progress: gr.Progress = gr.Progress(),
 ) -> Generator[str, None, None]:
     # 1. Validate audio_dir and count files
     if not os.path.isdir(audio_dir):
@@ -89,7 +93,7 @@ def preprocess_dataset(
         shared.logger.error(error_msg)
         yield error_msg
         return
-    sr = shared.sr_dict[sr]
+    sr: int = shared.sr_dict[sr]
     os.makedirs(f"{shared.now_dir}/logs/{exp_dir}", exist_ok=True)
     f = open(f"{shared.now_dir}/logs/{exp_dir}/preprocess.log", "w")
     f.close()
@@ -127,9 +131,9 @@ def preprocess_meta(
     experiment_name: str,
     audio_dir: str,
     audio_files: list[str] | None,
-    sr: int,
+    sr: str,
     n_p: int,
-    progress=gr.Progress(),
+    progress: gr.Progress = gr.Progress(),
 ):
     save_dir = f"{audio_dir}/{experiment_name}"
     os.makedirs(save_dir, exist_ok=True)
@@ -182,20 +186,20 @@ def parse_f0_feature_log(content: str) -> tuple[int, int]:
 
 
 def extract_f0_feature(
-    gpus: str,
+    gpus_str: str,
     n_p: int,
     f0method: str,
     if_f0: bool,
     exp_dir: str,
     version19: str,
-    gpus_rmvpe: str,
+    gpus_rmvpe: str,  # pyright: ignore[reportRedeclaration]
     progress: gr.Progress = gr.Progress(),
 ) -> Generator[str, None, None]:
     def update_progress(content: str):
         now, all = parse_f0_feature_log(content)
         progress(float(now) / all, desc=f"{now}/{all} Features extracted...")
 
-    gpus: list[str] = gpus.split("-")
+    gpus = gpus_str.split("-")
     os.makedirs(f"{shared.now_dir}/logs/{exp_dir}", exist_ok=True)
     f = open(f"{shared.now_dir}/logs/{exp_dir}/extract_f0_feature.log", "w")
     f.close()
@@ -215,7 +219,7 @@ def extract_f0_feature(
             ).start()
         else:
             if gpus_rmvpe != "-":
-                gpus_rmvpe = gpus_rmvpe.split("-")
+                gpus_rmvpe: list[str] = gpus_rmvpe.split("-")
                 length = len(gpus_rmvpe)
                 ps = []
                 for idx, n_g in enumerate(gpus_rmvpe):
@@ -285,7 +289,7 @@ def extract_f0_feature(
     yield log
 
 
-def get_pretrained_models(path_str: str, f0_str: str, sr2: int):
+def get_pretrained_models(path_str: str, f0_str: str, sr2: str):
     if_pretrained_generator_exist = os.access(
         f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth", os.F_OK
     )
@@ -320,13 +324,13 @@ def get_pretrained_models(path_str: str, f0_str: str, sr2: int):
     )
 
 
-def change_sr2(sr2: int, if_f0_3, version19):
+def change_sr2(sr2: str, if_f0_3: bool, version19: str):
     path_str = "" if version19 == "v1" else "_v2"
     f0_str = "f0" if if_f0_3 else ""
     return get_pretrained_models(path_str, f0_str, sr2)
 
 
-def change_version19(sr2: int, if_f0_3: bool, version19: str):
+def change_version19(sr2: str, if_f0_3: bool, version19: str):
     path_str = "" if version19 == "v1" else "_v2"
     if sr2 == "32k" and version19 == "v1":
         sr2 = "40k"
@@ -342,7 +346,7 @@ def change_version19(sr2: int, if_f0_3: bool, version19: str):
     )
 
 
-def change_f0(if_f0_3: bool, sr2, version19):  # f0method8,pretrained_G14,pretrained_D15
+def change_f0(if_f0_3: bool, sr2: str, version19: str):
     path_str = "" if version19 == "v1" else "_v2"
     return (
         {"visible": if_f0_3, "__type__": "update"},
@@ -380,20 +384,20 @@ scalar_history = []
 
 def click_train(
     exp_dir1: str,
-    sr2: int,
-    if_f0_3,
-    spk_id5,
-    save_epoch10,
-    total_epoch11,
-    batch_size12,
-    if_save_latest13: str,
-    pretrained_G14,
-    pretrained_D15,
-    gpus16,
-    if_cache_gpu17,
-    if_save_every_weights18,
-    version19,
-    progress=gr.Progress(),
+    sr2: str,
+    if_f0_3: bool,
+    spk_id5: str,
+    save_epoch10: int,
+    total_epoch11: int,
+    batch_size12: int,
+    if_save_latest13: bool,
+    pretrained_G14: str,
+    pretrained_D15: str,
+    gpus16: str,
+    if_cache_gpu17: bool,
+    if_save_every_weights18: bool,
+    version19: str,
+    progress: gr.Progress = gr.Progress(),
 ):
     # Generating file list
     exp_dir = f"{shared.now_dir}/logs/{exp_dir1}"
@@ -402,6 +406,8 @@ def click_train(
     feature_dir = (
         f"{exp_dir}/3_feature256" if version19 == "v1" else f"{exp_dir}/3_feature768"
     )
+    f0_dir = ""
+    f0nsf_dir = ""
     if if_f0_3:
         f0_dir = f"{exp_dir}/2a_f0"
         f0nsf_dir = f"{exp_dir}/2b-f0nsf"
@@ -515,11 +521,12 @@ def click_train(
     p = Popen(cmd, shell=True, cwd=shared.now_dir, stdout=subprocess.PIPE)
     scalar_count = 0
     while True:
-        line = p.stdout.readline()
-        if not line:
+        assert p.stdout is not None
+        line_bytes = p.stdout.readline()
+        if not line_bytes:
             break
         # the real code does filtering here
-        line: str = line.decode("utf-8", errors="ignore")
+        line = line_bytes.decode("utf-8", errors="ignore")
         shared.logger.info(f"{line}")
 
         if line.startswith("SCALAR_DICT: "):
@@ -554,7 +561,7 @@ def click_train(
     )
 
 
-def train_index(exp_dir1: str, version19: str, progress=gr.Progress()):
+def train_index(exp_dir1: str, version19: str, progress: gr.Progress = gr.Progress()):
     exp_dir = f"logs/{exp_dir1}"
     os.makedirs(exp_dir, exist_ok=True)
     feature_dir = (
@@ -642,28 +649,28 @@ def train_index(exp_dir1: str, version19: str, progress=gr.Progress()):
 
 
 def one_click_training(
-    exp_dir1,
-    sr2,
-    if_f0_3,
-    trainset_dir4,
-    spk_id5,
-    np7,
-    f0method8,
-    save_epoch10,
-    total_epoch11,
-    batch_size12,
-    if_save_latest13,
-    pretrained_G14,
-    pretrained_D15,
-    gpus16,
-    if_cache_gpu17,
-    if_save_every_weights18,
-    version19,
-    gpus_rmvpe,
-):
+    exp_dir1: str,
+    sr2: str,
+    if_f0_3: bool,
+    trainset_dir4: str,
+    spk_id5: str,
+    np7: int,
+    f0method8: str,
+    save_epoch10: int,
+    total_epoch11: int,
+    batch_size12: int,
+    if_save_latest13: bool,
+    pretrained_G14: str,
+    pretrained_D15: str,
+    gpus16: str,
+    if_cache_gpu17: bool,
+    if_save_every_weights18: bool,
+    version19: str,
+    gpus_rmvpe: str,
+) -> Generator[str]:
     infos: list[str] = []
 
-    def get_info_str(strr):
+    def get_info_str(strr: str) -> str:
         infos.append(strr)
         return "\n".join(infos)
 
