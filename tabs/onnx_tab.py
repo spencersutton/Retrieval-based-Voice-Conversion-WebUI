@@ -3,7 +3,7 @@ import gradio as gr
 from shared import i18n
 
 
-def export_onnx(ModelPath, ExportedPath):
+def export_onnx(ModelPath: str, ExportedPath: str):
     from infer.modules.onnx.export import export_onnx as eo
 
     eo(ModelPath, ExportedPath)

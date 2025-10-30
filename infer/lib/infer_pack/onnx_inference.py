@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import librosa
 import numpy as np
@@ -8,7 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 class ContentVec:
-    def __init__(self, vec_path="pretrained/vec-768-layer-12.onnx", device=None):
+    def __init__(
+        self, vec_path: str = "pretrained/vec-768-layer-12.onnx", device: str = None
+    ):
         logger.info(f"Load model(s) from {vec_path}")
         if device == "cpu" or device is None:
             providers = ["CPUExecutionProvider"]
@@ -20,10 +23,10 @@ class ContentVec:
             raise RuntimeError("Unsportted Device")
         self.model = onnxruntime.InferenceSession(vec_path, providers=providers)
 
-    def __call__(self, wav):
+    def __call__(self, wav: np.ndarray) -> np.ndarray:
         return self.forward(wav)
 
-    def forward(self, wav):
+    def forward(self, wav: np.ndarray) -> np.ndarray:
         feats = wav
         if feats.ndim == 2:  # double channels
             feats = feats.mean(-1)
@@ -34,7 +37,9 @@ class ContentVec:
         return logits.transpose(0, 2, 1)
 
 
-def get_f0_predictor(f0_predictor, hop_length, sampling_rate, **kargs):
+def get_f0_predictor(
+    f0_predictor: str, hop_length: int, sampling_rate: int, **kargs: Any
+) -> object:
     if f0_predictor == "pm":
         from lib.infer_pack.modules.F0Predictor.PMF0Predictor import PMF0Predictor
 
@@ -63,11 +68,11 @@ def get_f0_predictor(f0_predictor, hop_length, sampling_rate, **kargs):
 class OnnxRVC:
     def __init__(
         self,
-        model_path,
-        sr=40000,
-        hop_size=512,
-        vec_path="vec-768-layer-12",
-        device="cpu",
+        model_path: str,
+        sr: int = 40000,
+        hop_size: int = 512,
+        vec_path: str = "vec-768-layer-12",
+        device: str = "cpu",
     ):
         vec_path = f"pretrained/{vec_path}.onnx"
         self.vec_model = ContentVec(vec_path, device)
@@ -83,7 +88,15 @@ class OnnxRVC:
         self.sampling_rate = sr
         self.hop_size = hop_size
 
-    def forward(self, hubert, hubert_length, pitch, pitchf, ds, rnd):
+    def forward(
+        self,
+        hubert: np.ndarray,
+        hubert_length: int,
+        pitch: np.ndarray,
+        pitchf: np.ndarray,
+        ds: np.ndarray,
+        rnd: np.ndarray,
+    ) -> np.ndarray:
         onnx_input = {
             self.model.get_inputs()[0].name: hubert,
             self.model.get_inputs()[1].name: hubert_length,
@@ -96,12 +109,12 @@ class OnnxRVC:
 
     def inference(
         self,
-        raw_path,
-        sid,
-        f0_method="dio",
-        f0_up_key=0,
-        pad_time=0.5,
-        cr_threshold=0.02,
+        raw_path: str,
+        sid: int,
+        f0_method: str = "dio",
+        f0_up_key: int = 0,
+        pad_time: float = 0.5,
+        cr_threshold: float = 0.02,
     ):
         f0_min = 50
         f0_max = 1100

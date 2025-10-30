@@ -7,7 +7,7 @@ from .layers.synthesizers import SynthesizerTrnMsNSFsid
 from .types import FileLike
 
 
-def get_synthesizer(cpt: OrderedDict, device=torch.device("cpu")):
+def get_synthesizer(cpt: OrderedDict, device: torch.device = torch.device("cpu")):
     cpt["config"][-3] = cpt["weight"]["emb_g.weight"].shape[0]
     if_f0 = cpt.get("f0", 1)
     version = cpt.get("version", "v1")
@@ -28,7 +28,7 @@ def get_synthesizer(cpt: OrderedDict, device=torch.device("cpu")):
     return net_g, cpt
 
 
-def load_synthesizer(pth_path: FileLike, device=torch.device("cpu")):  # type: ignore
+def load_synthesizer(pth_path: FileLike, device: torch.device = torch.device("cpu")):  # type: ignore
     return get_synthesizer(
         torch.load(pth_path, map_location=torch.device("cpu"), weights_only=True),
         device,
@@ -40,8 +40,8 @@ def synthesizer_jit_export(
     mode: str = "script",
     inputs_path: str | None = None,
     save_path: str | None = None,
-    device=torch.device("cpu"),
-    is_half=False,
+    device: torch.device = torch.device("cpu"),
+    is_half: bool = False,
 ):
     if not save_path:
         save_path = model_path.rstrip(".pth")

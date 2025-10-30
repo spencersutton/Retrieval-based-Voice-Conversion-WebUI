@@ -12,7 +12,7 @@ from infer.lib.train.process_ckpt import (
 from shared import i18n
 
 
-def change_info_(ckpt_path):
+def change_info_(ckpt_path: str):
     if not os.path.exists(ckpt_path.replace(os.path.basename(ckpt_path), "train.log")):
         return {"__type__": "update"}, {"__type__": "update"}, {"__type__": "update"}
     try:

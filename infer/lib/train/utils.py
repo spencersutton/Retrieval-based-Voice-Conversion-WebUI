@@ -16,7 +16,11 @@ logger = logging
 
 
 def load_checkpoint_d(
-    checkpoint_path: str, combd, sbd, optimizer=None, load_opt: int = 1
+    checkpoint_path: str,
+    combd: torch.nn.Module,
+    sbd: torch.nn.Module,
+    optimizer: torch.optim.Optimizer = None,
+    load_opt: int = 1,
 ):
     assert os.path.isfile(checkpoint_path)
     checkpoint_dict = torch.load(
@@ -24,7 +28,7 @@ def load_checkpoint_d(
     )
 
     ##################
-    def go(model, bkey):
+    def go(model: torch.nn.Module, bkey: str):
         saved_state_dict = checkpoint_dict[bkey]
         if hasattr(model, "module"):
             state_dict = model.module.state_dict()
@@ -66,7 +70,12 @@ def load_checkpoint_d(
     return model, optimizer, learning_rate, iteration
 
 
-def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt: int = 1):
+def load_checkpoint(
+    checkpoint_path: str,
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer = None,
+    load_opt: int = 1,
+):
     assert os.path.isfile(checkpoint_path)
     checkpoint_dict = torch.load(
         checkpoint_path, map_location="cpu", weights_only=False
@@ -108,7 +117,13 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt: int = 1):
     return model, optimizer, learning_rate, iteration
 
 
-def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path):
+def save_checkpoint(
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    learning_rate: float,
+    iteration: int,
+    checkpoint_path: str,
+):
     logger.info(
         f"Saving model and optimizer state at epoch {iteration} to {checkpoint_path}"
     )
@@ -128,7 +143,12 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path)
 
 
 def save_checkpoint_d(
-    combd, sbd, optimizer, learning_rate: float, iteration, checkpoint_path
+    combd: torch.nn.Module,
+    sbd: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    learning_rate: float,
+    iteration: int,
+    checkpoint_path: str,
 ):
     logger.info(
         f"Saving model and optimizer state at epoch {iteration} to {checkpoint_path}"
@@ -155,12 +175,12 @@ def save_checkpoint_d(
 
 def summarize(
     # writer,
-    global_step,
-    scalars={},
-    histograms={},
-    images={},
-    audios={},
-    audio_sampling_rate=22050,
+    global_step: int,
+    scalars: dict[str, float] = {},
+    histograms: dict[str, torch.Tensor] = {},
+    images: dict[str, torch.Tensor] = {},
+    audios: dict[str, torch.Tensor] = {},
+    audio_sampling_rate: int = 22050,
 ):
     for k, v in scalars.items():
         writer.add_scalar(k, v, global_step)
@@ -172,7 +192,7 @@ def summarize(
         writer.add_audio(k, v, global_step, audio_sampling_rate)
 
 
-def latest_checkpoint_path(dir_path: str, regex="G_*.pth"):
+def latest_checkpoint_path(dir_path: str, regex: str = "G_*.pth"):
     f_list = glob.glob(os.path.join(dir_path, regex))
     f_list.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
     x = f_list[-1]

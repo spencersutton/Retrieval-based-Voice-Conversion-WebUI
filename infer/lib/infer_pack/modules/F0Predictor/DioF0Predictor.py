@@ -5,7 +5,13 @@ from infer.lib.infer_pack.modules import F0Predictor
 
 
 class DioF0Predictor(F0Predictor):
-    def __init__(self, hop_length=512, f0_min=50, f0_max=1100, sampling_rate=44100):
+    def __init__(
+        self,
+        hop_length: int = 512,
+        f0_min: int = 50,
+        f0_max: int = 1100,
+        sampling_rate: int = 44100,
+    ):
         self.hop_length = hop_length
         self.f0_min = f0_min
         self.f0_max = f0_max
@@ -49,7 +55,7 @@ class DioF0Predictor(F0Predictor):
 
         return ip_data[:, 0], vuv_vector[:, 0]
 
-    def resize_f0(self, x, target_len):
+    def resize_f0(self, x: np.ndarray, target_len: int):
         source = np.array(x)
         source[source < 0.001] = np.nan
         target = np.interp(
@@ -60,7 +66,7 @@ class DioF0Predictor(F0Predictor):
         res = np.nan_to_num(target)
         return res
 
-    def compute_f0(self, wav, p_len=None):
+    def compute_f0(self, wav: np.ndarray, p_len: int | None = None) -> np.ndarray:
         if p_len is None:
             p_len = wav.shape[0] // self.hop_length
         f0, t = pyworld.dio(
@@ -75,7 +81,9 @@ class DioF0Predictor(F0Predictor):
             f0[index] = round(pitch, 1)
         return self.interpolate_f0(self.resize_f0(f0, p_len))[0]
 
-    def compute_f0_uv(self, wav, p_len=None):
+    def compute_f0_uv(
+        self, wav: np.ndarray, p_len: int | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
         if p_len is None:
             p_len = wav.shape[0] // self.hop_length
         f0, t = pyworld.dio(

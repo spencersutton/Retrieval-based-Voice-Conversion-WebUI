@@ -24,7 +24,7 @@ from infer.lib.jit.get_synthesizer import get_synthesizer
 mm = M()
 
 
-def printt(strr, *args):
+def printt(strr: str, *args: object) -> None:
     if len(args) == 0:
         print(strr)
     else:
@@ -34,11 +34,11 @@ def printt(strr, *args):
 class RVC:
     def __init__(
         self,
-        key,
-        pth_path,
-        index_path,
-        index_rate,
-        n_cpu,
+        key: int,
+        pth_path: str,
+        index_path: str,
+        index_rate: float,
+        n_cpu: int,
         inp_q,
         opt_q,
         config: Config,
@@ -50,7 +50,7 @@ class RVC:
         try:
             if config.dml:
 
-                def forward_dml(ctx, x, scale):
+                def forward_dml(ctx, x: torch.Tensor, scale: float) -> torch.Tensor:
                     ctx.scale = scale
                     res = x.clone().detach()
                     return res
@@ -181,17 +181,17 @@ class RVC:
         except Exception:
             printt(traceback.format_exc())
 
-    def change_key(self, new_key):
+    def change_key(self, new_key: int):
         self.f0_up_key = new_key
 
-    def change_index_rate(self, new_index_rate):
+    def change_index_rate(self, new_index_rate: float):
         if new_index_rate != 0 and self.index_rate == 0:
             self.index = faiss.read_index(self.index_path)
             self.big_npy = self.index.reconstruct_n(0, self.index.ntotal)
             printt("Index search enabled")
         self.index_rate = new_index_rate
 
-    def get_f0_post(self, f0):
+    def get_f0_post(self, f0: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if not torch.is_tensor(f0):
             f0 = torch.from_numpy(f0)
         f0 = f0.float().to(self.device).squeeze()
@@ -204,7 +204,13 @@ class RVC:
         f0_coarse = torch.round(f0_mel).long()
         return f0_coarse, f0
 
-    def get_f0(self, x, f0_up_key, n_cpu, method="harvest"):
+    def get_f0(
+        self,
+        x: torch.Tensor,
+        f0_up_key: int,
+        n_cpu: int,
+        method: str = "harvest",
+    ):
         n_cpu = int(n_cpu)
         if method == "crepe":
             return self.get_f0_crepe(x, f0_up_key)
@@ -275,7 +281,7 @@ class RVC:
         f0bak *= pow(2, f0_up_key / 12)
         return self.get_f0_post(f0bak)
 
-    def get_f0_crepe(self, x, f0_up_key):
+    def get_f0_crepe(self, x: torch.Tensor, f0_up_key: int):
         if "privateuseone" in str(
             self.device
         ):  ###不支持dml，cpu又太慢用不成，拿fcpe顶替
@@ -297,7 +303,7 @@ class RVC:
         f0 *= pow(2, f0_up_key / 12)
         return self.get_f0_post(f0)
 
-    def get_f0_rmvpe(self, x, f0_up_key):
+    def get_f0_rmvpe(self, x: torch.Tensor, f0_up_key: int):
         if not hasattr(self, "model_rmvpe"):
             from infer.lib.rmvpe import RMVPE
 
@@ -312,7 +318,7 @@ class RVC:
         f0 *= pow(2, f0_up_key / 12)
         return self.get_f0_post(f0)
 
-    def get_f0_fcpe(self, x, f0_up_key):
+    def get_f0_fcpe(self, x: torch.Tensor, f0_up_key: int):
         if not hasattr(self, "model_fcpe"):
             from torchfcpe import spawn_bundled_infer_model
 
@@ -334,10 +340,10 @@ class RVC:
     def infer(
         self,
         input_wav: torch.Tensor,
-        block_frame_16k,
-        skip_head,
-        return_length,
-        f0method,
+        block_frame_16k: int,
+        skip_head: int,
+        return_length: int,
+        f0method: str,
     ) -> np.ndarray:
         t1 = ttime()
         with torch.no_grad():

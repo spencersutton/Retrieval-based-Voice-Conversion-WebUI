@@ -28,7 +28,11 @@ logger = logging.getLogger(__name__)
 
 class STFT(torch.nn.Module):
     def __init__(
-        self, filter_length=1024, hop_length=512, win_length=None, window="hann"
+        self,
+        filter_length: int = 1024,
+        hop_length: int = 512,
+        win_length: int = None,
+        window: str = "hann",
     ):
         """
         This module implements an STFT using 1D convolution and 1D transpose convolutions.
@@ -75,7 +79,7 @@ class STFT(torch.nn.Module):
         self.register_buffer("inverse_basis", inverse_basis.float())
         self.register_buffer("fft_window", fft_window.float())
 
-    def transform(self, input_data, return_phase=False):
+    def transform(self, input_data: torch.Tensor, return_phase: bool = False):
         """Take input data (audio) to STFT domain.
 
         Arguments:
@@ -106,7 +110,7 @@ class STFT(torch.nn.Module):
         else:
             return magnitude
 
-    def inverse(self, magnitude, phase):
+    def inverse(self, magnitude: torch.Tensor, phase: torch.Tensor):
         """Call the inverse STFT (iSTFT), given magnitude and phase tensors produced
         by the ```transform``` function.
 
@@ -141,7 +145,7 @@ class STFT(torch.nn.Module):
         inverse_transform /= window_square_sum
         return inverse_transform
 
-    def forward(self, input_data):
+    def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         """Take input data (audio) to STFT domain and then back to audio.
 
         Arguments:
@@ -172,7 +176,7 @@ class BiGRU(nn.Module):
 
 
 class ConvBlockRes(nn.Module):
-    def __init__(self, in_channels, out_channels, momentum=0.01):
+    def __init__(self, in_channels: int, out_channels: int, momentum: float = 0.01):
         super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(
@@ -209,13 +213,13 @@ class ConvBlockRes(nn.Module):
 class Encoder(nn.Module):
     def __init__(
         self,
-        in_channels,
-        in_size,
-        n_encoders,
-        kernel_size,
-        n_blocks,
-        out_channels=16,
-        momentum=0.01,
+        in_channels: int,
+        in_size: int,
+        n_encoders: int,
+        kernel_size: int,
+        n_blocks: int,
+        out_channels: int = 16,
+        momentum: float = 0.01,
     ):
         super().__init__()
         self.n_encoders = n_encoders
@@ -246,7 +250,12 @@ class Encoder(nn.Module):
 
 class ResEncoderBlock(nn.Module):
     def __init__(
-        self, in_channels, out_channels, kernel_size, n_blocks=1, momentum=0.01
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        n_blocks: int = 1,
+        momentum: float = 0.01,
     ):
         super().__init__()
         self.n_blocks = n_blocks
@@ -258,7 +267,7 @@ class ResEncoderBlock(nn.Module):
         if self.kernel_size is not None:
             self.pool = nn.AvgPool2d(kernel_size=kernel_size)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         for i, conv in enumerate(self.conv):
             x = conv(x)
         if self.kernel_size is not None:
@@ -268,7 +277,14 @@ class ResEncoderBlock(nn.Module):
 
 
 class Intermediate(nn.Module):  #
-    def __init__(self, in_channels, out_channels, n_inters, n_blocks, momentum=0.01):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        n_inters: int,
+        n_blocks: int,
+        momentum: float = 0.01,
+    ):
         super().__init__()
         self.n_inters = n_inters
         self.layers = nn.ModuleList()
@@ -280,14 +296,21 @@ class Intermediate(nn.Module):  #
                 ResEncoderBlock(out_channels, out_channels, None, n_blocks, momentum)
             )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         for i, layer in enumerate(self.layers):
             x = layer(x)
         return x
 
 
 class ResDecoderBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, stride, n_blocks=1, momentum=0.01):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        stride: tuple[int, int],
+        n_blocks: int = 1,
+        momentum: float = 0.01,
+    ):
         super().__init__()
         out_padding = (0, 1) if stride == (1, 2) else (1, 1)
         self.n_blocks = n_blocks
@@ -309,7 +332,7 @@ class ResDecoderBlock(nn.Module):
         for i in range(n_blocks - 1):
             self.conv2.append(ConvBlockRes(out_channels, out_channels, momentum))
 
-    def forward(self, x, concat_tensor):
+    def forward(self, x: torch.Tensor, concat_tensor: torch.Tensor):
         x = self.conv1(x)
         x = torch.cat((x, concat_tensor), dim=1)
         for i, conv2 in enumerate(self.conv2):
@@ -318,7 +341,14 @@ class ResDecoderBlock(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, in_channels, n_decoders, stride, n_blocks, momentum=0.01):
+    def __init__(
+        self,
+        in_channels: int,
+        n_decoders: int,
+        stride: tuple[int, int],
+        n_blocks: int,
+        momentum: float = 0.01,
+    ):
         super().__init__()
         self.layers = nn.ModuleList()
         self.n_decoders = n_decoders
@@ -338,12 +368,12 @@ class Decoder(nn.Module):
 class DeepUnet(nn.Module):
     def __init__(
         self,
-        kernel_size,
-        n_blocks,
-        en_de_layers=5,
-        inter_layers=4,
-        in_channels=1,
-        en_out_channels=16,
+        kernel_size: int,
+        n_blocks: int,
+        en_de_layers: int = 5,
+        inter_layers: int = 4,
+        in_channels: int = 1,
+        en_out_channels: int = 16,
     ):
         super().__init__()
         self.encoder = Encoder(
@@ -371,11 +401,11 @@ class E2E(nn.Module):
         self,
         n_blocks: int,
         n_gru: int,
-        kernel_size,
-        en_de_layers=5,
-        inter_layers=4,
-        in_channels=1,
-        en_out_channels=16,
+        kernel_size: int,
+        en_de_layers: int = 5,
+        inter_layers: int = 4,
+        in_channels: int = 1,
+        en_out_channels: int = 16,
     ):
         super().__init__()
         self.unet = DeepUnet(
@@ -415,15 +445,15 @@ class E2E(nn.Module):
 class MelSpectrogram(torch.nn.Module):
     def __init__(
         self,
-        is_half,
-        n_mel_channels,
-        sampling_rate,
-        win_length,
-        hop_length,
-        n_fft=None,
-        mel_fmin=0,
-        mel_fmax=None,
-        clamp=1e-5,
+        is_half: bool,
+        n_mel_channels: int,
+        sampling_rate: int,
+        win_length: int,
+        hop_length: int,
+        n_fft: int | None = None,
+        mel_fmin: int = 0,
+        mel_fmax: int | None = None,
+        clamp: float = 1e-5,
     ):
         super().__init__()
         n_fft = win_length if n_fft is None else n_fft
@@ -446,7 +476,13 @@ class MelSpectrogram(torch.nn.Module):
         self.clamp = clamp
         self.is_half = is_half
 
-    def forward(self, audio, keyshift=0, speed=1, center=True):
+    def forward(
+        self,
+        audio: torch.Tensor,
+        keyshift: int = 0,
+        speed: int = 1,
+        center: bool = True,
+    ):
         factor = 2 ** (keyshift / 12)
         n_fft_new = int(np.round(self.n_fft * factor))
         win_length_new = int(np.round(self.win_length * factor))
@@ -497,7 +533,11 @@ class MelSpectrogram(torch.nn.Module):
 
 class RMVPE:
     def __init__(
-        self, model_path: str, is_half, device: str | None = None, use_jit=False
+        self,
+        model_path: str,
+        is_half: bool,
+        device: str | None = None,
+        use_jit: bool = False,
     ):
         self.resample_kernel = {}
         self.resample_kernel = {}
@@ -571,7 +611,7 @@ class RMVPE:
         cents_mapping = 20 * np.arange(360) + 1997.3794084376191
         self.cents_mapping = np.pad(cents_mapping, (4, 4))  # 368
 
-    def mel2hidden(self, mel: torch.Tensor):
+    def mel2hidden(self, mel: torch.Tensor) -> torch.Tensor:
         with torch.no_grad():
             n_frames = mel.shape[-1]
             n_pad = 32 * ((n_frames - 1) // 32 + 1) - n_frames
@@ -595,7 +635,7 @@ class RMVPE:
                 hidden = self.model(mel)
             return hidden[:, :n_frames]
 
-    def decode(self, hidden, thred=0.03):
+    def decode(self, hidden: torch.Tensor, thred: float = 0.03):
         cents_pred = self.to_local_average_cents(hidden, thred=thred)
         f0 = 10 * (2 ** (cents_pred / 1200))
         f0[f0 == 10] = 0
@@ -604,9 +644,9 @@ class RMVPE:
     def infer_from_audio(
         self,
         audio: torch.Tensor | np.ndarray,
-        thred=0.03,
-        chunk_size_seconds=60,
-        overlap_seconds=2,
+        thred: float = 0.03,
+        chunk_size_seconds: int = 60,
+        overlap_seconds: int = 2,
     ):
         if not torch.is_tensor(audio):
             audio = torch.from_numpy(audio)
@@ -769,7 +809,7 @@ class RMVPE:
         f0 = self.decode(combined_hidden_final, thred=thred)
         return f0
 
-    def to_local_average_cents(self, salience, thred=0.05):
+    def to_local_average_cents(self, salience: np.ndarray, thred: float = 0.05):
         center = np.argmax(salience, axis=1)  # 帧长#index
         salience = np.pad(salience, ((0, 0), (4, 4)))  # 帧长,368
         center += 4

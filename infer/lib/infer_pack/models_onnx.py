@@ -27,14 +27,14 @@ logger = logging.getLogger(__name__)
 class TextEncoder256(nn.Module):
     def __init__(
         self,
-        out_channels,
-        hidden_channels,
-        filter_channels,
-        n_heads,
-        n_layers,
-        kernel_size,
-        p_dropout,
-        f0=True,
+        out_channels: int,
+        hidden_channels: int,
+        filter_channels: int,
+        n_heads: int,
+        n_layers: int,
+        kernel_size: int,
+        p_dropout: float,
+        f0: bool = True,
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -53,7 +53,7 @@ class TextEncoder256(nn.Module):
         )
         self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
-    def forward(self, phone, pitch, lengths):
+    def forward(self, phone: torch.Tensor, pitch: torch.Tensor, lengths: torch.Tensor):
         if pitch is None:
             x = self.emb_phone(phone)
         else:
@@ -74,14 +74,14 @@ class TextEncoder256(nn.Module):
 class TextEncoder768(nn.Module):
     def __init__(
         self,
-        out_channels,
-        hidden_channels,
-        filter_channels,
-        n_heads,
-        n_layers,
-        kernel_size,
-        p_dropout,
-        f0=True,
+        out_channels: int,
+        hidden_channels: int,
+        filter_channels: int,
+        n_heads: int,
+        n_layers: int,
+        kernel_size: int,
+        p_dropout: float,
+        f0: bool = True,
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -100,7 +100,7 @@ class TextEncoder768(nn.Module):
         )
         self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
-    def forward(self, phone, pitch, lengths):
+    def forward(self, phone: torch.Tensor, pitch: torch.Tensor, lengths: torch.Tensor):
         if pitch is None:
             x = self.emb_phone(phone)
         else:
@@ -121,13 +121,13 @@ class TextEncoder768(nn.Module):
 class ResidualCouplingBlock(nn.Module):
     def __init__(
         self,
-        channels,
-        hidden_channels,
-        kernel_size,
-        dilation_rate,
-        n_layers,
-        n_flows=4,
-        gin_channels=0,
+        channels: int,
+        hidden_channels: int,
+        kernel_size: int,
+        dilation_rate: int,
+        n_layers: int,
+        n_flows: int = 4,
+        gin_channels: int = 0,
     ):
         super().__init__()
         self.channels = channels
@@ -153,7 +153,13 @@ class ResidualCouplingBlock(nn.Module):
             )
             self.flows.append(modules.Flip())
 
-    def forward(self, x, x_mask, g=None, reverse=False):
+    def forward(
+        self,
+        x: torch.Tensor,
+        x_mask: torch.Tensor,
+        g: torch.Tensor | None = None,
+        reverse: bool = False,
+    ):
         if not reverse:
             for flow in self.flows:
                 x, _ = flow(x, x_mask, g=g, reverse=reverse)
@@ -170,13 +176,13 @@ class ResidualCouplingBlock(nn.Module):
 class PosteriorEncoder(nn.Module):
     def __init__(
         self,
-        in_channels,
-        out_channels,
-        hidden_channels,
-        kernel_size,
-        dilation_rate,
-        n_layers,
-        gin_channels=0,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: int,
+        kernel_size: int,
+        dilation_rate: int,
+        n_layers: int,
+        gin_channels: int = 0,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -197,7 +203,9 @@ class PosteriorEncoder(nn.Module):
         )
         self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
-    def forward(self, x, x_lengths, g=None):
+    def forward(
+        self, x: torch.Tensor, x_lengths: torch.Tensor, g: torch.Tensor | None = None
+    ):
         x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(
             x.dtype
         )
@@ -215,14 +223,14 @@ class PosteriorEncoder(nn.Module):
 class Generator(torch.nn.Module):
     def __init__(
         self,
-        initial_channel,
-        resblock,
-        resblock_kernel_sizes,
-        resblock_dilation_sizes,
-        upsample_rates,
-        upsample_initial_channel,
-        upsample_kernel_sizes,
-        gin_channels=0,
+        initial_channel: int,
+        resblock: str,
+        resblock_kernel_sizes: list[int],
+        resblock_dilation_sizes: list[int],
+        upsample_rates: list[int],
+        upsample_initial_channel: int,
+        upsample_kernel_sizes: list[int],
+        gin_channels: int = 0,
     ):
         super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
@@ -260,7 +268,7 @@ class Generator(torch.nn.Module):
         if gin_channels != 0:
             self.cond = nn.Conv1d(gin_channels, upsample_initial_channel, 1)
 
-    def forward(self, x, g=None):
+    def forward(self, x: torch.Tensor, g: torch.Tensor | None = None):
         x = self.conv_pre(x)
         if g is not None:
             x = x + self.cond(g)
@@ -306,12 +314,12 @@ class SineGen(torch.nn.Module):
 
     def __init__(
         self,
-        samp_rate,
-        harmonic_num=0,
-        sine_amp=0.1,
-        noise_std=0.003,
-        voiced_threshold=0,
-        flag_for_pulse=False,
+        samp_rate: int,
+        harmonic_num: int = 0,
+        sine_amp: float = 0.1,
+        noise_std: float = 0.003,
+        voiced_threshold: float = 0,
+        flag_for_pulse: bool = False,
     ):
         super().__init__()
         self.sine_amp = sine_amp
@@ -321,7 +329,7 @@ class SineGen(torch.nn.Module):
         self.sampling_rate = samp_rate
         self.voiced_threshold = voiced_threshold
 
-    def _f02uv(self, f0):
+    def _f02uv(self, f0: torch.Tensor):
         # generate uv signal
         uv = torch.ones_like(f0)
         uv = uv * (f0 > self.voiced_threshold)
@@ -329,7 +337,7 @@ class SineGen(torch.nn.Module):
             uv = uv.float()
         return uv
 
-    def _f02sine(self, f0, upp):
+    def _f02sine(self, f0: torch.Tensor, upp: int):
         """f0: (batchsize, length, dim)
         where dim indicates fundamental tone and overtones
         """
@@ -389,12 +397,12 @@ class SourceModuleHnNSF(torch.nn.Module):
 
     def __init__(
         self,
-        sampling_rate,
-        harmonic_num=0,
-        sine_amp=0.1,
-        add_noise_std=0.003,
-        voiced_threshod=0,
-        is_half=True,
+        sampling_rate: int,
+        harmonic_num: int = 0,
+        sine_amp: float = 0.1,
+        add_noise_std: float = 0.003,
+        voiced_threshod: float = 0,
+        is_half: bool = True,
     ):
         super().__init__()
 
@@ -410,7 +418,7 @@ class SourceModuleHnNSF(torch.nn.Module):
         self.l_linear = torch.nn.Linear(harmonic_num + 1, 1)
         self.l_tanh = torch.nn.Tanh()
 
-    def forward(self, x, upp=None):
+    def forward(self, x: torch.Tensor, upp: int = None) -> torch.Tensor:
         sine_wavs, _uv, _ = self.l_sin_gen(x, upp)
         if self.is_half:
             try:
@@ -427,16 +435,16 @@ class SourceModuleHnNSF(torch.nn.Module):
 class GeneratorNSF(torch.nn.Module):
     def __init__(
         self,
-        initial_channel,
-        resblock,
-        resblock_kernel_sizes,
-        resblock_dilation_sizes,
-        upsample_rates,
-        upsample_initial_channel,
-        upsample_kernel_sizes,
-        gin_channels,
-        sr,
-        is_half=False,
+        initial_channel: int,
+        resblock: str,
+        resblock_kernel_sizes: list[int],
+        resblock_dilation_sizes: list[int],
+        upsample_rates: list[int],
+        upsample_initial_channel: int,
+        upsample_kernel_sizes: list[int],
+        gin_channels: int,
+        sr: int,
+        is_half: bool = False,
     ):
         super().__init__()
         self.num_kernels = len(resblock_kernel_sizes)
@@ -496,7 +504,9 @@ class GeneratorNSF(torch.nn.Module):
 
         self.upp = np.prod(upsample_rates)
 
-    def forward(self, x, f0, g=None):
+    def forward(
+        self, x: torch.Tensor, f0: torch.Tensor, g: torch.Tensor = None
+    ) -> torch.Tensor:
         har_source, _noi_source, _uv = self.m_source(f0, self.upp)
         har_source = har_source.transpose(1, 2)
         x = self.conv_pre(x)
@@ -537,26 +547,26 @@ sr2sr = {
 class SynthesizerTrnMsNSFsidM(nn.Module):
     def __init__(
         self,
-        spec_channels,
-        segment_size,
-        inter_channels,
-        hidden_channels,
-        filter_channels,
-        n_heads,
-        n_layers,
-        kernel_size,
-        p_dropout,
-        resblock,
-        resblock_kernel_sizes,
-        resblock_dilation_sizes,
-        upsample_rates,
-        upsample_initial_channel,
-        upsample_kernel_sizes,
-        spk_embed_dim,
-        gin_channels,
-        sr,
-        version,
-        **kwargs,
+        spec_channels: int,
+        segment_size: int,
+        inter_channels: int,
+        hidden_channels: int,
+        filter_channels: int,
+        n_heads: int,
+        n_layers: int,
+        kernel_size: int,
+        p_dropout: float,
+        resblock: str,
+        resblock_kernel_sizes: list[int],
+        resblock_dilation_sizes: list[int],
+        upsample_rates: list[int],
+        upsample_initial_channel: int,
+        upsample_kernel_sizes: list[int],
+        spk_embed_dim: int,
+        gin_channels: int,
+        sr: int,
+        version: str,
+        **kwargs: dict[str, object],
     ):
         super().__init__()
         if type(sr) == str:
@@ -633,13 +643,22 @@ class SynthesizerTrnMsNSFsidM(nn.Module):
         self.flow.remove_weight_norm()
         self.enc_q.remove_weight_norm()
 
-    def construct_spkmixmap(self, n_speaker):
+    def construct_spkmixmap(self, n_speaker: int):
         self.speaker_map = torch.zeros((n_speaker, 1, 1, self.gin_channels))
         for i in range(n_speaker):
             self.speaker_map[i] = self.emb_g(torch.LongTensor([[i]]))
         self.speaker_map = self.speaker_map.unsqueeze(0)
 
-    def forward(self, phone, phone_lengths, pitch, nsff0, g, rnd, max_len=None):
+    def forward(
+        self,
+        phone: torch.Tensor,
+        phone_lengths: torch.Tensor,
+        pitch: torch.Tensor,
+        nsff0: torch.Tensor,
+        g: torch.Tensor,
+        rnd: torch.Tensor,
+        max_len: int | None = None,
+    ):
         if self.speaker_map is not None:  # [N, S]  *  [S, B, 1, H]
             g = g.reshape((g.shape[0], g.shape[1], 1, 1, 1))  # [N, S, B, 1, 1]
             g = g * self.speaker_map  # [N, S, B, 1, H]
@@ -657,7 +676,7 @@ class SynthesizerTrnMsNSFsidM(nn.Module):
 
 
 class MultiPeriodDiscriminator(torch.nn.Module):
-    def __init__(self, use_spectral_norm=False):
+    def __init__(self, use_spectral_norm: bool = False):
         super().__init__()
         periods = [2, 3, 5, 7, 11, 17]
 
@@ -667,7 +686,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         ]
         self.discriminators = nn.ModuleList(discs)
 
-    def forward(self, y, y_hat):
+    def forward(self, y: torch.Tensor, y_hat: torch.Tensor):
         y_d_rs = []  #
         y_d_gs = []
         fmap_rs = []
@@ -684,7 +703,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 
 
 class MultiPeriodDiscriminatorV2(torch.nn.Module):
-    def __init__(self, use_spectral_norm=False):
+    def __init__(self, use_spectral_norm: bool = False):
         super().__init__()
         periods = [2, 3, 5, 7, 11, 17, 23, 37]
 
@@ -694,7 +713,11 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
         ]
         self.discriminators = nn.ModuleList(discs)
 
-    def forward(self, y, y_hat):
+    def forward(
+        self, y: torch.Tensor, y_hat: torch.Tensor
+    ) -> tuple[
+        list[torch.Tensor], list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]
+    ]:
         y_d_rs = []  #
         y_d_gs = []
         fmap_rs = []
@@ -711,7 +734,7 @@ class MultiPeriodDiscriminatorV2(torch.nn.Module):
 
 
 class DiscriminatorS(torch.nn.Module):
-    def __init__(self, use_spectral_norm=False):
+    def __init__(self, use_spectral_norm: bool = False):
         super().__init__()
         norm_f = weight_norm if not use_spectral_norm else spectral_norm
         self.convs = nn.ModuleList(
@@ -726,7 +749,7 @@ class DiscriminatorS(torch.nn.Module):
         )
         self.conv_post = norm_f(Conv1d(1024, 1, 3, 1, padding=1))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         fmap = []
 
         for l in self.convs:
@@ -741,7 +764,13 @@ class DiscriminatorS(torch.nn.Module):
 
 
 class DiscriminatorP(torch.nn.Module):
-    def __init__(self, period, kernel_size=5, stride=3, use_spectral_norm=False):
+    def __init__(
+        self,
+        period: int,
+        kernel_size: int = 5,
+        stride: int = 3,
+        use_spectral_norm: bool = False,
+    ):
         super().__init__()
         self.period = period
         self.use_spectral_norm = use_spectral_norm
@@ -797,7 +826,7 @@ class DiscriminatorP(torch.nn.Module):
         )
         self.conv_post = norm_f(Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         fmap = []
 
         # 1d to 2d

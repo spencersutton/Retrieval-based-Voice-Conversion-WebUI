@@ -32,7 +32,11 @@ class RVC:
     ) -> None:
         if is_dml:
 
-            def forward_dml(ctx, x, scale):
+            def forward_dml(
+                ctx: fairseq.modules.grad_multiply.GradMultiply,
+                x: torch.Tensor,
+                scale: float,
+            ) -> torch.Tensor:
                 ctx.scale = scale
                 res = x.clone().detach()
                 return res
@@ -133,13 +137,13 @@ class RVC:
         else:
             set_default_model()
 
-    def set_key(self, new_key):
+    def set_key(self, new_key: int):
         self.f0_up_key = new_key
 
-    def set_formant(self, new_formant):
+    def set_formant(self, new_formant: float):
         self.formant_shift = new_formant
 
-    def set_index_rate(self, new_index_rate):
+    def set_index_rate(self, new_index_rate: int | float):
         if new_index_rate > 0 and self.index_rate <= 0:
             self.index = faiss.read_index(self.index_path)
             self.big_npy = self.index.reconstruct_n(0, self.index.ntotal)

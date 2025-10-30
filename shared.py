@@ -38,7 +38,7 @@ vc = VC(config)
 
 if config.dml:
 
-    def forward_dml(ctx, x, scale):
+    def forward_dml(ctx, x: torch.Tensor, scale: float) -> torch.Tensor:
         ctx.scale = scale
         res = x.clone().detach()
         return res

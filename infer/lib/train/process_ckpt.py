@@ -1,6 +1,7 @@
 import os
 import traceback
 from collections import OrderedDict
+from typing import Any
 
 import torch
 
@@ -9,7 +10,15 @@ from i18n.i18n import I18nAuto
 i18n = I18nAuto()
 
 
-def savee(ckpt, sr, if_f0, name, epoch, version, hps):
+def savee(
+    ckpt: dict[str, object],
+    sr: int,
+    if_f0: int,
+    name: str,
+    epoch: int,
+    version: str,
+    hps: dict[str, Any],
+):
     try:
         opt = OrderedDict()
         opt["weight"] = {}
@@ -47,7 +56,7 @@ def savee(ckpt, sr, if_f0, name, epoch, version, hps):
         return traceback.format_exc()
 
 
-def show_info(path):
+def show_info(path: str):
     try:
         a = torch.load(path, map_location="cpu", weights_only=False)
         return "模型信息:{}\n采样率:{}\n模型是否输入音高引导:{}\n版本:{}".format(
@@ -60,7 +69,9 @@ def show_info(path):
         return traceback.format_exc()
 
 
-def extract_small_model(path, name, sr, if_f0, info, version):
+def extract_small_model(
+    path: str, name: str, sr: int, if_f0: int, info: str, version: str
+):
     try:
         ckpt = torch.load(path, map_location="cpu", weights_only=False)
         if "model" in ckpt:
@@ -190,7 +201,7 @@ def extract_small_model(path, name, sr, if_f0, info, version):
         return traceback.format_exc()
 
 
-def change_info(path, info, name):
+def change_info(path: str, info: str, name: str):
     try:
         ckpt = torch.load(path, map_location="cpu", weights_only=False)
         ckpt["info"] = info
@@ -202,10 +213,19 @@ def change_info(path, info, name):
         return traceback.format_exc()
 
 
-def merge(path1, path2, alpha1, sr, f0, info, name, version):
+def merge(
+    path1: str,
+    path2: str,
+    alpha1: float,
+    sr: int,
+    f0: int,
+    info: str,
+    name: str,
+    version: str,
+):
     try:
 
-        def extract(ckpt):
+        def extract(ckpt: dict[str, dict[str, object]]):
             a = ckpt["model"]
             opt = OrderedDict()
             opt["weight"] = {}

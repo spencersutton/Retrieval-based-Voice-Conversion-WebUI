@@ -1,7 +1,7 @@
 import torch
 
 
-def get_synthesizer(pth_path, device=torch.device("cpu")):
+def get_synthesizer(pth_path: str, device: torch.device = torch.device("cpu")):
     from infer.lib.infer_pack.models import (
         SynthesizerTrnMs256NSFsid,
         SynthesizerTrnMs256NSFsid_nono,

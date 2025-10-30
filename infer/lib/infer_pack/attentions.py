@@ -11,14 +11,14 @@ from infer.lib.infer_pack.modules import LayerNorm
 class Encoder(nn.Module):
     def __init__(
         self,
-        hidden_channels,
-        filter_channels,
-        n_heads,
-        n_layers,
-        kernel_size=1,
-        p_dropout=0.0,
-        window_size=10,
-        **kwargs,
+        hidden_channels: int,
+        filter_channels: int,
+        n_heads: int,
+        n_layers: int,
+        kernel_size: int = 1,
+        p_dropout: float = 0.0,
+        window_size: int = 10,
+        **kwargs: dict[str, object],
     ):
         super().__init__()
         self.hidden_channels = hidden_channels
@@ -56,7 +56,7 @@ class Encoder(nn.Module):
             )
             self.norm_layers_2.append(LayerNorm(hidden_channels))
 
-    def forward(self, x, x_mask):
+    def forward(self, x: torch.Tensor, x_mask: torch.Tensor):
         attn_mask = x_mask.unsqueeze(2) * x_mask.unsqueeze(-1)
         x = x * x_mask
         zippep = zip(
@@ -77,15 +77,15 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(
         self,
-        hidden_channels,
-        filter_channels,
-        n_heads,
-        n_layers,
-        kernel_size=1,
-        p_dropout=0.0,
-        proximal_bias=False,
-        proximal_init=True,
-        **kwargs,
+        hidden_channels: int,
+        filter_channels: int,
+        n_heads: int,
+        n_layers: int,
+        kernel_size: int = 1,
+        p_dropout: float = 0.0,
+        proximal_bias: bool = False,
+        proximal_init: bool = True,
+        **kwargs: dict[str, object],
     ):
         super().__init__()
         self.hidden_channels = hidden_channels
@@ -134,7 +134,13 @@ class Decoder(nn.Module):
             )
             self.norm_layers_2.append(LayerNorm(hidden_channels))
 
-    def forward(self, x, x_mask, h, h_mask):
+    def forward(
+        self,
+        x: torch.Tensor,
+        x_mask: torch.Tensor,
+        h: torch.Tensor,
+        h_mask: torch.Tensor,
+    ):
         """
         x: decoder input
         h: encoder output
@@ -163,15 +169,15 @@ class Decoder(nn.Module):
 class MultiHeadAttention(nn.Module):
     def __init__(
         self,
-        channels,
-        out_channels,
-        n_heads,
-        p_dropout=0.0,
-        window_size=None,
-        heads_share=True,
-        block_length=None,
-        proximal_bias=False,
-        proximal_init=False,
+        channels: int,
+        out_channels: int,
+        n_heads: int,
+        p_dropout: float = 0.0,
+        window_size: int | None = None,
+        heads_share: bool = True,
+        block_length: int | None = None,
+        proximal_bias: bool = False,
+        proximal_init: bool = False,
     ):
         super().__init__()
         assert channels % n_heads == 0
@@ -284,7 +290,7 @@ class MultiHeadAttention(nn.Module):
         )  # [b, n_h, t_t, d_k] -> [b, d, t_t]
         return output, p_attn
 
-    def _matmul_with_relative_values(self, x, y):
+    def _matmul_with_relative_values(self, x: torch.Tensor, y: torch.Tensor):
         """
         x: [b, h, l, m]
         y: [h or 1, m, d]
@@ -293,7 +299,7 @@ class MultiHeadAttention(nn.Module):
         ret = torch.matmul(x, y.unsqueeze(0))
         return ret
 
-    def _matmul_with_relative_keys(self, x, y):
+    def _matmul_with_relative_keys(self, x: torch.Tensor, y: torch.Tensor):
         """
         x: [b, h, l, d]
         y: [h or 1, m, d]
@@ -302,8 +308,7 @@ class MultiHeadAttention(nn.Module):
         ret = torch.matmul(x, y.unsqueeze(0).transpose(-2, -1))
         return ret
 
-    def _get_relative_embeddings(self, relative_embeddings, length: int):
-        2 * self.window_size + 1
+    def _get_relative_embeddings(self, relative_embeddings: torch.Tensor, length: int):
         # Pad first before slice to avoid using cond ops.
         pad_length: int = max(length - (self.window_size + 1), 0)
         slice_start_position = max((self.window_size + 1) - length, 0)
@@ -320,7 +325,7 @@ class MultiHeadAttention(nn.Module):
         ]
         return used_relative_embeddings
 
-    def _relative_position_to_absolute_position(self, x):
+    def _relative_position_to_absolute_position(self, x: torch.Tensor):
         """
         x: [b, h, l, 2*l-1]
         ret: [b, h, l, l]
@@ -345,7 +350,7 @@ class MultiHeadAttention(nn.Module):
         ]
         return x_final
 
-    def _absolute_position_to_relative_position(self, x):
+    def _absolute_position_to_relative_position(self, x: torch.Tensor):
         """
         x: [b, h, l, l]
         ret: [b, h, l, 2*l-1]
@@ -380,13 +385,13 @@ class MultiHeadAttention(nn.Module):
 class FFN(nn.Module):
     def __init__(
         self,
-        in_channels,
-        out_channels,
-        filter_channels,
-        kernel_size,
-        p_dropout=0.0,
+        in_channels: int,
+        out_channels: int,
+        filter_channels: int,
+        kernel_size: int,
+        p_dropout: float = 0.0,
         activation: str | None = None,
-        causal=False,
+        causal: bool = False,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -420,7 +425,7 @@ class FFN(nn.Module):
         x = self.conv_2(self.padding(x, x_mask))
         return x * x_mask
 
-    def _causal_padding(self, x):
+    def _causal_padding(self, x: torch.Tensor):
         if self.kernel_size == 1:
             return x
         pad_l: int = self.kernel_size - 1
@@ -431,7 +436,7 @@ class FFN(nn.Module):
         )
         return x
 
-    def _same_padding(self, x):
+    def _same_padding(self, x: torch.Tensor):
         if self.kernel_size == 1:
             return x
         pad_l: int = (self.kernel_size - 1) // 2

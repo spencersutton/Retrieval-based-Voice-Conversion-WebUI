@@ -39,7 +39,7 @@ else:
 
     device = torch_directml.device(torch_directml.default_device())
 
-    def forward_dml(ctx, x, scale):
+    def forward_dml(ctx, x: torch.Tensor, scale: float) -> torch.Tensor:
         ctx.scale = scale
         res = x.clone().detach()
         return res
@@ -49,7 +49,7 @@ else:
 f = open(f"{exp_dir}/extract_f0_feature.log", "a+")
 
 
-def printt(strr):
+def printt(strr: str):
     print(strr)
     f.write(f"{strr}\n")
     f.flush()
@@ -65,7 +65,7 @@ os.makedirs(outPath, exist_ok=True)
 
 
 # wave must be 16k, hop_size=320
-def readwave(wav_path, normalize=False):
+def readwave(wav_path: str, normalize: bool = False) -> torch.Tensor:
     wav, sr = sf.read(wav_path)
     assert sr == 16000
     feats = torch.from_numpy(wav).float()

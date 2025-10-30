@@ -4,7 +4,7 @@ import json
 from collections import OrderedDict
 
 
-def extract_i18n_strings(node):
+def extract_i18n_strings(node: ast.AST) -> list[str]:
     i18n_strings = []
 
     if (

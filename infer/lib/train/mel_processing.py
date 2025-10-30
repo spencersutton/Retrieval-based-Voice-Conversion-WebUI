@@ -9,7 +9,9 @@ logger = logging.getLogger(__name__)
 MAX_WAV_VALUE = 32768.0
 
 
-def dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
+def dynamic_range_compression_torch(
+    x: torch.Tensor, C: int = 1, clip_val: float = 1e-5
+):
     """
     PARAMS
     ------
@@ -18,7 +20,7 @@ def dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
-def dynamic_range_decompression_torch(x, C=1):
+def dynamic_range_decompression_torch(x: torch.Tensor, C: int = 1):
     """
     PARAMS
     ------
@@ -27,11 +29,11 @@ def dynamic_range_decompression_torch(x, C=1):
     return torch.exp(x) / C
 
 
-def spectral_normalize_torch(magnitudes):
+def spectral_normalize_torch(magnitudes: torch.Tensor):
     return dynamic_range_compression_torch(magnitudes)
 
 
-def spectral_de_normalize_torch(magnitudes):
+def spectral_de_normalize_torch(magnitudes: torch.Tensor):
     return dynamic_range_decompression_torch(magnitudes)
 
 
@@ -40,7 +42,14 @@ mel_basis = {}
 hann_window = {}
 
 
-def spectrogram_torch(y, n_fft, sampling_rate, hop_size, win_size, center=False):
+def spectrogram_torch(
+    y: torch.Tensor,
+    n_fft: int,
+    sampling_rate: int,
+    hop_size: int,
+    win_size: int,
+    center: bool = False,
+):
     """Convert waveform into Linear-frequency Linear-amplitude spectrogram.
 
     Args:
@@ -90,7 +99,14 @@ def spectrogram_torch(y, n_fft, sampling_rate, hop_size, win_size, center=False)
     return spec
 
 
-def spec_to_mel_torch(spec, n_fft, num_mels, sampling_rate, fmin, fmax):
+def spec_to_mel_torch(
+    spec: torch.Tensor,
+    n_fft: int,
+    num_mels: int,
+    sampling_rate: int,
+    fmin: float,
+    fmax: float,
+):
     # MelBasis - Cache if needed
     global mel_basis
     dtype_device = str(spec.dtype) + "_" + str(spec.device)
@@ -110,7 +126,15 @@ def spec_to_mel_torch(spec, n_fft, num_mels, sampling_rate, fmin, fmax):
 
 
 def mel_spectrogram_torch(
-    y, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin, fmax, center=False
+    y: torch.Tensor,
+    n_fft: int,
+    num_mels: int,
+    sampling_rate: int,
+    hop_size: int,
+    win_size: int,
+    fmin: float,
+    fmax: float,
+    center: bool = False,
 ):
     """Convert waveform into Mel-frequency Log-amplitude spectrogram.
 

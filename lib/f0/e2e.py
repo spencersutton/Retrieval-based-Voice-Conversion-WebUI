@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 from .deepunet import DeepUnet
@@ -9,10 +10,10 @@ class E2E(nn.Module):
         n_blocks: int,
         n_gru: int,
         kernel_size: tuple[int, int],
-        en_de_layers=5,
-        inter_layers=4,
-        in_channels=1,
-        en_out_channels=16,
+        en_de_layers: int = 5,
+        inter_layers: int = 4,
+        in_channels: int = 1,
+        en_out_channels: int = 16,
     ):
         super().__init__()
 
@@ -39,7 +40,7 @@ class E2E(nn.Module):
                 nn.Sigmoid(),
             )
 
-    def forward(self, mel):
+    def forward(self, mel: torch.Tensor) -> torch.Tensor:
         mel = mel.transpose(-1, -2).unsqueeze(1)
         x = self.cnn(self.unet(mel)).transpose(1, 2).flatten(-2)
         x = self.fc(x)
@@ -61,5 +62,5 @@ class E2E(nn.Module):
                 bidirectional=True,
             )
 
-        def forward(self, x):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
             return self.gru(x)[0]
