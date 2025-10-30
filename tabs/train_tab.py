@@ -362,17 +362,7 @@ def _change_f0(if_f0: bool, sample_rate: str, version: Literal["v1", "v2"]):
     return visible_update, visible_update, gen_path, dis_path
 
 
-def _parse_epoch_from_train_log_line(line: str) -> int | None:
-    """
-    Parse a single log line and extract the current epoch number if present.
-
-    Args:
-        line (bytes): A single log line in bytes.
-
-    Returns:
-        Optional[int]: The epoch number if found, otherwise None.
-    """
-
+def parse_epoch_from_train_log_line(line: str) -> int | None:
     # Pattern 1: Train Epoch: X [...]
     match = re.search(r"Train Epoch:\s*(\d+)", line)
     if match:
@@ -490,6 +480,65 @@ def _click_train(
     filelist = _build_filelist(
         gt_wavs_dir, feature_dir, f0_dir, f0nsf_dir, spk_id, sample_rate, version
     )
+
+    # Collect file names for training
+    f0_dir = None
+    f0nsf_dir = None
+    if if_f0:
+        f0_dir = exp_dir / shared.F0_DIR_NAME
+        f0nsf_dir = exp_dir / shared.F0_NSF_DIR_NAME
+        names = (
+            {p.stem for p in gt_wavs_dir.iterdir() if p.is_file()}
+            & {p.stem for p in feature_dir.iterdir() if p.is_file()}
+            & {p.stem for p in f0_dir.iterdir() if p.is_file()}
+            & {p.stem for p in f0nsf_dir.iterdir() if p.is_file()}
+        )
+    else:
+        names = {p.stem for p in gt_wavs_dir.iterdir() if p.is_file()} & {
+            p.stem for p in feature_dir.iterdir() if p.is_file()
+        }
+
+    # Build filelist for training
+    opt = []
+    feature_dir_name = (
+        shared.FEATURE_DIR_NAME if version == "v1" else shared.FEATURE_DIR_NAME_V2
+    )
+    mute_dir = Path.cwd() / "logs" / "mute"
+    mute_gt_wavs = mute_dir / shared.GT_WAVS_DIR_NAME / f"mute{sample_rate}.wav"
+    mute_feature = mute_dir / feature_dir_name / "mute.npy"
+
+    if if_f0:
+        mute_f0 = mute_dir / shared.F0_DIR_NAME / "mute.wav.npy"
+        mute_f0nsf = mute_dir / shared.F0_NSF_DIR_NAME / "mute.wav.npy"
+        assert f0_dir is not None and f0nsf_dir is not None
+        opt.extend(
+            [
+                (
+                    f"{gt_wavs_dir / (name + '.wav')}"
+                    f"|{feature_dir / (name + '.npy')}"
+                    f"|{f0_dir / (name + '.wav.npy')}"
+                    f"|{f0nsf_dir / (name + '.wav.npy')}"
+                    f"|{spk_id}"
+                )
+                for name in names
+            ]
+        )
+        opt.extend(
+            [
+                f"{mute_gt_wavs}|{mute_feature}|{mute_f0}|{mute_f0nsf}|{spk_id}"
+                for _ in range(2)
+            ]
+        )
+    else:
+        opt.extend(
+            [
+                f"{gt_wavs_dir / (name + '.wav')}|{feature_dir / (name + '.npy')}|{spk_id}"
+                for name in names
+            ]
+        )
+        opt.extend([f"{mute_gt_wavs}|{mute_feature}|{spk_id}" for _ in range(2)])
+
+    shuffle(opt)
     filelist_path = exp_dir / "filelist.txt"
     filelist_path.write_text("\n".join(filelist), encoding="utf-8")
     shared.logger.debug("Write filelist done")

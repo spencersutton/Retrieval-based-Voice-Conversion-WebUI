@@ -22,16 +22,14 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 
 logger = logging.getLogger(__name__)
-_now_dir = Path.cwd()
-_tmp = _now_dir / "TEMP"
-shutil.rmtree(_tmp, ignore_errors=True)
-shutil.rmtree(_now_dir / "runtime/Lib/site-packages/infer_pack", ignore_errors=True)
-shutil.rmtree(_now_dir / "runtime/Lib/site-packages/uvr5_pack", ignore_errors=True)
-_tmp.mkdir(parents=True, exist_ok=True)
-(log_dir := _now_dir / "logs").mkdir(parents=True, exist_ok=True)
-(_now_dir / "assets/weights").mkdir(parents=True, exist_ok=True)
-os.environ["TEMP"] = str(_tmp)
-
+tmp = Path.cwd() / "TEMP"
+shutil.rmtree(tmp, ignore_errors=True)
+shutil.rmtree(Path.cwd() / "runtime/Lib/site-packages/infer_pack", ignore_errors=True)
+shutil.rmtree(Path.cwd() / "runtime/Lib/site-packages/uvr5_pack", ignore_errors=True)
+tmp.mkdir(parents=True, exist_ok=True)
+(log_dir := Path.cwd() / "logs").mkdir(parents=True, exist_ok=True)
+(assets_dir := Path.cwd() / "assets/weights").mkdir(parents=True, exist_ok=True)
+os.environ["TEMP"] = str(tmp)
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
