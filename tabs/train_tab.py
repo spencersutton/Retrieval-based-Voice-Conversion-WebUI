@@ -378,8 +378,10 @@ def click_train(
     # Setup experiment directories
     exp_dir = Path.cwd() / "logs" / exp_dir1
     exp_dir.mkdir(parents=True, exist_ok=True)
-    gt_wavs_dir = exp_dir / "0_gt_wavs"
-    feature_dir = exp_dir / ("3_feature256" if version == "v1" else "3_feature768")
+    gt_wavs_dir = exp_dir / shared.GT_WAVS_DIR_NAME
+    feature_dir = exp_dir / (
+        shared.FEATURE_DIR_NAME if version == "v1" else shared.FEATURE_DIR_NAME_V2
+    )
 
     # Collect file names for training
     f0_dir = None
@@ -402,7 +404,7 @@ def click_train(
     opt = []
     fea_dim = 256 if version == "v1" else 768
     mute_dir = Path.cwd() / "logs" / "mute"
-    mute_gt_wavs = mute_dir / "0_gt_wavs" / f"mute{sr2}.wav"
+    mute_gt_wavs = mute_dir / shared.GT_WAVS_DIR_NAME / f"mute{sr2}.wav"
     mute_feature = mute_dir / f"3_feature{fea_dim}" / "mute.npy"
 
     if if_f0_3:
@@ -542,7 +544,9 @@ def click_train(
 def train_index(exp_dir1: str, version19: str, progress: gr.Progress = gr.Progress()):
     exp_dir = Path("logs") / exp_dir1
     exp_dir.mkdir(parents=True, exist_ok=True)
-    feature_dir = exp_dir / ("3_feature256" if version19 == "v1" else "3_feature768")
+    feature_dir = exp_dir / (
+        shared.FEATURE_DIR_NAME if version19 == "v1" else shared.FEATURE_DIR_NAME_V2
+    )
     if not feature_dir.exists():
         return "Please perform feature extraction first!"
     listdir_res = sorted([p for p in feature_dir.iterdir() if p.is_file()])

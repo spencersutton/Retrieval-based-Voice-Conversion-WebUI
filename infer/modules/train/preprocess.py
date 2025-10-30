@@ -8,6 +8,7 @@ import numpy as np
 from scipy import signal
 from scipy.io import wavfile
 
+import shared
 from infer.lib.audio import load_audio
 from infer.lib.slicer2 import Slicer
 
@@ -60,8 +61,8 @@ class PreProcess:
         self.max = 0.9
         self.alpha = 0.75
         self.exp_dir = exp_dir
-        self.gt_wavs_dir = f"{exp_dir}/0_gt_wavs"
-        self.wavs16k_dir = f"{exp_dir}/1_16k_wavs"
+        self.gt_wavs_dir = f"{exp_dir}/{shared.GT_WAVS_DIR_NAME}"
+        self.wavs16k_dir = f"{exp_dir}/{shared.WAVS_16K_DIR_NAME}"
         os.makedirs(self.exp_dir, exist_ok=True)
         os.makedirs(self.gt_wavs_dir, exist_ok=True)
         os.makedirs(self.wavs16k_dir, exist_ok=True)

@@ -11,13 +11,15 @@ import faiss
 import numpy as np
 from sklearn.cluster import MiniBatchKMeans
 
+import shared
+
 logger = logging.getLogger(__name__)
 
 # ###########如果是原始特征要先写save
 n_cpu = 0
 if n_cpu == 0:
     n_cpu = cpu_count()
-inp_root = r"./logs/anz/3_feature768"
+inp_root = f"./logs/anz/{shared.FEATURE_DIR_NAME_V2}"
 npys = []
 listdir_res = list(os.listdir(inp_root))
 for name in sorted(listdir_res):

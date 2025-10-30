@@ -136,7 +136,7 @@ if __name__ == "__main__":
     printt(" ".join(sys.argv))
     featureInput = FeatureInput()
     paths = []
-    inp_root = f"{exp_dir}/1_16k_wavs"
+    inp_root = f"{exp_dir}/{shared.WAVS_16K_DIR_NAME}"
     opt_root1 = f"{exp_dir}/{shared.F0_DIR_NAME}"
     opt_root2 = f"{exp_dir}/{shared.F0_NSF_DIR_NAME}"
 

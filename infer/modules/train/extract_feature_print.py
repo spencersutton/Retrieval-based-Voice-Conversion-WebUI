@@ -10,6 +10,8 @@ import torch.nn.functional as F
 from fairseq.data.dictionary import Dictionary
 from torch.serialization import safe_globals
 
+import shared
+
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
 
@@ -59,8 +61,12 @@ printt(" ".join(sys.argv))
 model_path = "assets/hubert/hubert_base.pt"
 
 printt("exp_dir: " + exp_dir)
-wavPath = f"{exp_dir}/1_16k_wavs"
-outPath = f"{exp_dir}/3_feature256" if version == "v1" else f"{exp_dir}/3_feature768"
+wavPath = f"{exp_dir}/{shared.WAVS_16K_DIR_NAME}"
+outPath = (
+    f"{exp_dir}/{shared.FEATURE_DIR_NAME}"
+    if version == "v1"
+    else f"{exp_dir}/{shared.FEATURE_DIR_NAME_V2}"
+)
 os.makedirs(outPath, exist_ok=True)
 
 

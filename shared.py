@@ -38,7 +38,10 @@ vc = VC(config)
 
 F0_DIR_NAME = "2a_f0"
 F0_NSF_DIR_NAME = "2b-f0nsf"
-
+GT_WAVS_DIR_NAME = "0_gt_wavs"
+WAVS_16K_DIR_NAME = "1_16k_wavs"
+FEATURE_DIR_NAME = "3_feature256"
+FEATURE_DIR_NAME_V2 = "3_feature768"
 
 if config.dml:
 
