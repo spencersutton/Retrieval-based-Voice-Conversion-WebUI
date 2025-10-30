@@ -36,6 +36,9 @@ torch.manual_seed(114514)
 config: Config = Config()
 vc = VC(config)
 
+F0_DIR_NAME = "2a_f0"
+F0_NSF_DIR_NAME = "2b-f0nsf"
+
 
 if config.dml:
 

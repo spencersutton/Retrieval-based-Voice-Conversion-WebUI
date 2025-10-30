@@ -7,6 +7,7 @@ import numpy as np
 import parselmouth
 import pyworld
 
+import shared
 from infer.lib.audio import load_audio
 
 exp_dir = sys.argv[1]
@@ -136,8 +137,8 @@ if __name__ == "__main__":
     featureInput = FeatureInput()
     paths = []
     inp_root = f"{exp_dir}/1_16k_wavs"
-    opt_root1 = f"{exp_dir}/2a_f0"
-    opt_root2 = f"{exp_dir}/2b-f0nsf"
+    opt_root1 = f"{exp_dir}/{shared.F0_DIR_NAME}"
+    opt_root2 = f"{exp_dir}/{shared.F0_NSF_DIR_NAME}"
 
     os.makedirs(opt_root1, exist_ok=True)
     os.makedirs(opt_root2, exist_ok=True)

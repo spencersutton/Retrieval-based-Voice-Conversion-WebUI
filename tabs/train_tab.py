@@ -385,8 +385,8 @@ def click_train(
     f0_dir = None
     f0nsf_dir = None
     if if_f0_3:
-        f0_dir = exp_dir / "2a_f0"
-        f0nsf_dir = exp_dir / "2b-f0nsf"
+        f0_dir = exp_dir / shared.F0_DIR_NAME
+        f0nsf_dir = exp_dir / shared.F0_NSF_DIR_NAME
         names = (
             {p.stem for p in gt_wavs_dir.iterdir() if p.is_file()}
             & {p.stem for p in feature_dir.iterdir() if p.is_file()}
@@ -406,8 +406,8 @@ def click_train(
     mute_feature = mute_dir / f"3_feature{fea_dim}" / "mute.npy"
 
     if if_f0_3:
-        mute_f0 = mute_dir / "2a_f0" / "mute.wav.npy"
-        mute_f0nsf = mute_dir / "2b-f0nsf" / "mute.wav.npy"
+        mute_f0 = mute_dir / shared.F0_DIR_NAME / "mute.wav.npy"
+        mute_f0nsf = mute_dir / shared.F0_NSF_DIR_NAME / "mute.wav.npy"
         assert f0_dir is not None and f0nsf_dir is not None
         opt.extend(
             [
@@ -642,7 +642,7 @@ def one_click_training(
     gpus16: str,
     if_cache_gpu17: bool,
     if_save_every_weights18: bool,
-    version19: str,
+    version19: Literal["v1", "v2"],
     gpus_rmvpe: str,
 ) -> Generator[str]:
     infos: list[str] = []
