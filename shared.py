@@ -93,8 +93,7 @@ if torch.cuda.is_available() or _n_gpu != 0:
                 "6000",
             ]
         ):
-            # A10#A100#V100#A40#P40#M40#K80#A4500
-            _if_gpu_ok = True  # 至少有一张能用的N卡
+            _if_gpu_ok = True  # At least one usable GPU available
             _gpu_infos.append(f"{i}\t{gpu_name}")
             _mem.append(
                 int(
@@ -115,28 +114,22 @@ else:
     default_batch_size = 1
 gpus = "-".join([i[0] for i in _gpu_infos])
 
+weight_root = Path(os.getenv("WEIGHT_ROOT", "assets/weights"))
+index_root = Path(os.getenv("INDEX_ROOT", "logs"))
+outside_index_root = Path(os.getenv("OUTSIDE_INDEX_ROOT", "assets/indices"))
+rmvpe_root = Path(os.getenv("RMVPE_ROOT", "assets/rmvpe"))
 
-weight_root = os.getenv("WEIGHT_ROOT", "assets/weights")
-index_root = os.getenv("INDEX_ROOT", "logs")
-outside_index_root = os.getenv("OUTSIDE_INDEX_ROOT", "assets/indices")
-rmvpe_root = os.getenv("RMVPE_ROOT", "assets/rmvpe")
+names = [p.name for p in weight_root.iterdir() if p.name.endswith(".pth")]
 
-names = []
-for path in Path(weight_root).iterdir():
-    name = path.name
-    print(f"Checking: {name}")
-    if name.endswith(".pth"):
-        names.append(name)
-index_paths = [""]  # Fix for gradio 5
+# Initialize index_paths for gradio compatibility
+index_paths = [""]
 
 
-def _lookup_indices(root: str):
-    # Update shared.index_paths with .index files (excluding those with 'trained' in the name)
-    root_path = Path(root)
+def lookup_indices(root: Path):
     index_paths.extend(
-        [str(path) for path in root_path.rglob("*.index") if "trained" not in path.name]
+        [str(path) for path in root.rglob("*.index") if "trained" not in path.name]
     )
 
 
-_lookup_indices(index_root)
-_lookup_indices(outside_index_root)
+lookup_indices(index_root)
+lookup_indices(outside_index_root)
