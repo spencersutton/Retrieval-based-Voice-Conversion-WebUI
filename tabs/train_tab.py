@@ -12,6 +12,7 @@ from pathlib import Path
 from random import shuffle
 from subprocess import Popen
 from time import sleep
+from typing import Literal
 
 import faiss
 import gradio as gr
@@ -90,7 +91,7 @@ def preprocess_dataset(
         yield error_msg
         return
     sr: int = shared.sr_dict[sr]
-    log_dir = shared.now_dir / "logs" / exp_dir
+    log_dir = Path.cwd() / "logs" / exp_dir
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "preprocess.log"
     log_file.touch()
@@ -101,7 +102,7 @@ def preprocess_dataset(
     done = [False]
     threading.Thread(target=if_done, args=(done, p)).start()
 
-    log_file_path = shared.now_dir / "logs" / exp_dir / "preprocess.log"
+    log_file_path = Path.cwd() / "logs" / exp_dir / "preprocess.log"
     while True:
         file_content = log_file_path.read_text()
         count = file_content.count("Success")
@@ -191,7 +192,7 @@ def extract_f0_feature(
         progress(float(now) / all, desc=f"{now}/{all} Features extracted...")
 
     gpus = gpus_str.split("-")
-    log_dir_path = shared.now_dir / "logs" / exp_dir
+    log_dir_path = Path.cwd() / "logs" / exp_dir
     log_dir_path.mkdir(parents=True, exist_ok=True)
     log_file = log_dir_path / "extract_f0_feature.log"
     log_file.touch()
@@ -199,7 +200,7 @@ def extract_f0_feature(
         if f0method != "rmvpe_gpu":
             cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{log_dir_path}" {n_p} {f0method}'
             shared.logger.info("Execute: " + cmd)
-            p = Popen(cmd, shell=True, cwd=shared.now_dir)
+            p = Popen(cmd, shell=True, cwd=Path.cwd())
             # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
             done = [False]
             threading.Thread(target=if_done, args=(done, p)).start()
@@ -209,9 +210,9 @@ def extract_f0_feature(
                 length = len(gpus_rmvpe)
                 ps = []
                 for idx, n_g in enumerate(gpus_rmvpe):
-                    cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {length} {idx} {n_g} "{shared.now_dir}/logs/{exp_dir}" {shared.config.is_half} '
+                    cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {length} {idx} {n_g} "{Path.cwd()}/logs/{exp_dir}" {shared.config.is_half} '
                     shared.logger.info("Execute: " + cmd)
-                    p = Popen(cmd, shell=True, cwd=shared.now_dir)
+                    p = Popen(cmd, shell=True, cwd=Path.cwd())
                     ps.append(p)
                 done = [False]
                 threading.Thread(
@@ -227,7 +228,7 @@ def extract_f0_feature(
                     + f' infer/modules/train/extract/extract_f0_rmvpe_dml.py "{log_dir_path}" '
                 )
                 shared.logger.info("Execute: " + cmd)
-                p = Popen(cmd, shell=True, cwd=shared.now_dir)
+                p = Popen(cmd, shell=True, cwd=Path.cwd())
                 p.wait()
                 done = [True]
         while True:
@@ -241,9 +242,9 @@ def extract_f0_feature(
     length = len(gpus)
     ps = []
     for idx, n_g in enumerate(gpus):
-        cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract_feature_print.py {shared.config.device} {length} {idx} {n_g} "{shared.now_dir}/logs/{exp_dir}" {version19} {shared.config.is_half}'
+        cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract_feature_print.py {shared.config.device} {length} {idx} {n_g} "{Path.cwd()}/logs/{exp_dir}" {version19} {shared.config.is_half}'
         shared.logger.info("Execute: " + cmd)
-        p = Popen(cmd, shell=True, cwd=shared.now_dir)
+        p = Popen(cmd, shell=True, cwd=Path.cwd())
         ps.append(p)
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
@@ -371,16 +372,18 @@ def click_train(
     gpus16: str,
     if_cache_gpu17: bool,
     if_save_every_weights18: bool,
-    version19: str,
+    version: Literal["v1", "v2"],
     progress: gr.Progress = gr.Progress(),
 ):
     # Setup experiment directories
-    exp_dir = shared.now_dir / "logs" / exp_dir1
+    exp_dir = Path.cwd() / "logs" / exp_dir1
     exp_dir.mkdir(parents=True, exist_ok=True)
     gt_wavs_dir = exp_dir / "0_gt_wavs"
-    feature_dir = exp_dir / ("3_feature256" if version19 == "v1" else "3_feature768")
+    feature_dir = exp_dir / ("3_feature256" if version == "v1" else "3_feature768")
 
     # Collect file names for training
+    f0_dir = None
+    f0nsf_dir = None
     if if_f0_3:
         f0_dir = exp_dir / "2a_f0"
         f0nsf_dir = exp_dir / "2b-f0nsf"
@@ -397,16 +400,21 @@ def click_train(
 
     # Build filelist for training
     opt = []
-    fea_dim = 256 if version19 == "v1" else 768
-    mute_gt_wavs = shared.now_dir / "logs" / "mute" / "0_gt_wavs" / f"mute{sr2}.wav"
-    mute_feature = shared.now_dir / "logs" / "mute" / f"3_feature{fea_dim}" / "mute.npy"
+    fea_dim = 256 if version == "v1" else 768
+    mute_dir = Path.cwd() / "logs" / "mute"
+    mute_gt_wavs = mute_dir / "0_gt_wavs" / f"mute{sr2}.wav"
+    mute_feature = mute_dir / f"3_feature{fea_dim}" / "mute.npy"
+
     if if_f0_3:
-        mute_f0 = shared.now_dir / "logs" / "mute" / "2a_f0" / "mute.wav.npy"
-        mute_f0nsf = shared.now_dir / "logs" / "mute" / "2b-f0nsf" / "mute.wav.npy"
-        for name in names:
-            opt.append(
+        mute_f0 = mute_dir / "2a_f0" / "mute.wav.npy"
+        mute_f0nsf = mute_dir / "2b-f0nsf" / "mute.wav.npy"
+        assert f0_dir is not None and f0nsf_dir is not None
+        opt.extend(
+            [
                 f"{gt_wavs_dir / (name + '.wav')}|{feature_dir / (name + '.npy')}|{f0_dir / (name + '.wav.npy')}|{f0nsf_dir / (name + '.wav.npy')}|{spk_id5}"
-            )
+                for name in names
+            ]
+        )
         opt.extend(
             [
                 f"{mute_gt_wavs}|{mute_feature}|{mute_f0}|{mute_f0nsf}|{spk_id5}"
@@ -414,10 +422,12 @@ def click_train(
             ]
         )
     else:
-        for name in names:
-            opt.append(
+        opt.extend(
+            [
                 f"{gt_wavs_dir / (name + '.wav')}|{feature_dir / (name + '.npy')}|{spk_id5}"
-            )
+                for name in names
+            ]
+        )
         opt.extend([f"{mute_gt_wavs}|{mute_feature}|{spk_id5}" for _ in range(2)])
 
     shuffle(opt)
@@ -432,7 +442,7 @@ def click_train(
     if pretrained_D15 == "":
         shared.logger.info("No pretrained Discriminator")
     config_path = (
-        f"v1/{sr2}.json" if version19 == "v1" or sr2 == "40k" else f"v2/{sr2}.json"
+        f"v1/{sr2}.json" if version == "v1" or sr2 == "40k" else f"v2/{sr2}.json"
     )
     config_save_path = exp_dir / "config.json"
     if not config_save_path.exists():
@@ -480,7 +490,7 @@ def click_train(
                 f"-l {1 if save_latest == i18n('Yes') else 0}",
                 f"-c {1 if cache_gpu == i18n('Yes') else 0}",
                 f"-sw {1 if save_every_weights == i18n('Yes') else 0}",
-                f"-v {version19}",
+                f"-v {version}",
             ]
         )
         return " ".join(args)
@@ -497,7 +507,7 @@ def click_train(
 
     # Run training and update progress/plot
     current_epoch = 0
-    p = Popen(cmd, shell=True, cwd=shared.now_dir, stdout=subprocess.PIPE)
+    p = Popen(cmd, shell=True, cwd=Path.cwd(), stdout=subprocess.PIPE)
     scalar_count = 0
     while True:
         assert p.stdout is not None
