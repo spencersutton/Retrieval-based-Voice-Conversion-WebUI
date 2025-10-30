@@ -113,7 +113,7 @@ def preprocess_dataset(
     def run_preprocess():
         try:
             preprocess_trainset(
-                inp_root=str(audio_dir),
+                inp_root=audio_dir,
                 sr=sr_int,
                 n_p=n_p,
                 exp_dir=str(log_dir),
