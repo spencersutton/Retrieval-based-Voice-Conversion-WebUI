@@ -531,11 +531,11 @@ def click_train(
 
 
 def train_index(
-    exp_dir_str: str,
+    experiment_name: str,
     version: Literal["v1", "v2"],
     progress: gr.Progress = gr.Progress(),
 ):
-    exp_dir = Path("logs") / exp_dir_str
+    exp_dir = Path("logs") / experiment_name
     exp_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = exp_dir / (
         shared.FEATURE_DIR_NAME if version == "v1" else shared.FEATURE_DIR_NAME_V2
@@ -591,7 +591,7 @@ def train_index(
     index.train(big_npy)
     faiss.write_index(
         index,
-        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir_str}_{version}.index",
+        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{experiment_name}_{version}.index",
     )
     progress(0.7, desc="Adding vectors to index...")
     infos.append("Adding vectors to index...")
@@ -600,16 +600,16 @@ def train_index(
         index.add(big_npy[i : i + batch_size_add])
     faiss.write_index(
         index,
-        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir_str}_{version}.index",
+        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{experiment_name}_{version}.index",
     )
     infos.append(
-        f"Successfully built index: added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir_str}_{version}.index"
+        f"Successfully built index: added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{experiment_name}_{version}.index"
     )
     try:
         link = os.link if platform.system() == "Windows" else os.symlink
         link(
-            f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir_str}_{version}.index",
-            f"{shared.outside_index_root}/{exp_dir_str}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir_str}_{version}.index",
+            f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{experiment_name}_{version}.index",
+            f"{shared.outside_index_root}/{experiment_name}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{experiment_name}_{version}.index",
         )
         infos.append(
             f"Linked index to external directory: {shared.outside_index_root}"
