@@ -69,7 +69,6 @@ def preprocess_dataset(
         actual_file_count = len(file_names)
         info_msg = f"Found {actual_file_count} files in audio directory: {audio_dir}"
         shared.logger.info(info_msg)
-        # yield info_msg # Optionally yield this information to the UI
 
         if actual_file_count == 0:
             warning_msg = f"Warning: No files found in '{audio_dir}'. Preprocessing script will run, but may not find items to process."
