@@ -21,7 +21,6 @@ dependencies = [
     "poluvr>=1.9.0 ; sys_platform == 'darwin'",
     "praat-parselmouth>=0.4.2",
     "python-dotenv>=1.0.0",
-    "setuptools<81",
     "pyworld>=0.3.5",
     "resampy>=0.4.2",
     "scikit-learn>=1.6.1",
@@ -41,6 +40,11 @@ dependencies = [
 requires = ["setuptools>=61.0", "wheel", "cython"]
 build-backend = "setuptools.build_meta"
 
+
+[dependency-groups]
+dev = ["pyright>=1.1.407", "setuptools>=80.9.0"]
+
+
 [project.optional-dependencies]
 gtk = [
     # List the GTK dependencies here for the extra-dependencies group
@@ -48,9 +52,14 @@ gtk = [
     "pygobject-stubs>=2.13.0",
 ]
 
-
 [tool.setuptools]
 packages = ["infer", "lib", "tabs", "i18n"]
+
+[tool.uv]
+package = true
+
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
 
 [[tool.uv.index]]
 url = "https://download.pytorch.org/whl/cu130"
@@ -59,9 +68,6 @@ marker = "sys_platform == 'win32' or sys_platform == 'linux'"
 [[tool.uv.index]]
 url = "https://download.pytorch.org/whl/cpu"
 marker = "sys_platform == 'darwin'"
-
-[tool.uv]
-package = true
 
 [tool.uv.sources]
 fairseq = { git = "https://github.com/yamada-sexta/fairseq.git" }
@@ -94,6 +100,3 @@ ignore = ["E741", "COM812", "N", "PLR", "PLW0603"]
 [tool.pyright]
 typeCheckingMode = "standard"
 reportMissingParameterType = true
-
-[dependency-groups]
-dev = ["pyright>=1.1.407"]
