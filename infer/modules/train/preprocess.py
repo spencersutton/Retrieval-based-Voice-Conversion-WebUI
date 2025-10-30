@@ -1,5 +1,4 @@
 import multiprocessing
-import os
 import sys
 import traceback
 from pathlib import Path
@@ -44,7 +43,7 @@ class PreProcess:
             hop_size=15,
             max_sil_kept=500,
         )
-        self.bh, self.ah = signal.butter(N=5, Wn=48, btype="high", fs=self.sr)
+        self.bh, self.ah = signal.butter(N=5, Wn=48, btype="high", fs=self.sr)  # type: ignore
 
         self.exp_dir.mkdir(exist_ok=True)
         self.gt_wavs_dir.mkdir(exist_ok=True)
@@ -95,13 +94,10 @@ class PreProcess:
         for path, idx0 in infos:
             self.pipeline(path, idx0)
 
-    def pipeline_mp_inp_dir(self, inp_root: Path, n_p: int, noparallel: bool) -> None:
+    def pipeline_mp_inp_dir(self, inp_root: Path, n_p: int, no_parallel: bool) -> None:
         try:
-            infos = [
-                (inp_root / name, idx)
-                for idx, name in enumerate(sorted(os.listdir(inp_root)))
-            ]
-            if noparallel:
+            infos = [(path, idx) for idx, path in enumerate(sorted(inp_root.iterdir()))]
+            if no_parallel:
                 for i in range(n_p):
                     self.pipeline_mp(infos[i::n_p])
             else:
@@ -124,7 +120,7 @@ def preprocess_trainset(
     n_p: int,
     exp_dir: Path,
     per: float,
-    noparallel: bool = False,
+    no_parallel: bool = False,
 ):
     global f
 
@@ -135,7 +131,7 @@ def preprocess_trainset(
     try:
         pp = PreProcess(sr, exp_dir, per)
         println("start preprocess")
-        pp.pipeline_mp_inp_dir(inp_root, n_p, noparallel)
+        pp.pipeline_mp_inp_dir(inp_root, n_p, no_parallel)
         println("end preprocess")
     finally:
         if f is not None:
@@ -151,7 +147,7 @@ if __name__ == "__main__":
     sr = int(sys.argv[2])
     n_p = int(sys.argv[3])
     exp_dir = Path(sys.argv[4])
-    noparallel = sys.argv[5] == "True"
+    no_parallel = sys.argv[5] == "True"
     per = float(sys.argv[6])
 
-    preprocess_trainset(inp_root, sr, n_p, exp_dir, per, noparallel)
+    preprocess_trainset(inp_root, sr, n_p, exp_dir, per, no_parallel)

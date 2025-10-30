@@ -116,9 +116,9 @@ def preprocess_dataset(
                 inp_root=audio_dir,
                 sr=sr_int,
                 n_p=n_p,
-                exp_dir=str(log_dir),
+                exp_dir=log_dir,
                 per=shared.config.preprocess_per,
-                noparallel=shared.config.noparallel,
+                no_parallel=shared.config.no_parallel,
             )
         finally:
             done[0] = True
