@@ -673,13 +673,13 @@ def one_click_training(
 
 def create_train_tab():
     with gr.TabItem(i18n("Train")):
+        # Experiment Config
         with gr.Group():
             gr.Markdown(value=i18n("## Experiment Config"))
             with gr.Row():
-                current_date = datetime.date.today()
-                formatted_date = current_date.strftime("%Y-%m-%d")
+                current_date = datetime.date.today().strftime("%Y-%m-%d")
                 experiment_name = gr.Textbox(
-                    label=i18n("Experiment Name"), value=f"experiment_{formatted_date}"
+                    label=i18n("Experiment Name"), value=f"experiment_{current_date}"
                 )
                 target_sr = gr.Radio(
                     label=i18n("Target Sample Rate"),
@@ -709,6 +709,7 @@ def create_train_tab():
                     interactive=True,
                 )
 
+        # Preprocess
         with gr.Group():
             gr.Markdown(value=i18n("## Preprocess"))
             spk_id = gr.Slider(
@@ -720,7 +721,6 @@ def create_train_tab():
                 interactive=True,
                 visible=False,
             )
-
             with gr.Row():
                 with gr.Column():
                     audio_data_root = gr.Textbox(
@@ -749,6 +749,8 @@ def create_train_tab():
                         [info1],
                         api_name="train_preprocess",
                     )
+
+        # Extract Pitch
         with gr.Group():
             gr.Markdown(value=i18n("## Extract Pitch"))
             with gr.Row():
@@ -770,7 +772,7 @@ def create_train_tab():
                     gr.Markdown(
                         value=i18n(
                             """### Select pitch extraction algorithm:
-                              
+                                
                 - PM speeds up vocal input.
                 
                 - DIO speeds up high-quality speech on weaker CPUs.
@@ -816,6 +818,8 @@ def create_train_tab():
                         [info2],
                         api_name="train_extract_f0_feature",
                     )
+
+        # Training Config
         with gr.Group():
             gr.Markdown(value=i18n("## Training Config"))
             with gr.Row():
