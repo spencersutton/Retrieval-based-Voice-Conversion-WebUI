@@ -12,22 +12,15 @@ import shared
 from infer.lib.audio import load_audio
 from infer.lib.slicer2 import Slicer
 
-print(*sys.argv[1:])
-inp_root = sys.argv[1]
-sr = int(sys.argv[2])
-n_p = int(sys.argv[3])
-exp_dir = sys.argv[4]
-noparallel = sys.argv[5] == "True"
-per = float(sys.argv[6])
-
-
-f = open(f"{exp_dir}/preprocess.log", "a+")
+# Global log file handle
+f = None
 
 
 def println(strr: str):
     print(strr)
-    f.write(f"{strr}\n")
-    f.flush()
+    if f is not None:
+        f.write(f"{strr}\n")
+        f.flush()
 
 
 class PreProcess:
@@ -120,7 +113,9 @@ class PreProcess:
         for path, idx0 in infos:
             self.pipeline(path, idx0)
 
-    def pipeline_mp_inp_dir(self: "PreProcess", inp_root: str, n_p: int) -> None:
+    def pipeline_mp_inp_dir(
+        self: "PreProcess", inp_root: str, n_p: int, noparallel: bool
+    ) -> None:
         try:
             infos = [
                 (f"{inp_root}/{name}", idx)
@@ -143,12 +138,34 @@ class PreProcess:
             println(f"Fail. {traceback.format_exc()}")
 
 
-def preprocess_trainset(inp_root: str, sr: int, n_p: int, exp_dir: str, per: float):
-    pp = PreProcess(sr, exp_dir, per)
-    println("start preprocess")
-    pp.pipeline_mp_inp_dir(inp_root, n_p)
-    println("end preprocess")
+def preprocess_trainset(
+    inp_root: str, sr: int, n_p: int, exp_dir: str, per: float, noparallel: bool = False
+):
+    global f
+    # Open log file
+    log_path = f"{exp_dir}/preprocess.log"
+    f = open(log_path, "a+")
+
+    try:
+        pp = PreProcess(sr, exp_dir, per)
+        println("start preprocess")
+        pp.pipeline_mp_inp_dir(inp_root, n_p, noparallel)
+        println("end preprocess")
+    finally:
+        if f is not None:
+            f.close()
+            f = None
 
 
 if __name__ == "__main__":
-    preprocess_trainset(inp_root, sr, n_p, exp_dir, per)
+    import sys
+
+    print(*sys.argv[1:])
+    inp_root = sys.argv[1]
+    sr = int(sys.argv[2])
+    n_p = int(sys.argv[3])
+    exp_dir = sys.argv[4]
+    noparallel = sys.argv[5] == "True"
+    per = float(sys.argv[6])
+
+    preprocess_trainset(inp_root, sr, n_p, exp_dir, per, noparallel)

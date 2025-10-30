@@ -21,6 +21,7 @@ import pandas as pd
 from sklearn.cluster import MiniBatchKMeans
 
 import shared
+from infer.modules.train.preprocess import preprocess_trainset
 from shared import i18n
 
 f0_GPU_visible = not shared.config.dml
@@ -106,15 +107,23 @@ def preprocess_dataset(
     log_file = log_dir / "preprocess.log"
     log_file.touch()
 
-    cmd = (
-        f'"{shared.config.python_cmd}" infer/modules/train/preprocess.py '
-        f'"{audio_dir}" {sr_int} {n_p} "{log_dir}" {shared.config.noparallel} {shared.config.preprocess_per:.1f}'
-    )
-    shared.logger.info("Execute: " + cmd)
-    p = Popen(cmd, shell=True)
-
+    # Run preprocess_trainset directly in a thread
     done = [False]
-    threading.Thread(target=if_done, args=(done, p)).start()
+
+    def run_preprocess():
+        try:
+            preprocess_trainset(
+                inp_root=str(audio_dir),
+                sr=sr_int,
+                n_p=n_p,
+                exp_dir=str(log_dir),
+                per=shared.config.preprocess_per,
+                noparallel=shared.config.noparallel,
+            )
+        finally:
+            done[0] = True
+
+    threading.Thread(target=run_preprocess).start()
 
     while True:
         file_content = log_file.read_text()
