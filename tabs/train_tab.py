@@ -184,53 +184,29 @@ def extract_f0_feature(
     if_f0: bool,
     exp_dir: str,
     version: Literal["v1", "v2"],
-    gpus_rmvpe: str,  # pyright: ignore[reportRedeclaration]
+    gpus_rmvpe: str,
     progress: gr.Progress = gr.Progress(),
-) -> Generator[str, None, None]:
+) -> Generator[str]:
     def update_progress(content: str):
         now, all = parse_f0_feature_log(content)
         progress(float(now) / all, desc=f"{now}/{all} Features extracted...")
 
-    gpus = gpus_str.split("-")
     log_dir_path = Path.cwd() / "logs" / exp_dir
     log_dir_path.mkdir(parents=True, exist_ok=True)
     log_file = log_dir_path / "extract_f0_feature.log"
     log_file.touch()
-    if if_f0:
-        if f0method != "rmvpe_gpu":
-            cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{log_dir_path}" {n_p} {f0method}'
+
+    def run_and_monitor(cmds: list[str], wait_all: bool = True):
+        done = [False]
+        ps = []
+        for cmd in cmds:
             shared.logger.info("Execute: " + cmd)
             p = Popen(cmd, shell=True, cwd=Path.cwd())
-            # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
-            done = [False]
-            threading.Thread(target=if_done, args=(done, p)).start()
+            ps.append(p)
+        if wait_all:
+            threading.Thread(target=if_done_multi, args=(done, ps)).start()
         else:
-            if gpus_rmvpe != "-":
-                gpus_rmvpe: list[str] = gpus_rmvpe.split("-")
-                length = len(gpus_rmvpe)
-                ps = []
-                for idx, n_g in enumerate(gpus_rmvpe):
-                    cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {length} {idx} {n_g} "{Path.cwd()}/logs/{exp_dir}" {shared.config.is_half} '
-                    shared.logger.info("Execute: " + cmd)
-                    p = Popen(cmd, shell=True, cwd=Path.cwd())
-                    ps.append(p)
-                done = [False]
-                threading.Thread(
-                    target=if_done_multi,  #
-                    args=(
-                        done,
-                        ps,
-                    ),
-                ).start()
-            else:
-                cmd = (
-                    shared.config.python_cmd
-                    + f' infer/modules/train/extract/extract_f0_rmvpe_dml.py "{log_dir_path}" '
-                )
-                shared.logger.info("Execute: " + cmd)
-                p = Popen(cmd, shell=True, cwd=Path.cwd())
-                p.wait()
-                done = [True]
+            threading.Thread(target=if_done, args=(done, ps[0])).start()
         while True:
             update_progress(log_file.read_text())
             sleep(1)
@@ -238,30 +214,38 @@ def extract_f0_feature(
                 break
         log = log_file.read_text()
         shared.logger.info(log)
-    # 对不同part分别开多进程
+        return log
+
+    if if_f0:
+        if f0method != "rmvpe_gpu":
+            cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{log_dir_path}" {n_p} {f0method}'
+            log = run_and_monitor([cmd], wait_all=False)
+        else:
+            if gpus_rmvpe != "-":
+                gpus_rmvpe_list = gpus_rmvpe.split("-")
+                length = len(gpus_rmvpe_list)
+                cmds = [
+                    f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe.py {length} {idx} {n_g} "{log_dir_path}" {shared.config.is_half} '
+                    for idx, n_g in enumerate(gpus_rmvpe_list)
+                ]
+                log = run_and_monitor(cmds)
+            else:
+                cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_rmvpe_dml.py "{log_dir_path}" '
+                shared.logger.info("Execute: " + cmd)
+                p = Popen(cmd, shell=True, cwd=Path.cwd())
+                p.wait()
+                log = log_file.read_text()
+                shared.logger.info(log)
+        yield log
+
+    # Feature extraction for each GPU part
+    gpus = gpus_str.split("-")
     length = len(gpus)
-    ps = []
-    for idx, n_g in enumerate(gpus):
-        cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract_feature_print.py {shared.config.device} {length} {idx} {n_g} "{Path.cwd()}/logs/{exp_dir}" {version} {shared.config.is_half}'
-        shared.logger.info("Execute: " + cmd)
-        p = Popen(cmd, shell=True, cwd=Path.cwd())
-        ps.append(p)
-    # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
-    done = [False]
-    threading.Thread(
-        target=if_done_multi,
-        args=(
-            done,
-            ps,
-        ),
-    ).start()
-    while True:
-        update_progress(log_file.read_text())
-        sleep(1)
-        if done[0]:
-            break
-    log = log_file.read_text()
-    shared.logger.info(log)
+    cmds = [
+        f'"{shared.config.python_cmd}" infer/modules/train/extract_feature_print.py {shared.config.device} {length} {idx} {n_g} "{log_dir_path}" {version} {shared.config.is_half}'
+        for idx, n_g in enumerate(gpus)
+    ]
+    log = run_and_monitor(cmds)
     yield log
 
 
