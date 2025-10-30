@@ -119,7 +119,8 @@ outside_index_root = os.getenv("OUTSIDE_INDEX_ROOT", "assets/indices")
 rmvpe_root = os.getenv("RMVPE_ROOT", "assets/rmvpe")
 
 names = []
-for name in os.listdir(weight_root):
+for path in Path(weight_root).iterdir():
+    name = path.name
     print(f"Checking: {name}")
     if name.endswith(".pth"):
         names.append(name)
@@ -127,18 +128,12 @@ index_paths = [""]  # Fix for gradio 5
 
 
 def lookup_indices(root: str):
-    # shared.index_paths
-    for root, dirs, files in os.walk(root, topdown=False):
-        for name in files:
-            if name.endswith(".index") and "trained" not in name:
-                index_paths.append(f"{root}/{name}")
+    # Update shared.index_paths with .index files (excluding those with 'trained' in the name)
+    root_path = Path(root)
+    index_paths.extend(
+        [str(path) for path in root_path.rglob("*.index") if "trained" not in path.name]
+    )
 
 
 lookup_indices(index_root)
 lookup_indices(outside_index_root)
-
-sr_dict = {
-    "32k": 32000,
-    "40k": 40000,
-    "48k": 48000,
-}

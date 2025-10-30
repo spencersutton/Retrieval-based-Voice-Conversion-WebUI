@@ -136,7 +136,7 @@ def preprocess_dataset(
             )
         return
 
-    sr_int = shared.sr_dict[sr]
+    sr_int = int(sr.replace("k", "000"))
     log_dir = Path.cwd() / "logs" / exp_dir
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "preprocess.log"
