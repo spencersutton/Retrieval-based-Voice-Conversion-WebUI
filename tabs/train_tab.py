@@ -33,22 +33,22 @@ INDEX_BATCH_SIZE = 8192
 LOG_POLL_INTERVAL = 0.5
 
 
-def get_feature_dir_name(version: Literal["v1", "v2"]) -> str:
+def _get_feature_dir_name(version: Literal["v1", "v2"]) -> str:
     """Get feature directory name based on version."""
     return shared.FEATURE_DIR_NAME if version == "v1" else shared.FEATURE_DIR_NAME_V2
 
 
-def get_feature_dimension(version: Literal["v1", "v2"]) -> int:
+def _get_feature_dimension(version: Literal["v1", "v2"]) -> int:
     """Get feature dimension based on version."""
     return shared.FEATURE_DIMENSION if version == "v1" else shared.FEATURE_DIMENSION_V2
 
 
-def get_pretrained_path(version: Literal["v1", "v2"], if_f0: bool) -> str:
+def _get_pretrained_path(version: Literal["v1", "v2"], if_f0: bool) -> str:
     """Get pretrained model directory path."""
     return "" if version == "v1" else "_v2"
 
 
-def change_f0_method(f0_method: str):
+def _change_f0_method(f0_method: str):
     # Show GPU config only for rmvpe_gpu method
     return {
         "visible": f0_GPU_visible if f0_method == "rmvpe_gpu" else False,
@@ -56,7 +56,7 @@ def change_f0_method(f0_method: str):
     }
 
 
-def monitor_log_with_progress(
+def _monitor_log_with_progress(
     log_file: Path,
     done_event: threading.Event,
     progress_callback,  # type: ignore
@@ -69,20 +69,20 @@ def monitor_log_with_progress(
     return log_file.read_text()
 
 
-def wait_for_process(done_event: threading.Event, p: Popen):
+def _wait_for_process(done_event: threading.Event, p: Popen):
     """Wait for a single process to complete and signal completion."""
     p.wait()
     done_event.set()
 
 
-def wait_for_processes(done_event: threading.Event, processes: list[Popen]):
+def _wait_for_processes(done_event: threading.Event, processes: list[Popen]):
     """Wait for all processes to complete and signal completion."""
     for p in processes:
         p.wait()
     done_event.set()
 
 
-def preprocess_dataset(
+def _preprocess_dataset(
     audio_dir: Path,
     exp_dir: Path,
     sr: str,
@@ -167,12 +167,12 @@ def preprocess_dataset(
             desc=f"Processed {count}/{actual_file_count} audio...",
         )
 
-    log = monitor_log_with_progress(log_file, done_event, update_progress)
+    log = _monitor_log_with_progress(log_file, done_event, update_progress)
     shared.logger.info(log)
     yield log
 
 
-def preprocess_meta(
+def _preprocess_meta(
     experiment_name: str,
     audio_dir_str: str,
     audio_files_str: list[str] | None,
@@ -193,7 +193,7 @@ def preprocess_meta(
             progress(idx / total_files, desc="Copying files...")
 
     # Run preprocessing on the prepared directory
-    yield from preprocess_dataset(
+    yield from _preprocess_dataset(
         audio_dir=save_dir,
         exp_dir=Path(experiment_name),
         sr=sr,
@@ -202,7 +202,7 @@ def preprocess_meta(
     )
 
 
-def parse_f0_feature_log(content: str) -> tuple[int, int]:
+def _parse_f0_feature_log(content: str) -> tuple[int, int]:
     """
     Parses log content to extract the highest 'now' and 'all' values from lines matching the pattern:
     'f0ing,now-<number>,all-<number>,...'
@@ -225,7 +225,7 @@ def parse_f0_feature_log(content: str) -> tuple[int, int]:
     return max_now, max_all
 
 
-def extract_f0_feature(
+def _extract_f0_feature(
     gpus_str: str,
     n_p: int,
     f0method: str,
@@ -238,7 +238,7 @@ def extract_f0_feature(
     """Extract F0 and feature from audio files."""
 
     def update_progress(content: str):
-        now, all_count = parse_f0_feature_log(content)
+        now, all_count = _parse_f0_feature_log(content)
         progress(
             float(now) / all_count, desc=f"{now}/{all_count} Features extracted..."
         )
@@ -257,14 +257,14 @@ def extract_f0_feature(
 
         if wait_all:
             threading.Thread(
-                target=wait_for_processes, args=(done_event, ps), daemon=True
+                target=_wait_for_processes, args=(done_event, ps), daemon=True
             ).start()
         else:
             threading.Thread(
-                target=wait_for_process, args=(done_event, ps[0]), daemon=True
+                target=_wait_for_process, args=(done_event, ps[0]), daemon=True
             ).start()
 
-        return monitor_log_with_progress(
+        return _monitor_log_with_progress(
             log_file, done_event, update_progress, poll_interval=1
         )
 
@@ -318,7 +318,7 @@ def extract_f0_feature(
     yield log
 
 
-def get_pretrained_models(path_str: str, f0_str: str, sample_rate: str):
+def _get_pretrained_models(path_str: str, f0_str: str, sample_rate: str):
     """Get paths to pretrained generator and discriminator models."""
     base_dir = Path(f"assets/pretrained{path_str}")
     gen_path = base_dir / f"{f0_str}G{sample_rate}.pth"
@@ -338,36 +338,36 @@ def get_pretrained_models(path_str: str, f0_str: str, sample_rate: str):
     )
 
 
-def change_sample_rate(sample_rate: str, if_f0: bool, version: Literal["v1", "v2"]):
+def _change_sample_rate(sample_rate: str, if_f0: bool, version: Literal["v1", "v2"]):
     """Update pretrained model paths when sample rate changes."""
-    path_str = get_pretrained_path(version, if_f0)
+    path_str = _get_pretrained_path(version, if_f0)
     f0_str = "f0" if if_f0 else ""
-    return get_pretrained_models(path_str, f0_str, sample_rate)
+    return _get_pretrained_models(path_str, f0_str, sample_rate)
 
 
-def change_version(sample_rate: str, if_f0: bool, version: Literal["v1", "v2"]):
+def _change_version(sample_rate: str, if_f0: bool, version: Literal["v1", "v2"]):
     """Update pretrained model paths and sample rate choices when version changes."""
     # Adjust sample rate for v1 if needed
     if sample_rate == "32k" and version == "v1":
         sample_rate = "40k"
-    path_str = get_pretrained_path(version, if_f0)
+    path_str = _get_pretrained_path(version, if_f0)
     f0_str = "f0" if if_f0 else ""
     # Set available choices based on version
     choices = ["40k", "48k"] if version == "v1" else ["40k", "48k", "32k"]
     sr_update = {"choices": choices, "__type__": "update", "value": sample_rate}
-    return (*get_pretrained_models(path_str, f0_str, sample_rate), sr_update)
+    return (*_get_pretrained_models(path_str, f0_str, sample_rate), sr_update)
 
 
-def change_f0(if_f0: bool, sample_rate: str, version: Literal["v1", "v2"]):
+def _change_f0(if_f0: bool, sample_rate: str, version: Literal["v1", "v2"]):
     """Update UI visibility and pretrained model paths when f0 setting changes."""
-    path_str = get_pretrained_path(version, if_f0)
+    path_str = _get_pretrained_path(version, if_f0)
     visible_update = {"visible": if_f0, "__type__": "update"}
     f0_str = "f0" if if_f0 else ""
-    gen_path, dis_path = get_pretrained_models(path_str, f0_str, sample_rate)
+    gen_path, dis_path = _get_pretrained_models(path_str, f0_str, sample_rate)
     return visible_update, visible_update, gen_path, dis_path
 
 
-def parse_epoch_from_train_log_line(line: str) -> int | None:
+def _parse_epoch_from_train_log_line(line: str) -> int | None:
     """
     Parse a single log line and extract the current epoch number if present.
 
@@ -391,10 +391,10 @@ def parse_epoch_from_train_log_line(line: str) -> int | None:
     return None
 
 
-def get_mute_paths(sample_rate: str, version: Literal["v1", "v2"], if_f0: bool):
+def _get_mute_paths(sample_rate: str, version: Literal["v1", "v2"], if_f0: bool):
     """Get paths for mute files used in training."""
     mute_dir = Path.cwd() / "logs" / MUTE_DIR_NAME
-    feature_dimension = get_feature_dimension(version)
+    feature_dimension = _get_feature_dimension(version)
 
     mute_gt_wavs = mute_dir / shared.GT_WAVS_DIR_NAME / f"mute{sample_rate}.wav"
     mute_feature = mute_dir / f"3_feature{feature_dimension}" / "mute.npy"
@@ -407,7 +407,7 @@ def get_mute_paths(sample_rate: str, version: Literal["v1", "v2"], if_f0: bool):
     return mute_gt_wavs, mute_feature, None, None
 
 
-def build_filelist(
+def _build_filelist(
     gt_wavs_dir: Path,
     feature_dir: Path,
     f0_dir: Path | None,
@@ -444,7 +444,7 @@ def build_filelist(
         )
 
     # Add mute files
-    mute_paths = get_mute_paths(sample_rate, version, f0_dir is not None)
+    mute_paths = _get_mute_paths(sample_rate, version, f0_dir is not None)
     if f0_dir and f0nsf_dir:
         mute_gt, mute_feat, mute_f0, mute_f0nsf = mute_paths
         opt.extend(
@@ -458,10 +458,10 @@ def build_filelist(
     return opt
 
 
-scalar_history = []
+_scalar_history = []
 
 
-def click_train(
+def _click_train(
     exp_dir_str: str,
     sample_rate: str,
     if_f0: bool,
@@ -483,14 +483,14 @@ def click_train(
     exp_dir = Path.cwd() / "logs" / exp_dir_str
     exp_dir.mkdir(parents=True, exist_ok=True)
     gt_wavs_dir = exp_dir / shared.GT_WAVS_DIR_NAME
-    feature_dir = exp_dir / get_feature_dir_name(version)
+    feature_dir = exp_dir / _get_feature_dir_name(version)
 
     # Setup F0 directories if needed
     f0_dir = exp_dir / shared.F0_DIR_NAME if if_f0 else None
     f0nsf_dir = exp_dir / shared.F0_NSF_DIR_NAME if if_f0 else None
 
     # Build and save filelist
-    filelist = build_filelist(
+    filelist = _build_filelist(
         gt_wavs_dir, feature_dir, f0_dir, f0nsf_dir, spk_id, sample_rate, version
     )
     filelist_path = exp_dir / "filelist.txt"
@@ -573,24 +573,24 @@ def click_train(
                 scalar_dict = json.loads(line.replace("SCALAR_DICT: ", ""))
                 scalar_dict["index"] = scalar_count
                 scalar_count += 1
-                scalar_history.append(scalar_dict)
-                df = pd.DataFrame(scalar_history)
-                print(f"history: {scalar_history}")
+                _scalar_history.append(scalar_dict)
+                df = pd.DataFrame(_scalar_history)
+                print(f"history: {_scalar_history}")
                 yield ("", df)
             except Exception:
                 pass
 
-        current_epoch = parse_epoch_from_train_log_line(line) or current_epoch
+        current_epoch = _parse_epoch_from_train_log_line(line) or current_epoch
         progress(current_epoch / total_epoch, desc="Training...")
 
     p.wait()
     yield (
         f"Training finished with exit code {p.returncode}.",
-        pd.DataFrame(scalar_history),
+        pd.DataFrame(_scalar_history),
     )
 
 
-def train_index(
+def _train_index(
     experiment_name: str,
     version: Literal["v1", "v2"],
     progress: gr.Progress = gr.Progress(),
@@ -599,7 +599,7 @@ def train_index(
     exp_dir = Path("logs") / experiment_name
     exp_dir.mkdir(parents=True, exist_ok=True)
 
-    feature_dir = exp_dir / get_feature_dir_name(version)
+    feature_dir = exp_dir / _get_feature_dir_name(version)
     if not feature_dir.exists():
         return "Please perform feature extraction first!"
 
@@ -645,7 +645,7 @@ def train_index(
     infos.append(f"{big_npy.shape},{n_ivf}")
 
     progress(0.5, desc="Training FAISS index...")
-    feature_dim = get_feature_dimension(version)
+    feature_dim = _get_feature_dimension(version)
     index = faiss.index_factory(feature_dim, f"IVF{n_ivf},Flat")
     infos.append("training")
     index_ivf = faiss.extract_index_ivf(index)
@@ -686,7 +686,7 @@ def train_index(
 
 
 # TODO: Fix this
-def one_click_training(
+def _one_click_training(
     exp_dir_str: str,
     sample_rate: str,
     if_f0: bool,
@@ -715,7 +715,7 @@ def one_click_training(
     yield get_info_str(shared.i18n("step1: processing data..."))
     [
         get_info_str(_)
-        for _ in preprocess_dataset(
+        for _ in _preprocess_dataset(
             Path(trainset_dir), Path(exp_dir_str), sample_rate, np
         )
     ]
@@ -723,13 +723,13 @@ def one_click_training(
     yield get_info_str(shared.i18n("step2: extracting feature & pitch"))
     [
         get_info_str(_)
-        for _ in extract_f0_feature(
+        for _ in _extract_f0_feature(
             gpus, np, f0method, if_f0, exp_dir_str, version, gpus_rmvpe
         )
     ]
 
     yield get_info_str(shared.i18n("step3a:正在训练模型"))
-    click_train(
+    _click_train(
         exp_dir_str,
         sample_rate,
         if_f0,
@@ -749,7 +749,7 @@ def one_click_training(
         i18n("训练结束, 您可查看控制台训练日志或实验文件夹下的train.log")
     )
 
-    [get_info_str(_) for _ in train_index(exp_dir_str, version)]
+    [get_info_str(_) for _ in _train_index(exp_dir_str, version)]
     yield get_info_str(i18n("全流程结束!"))
 
 
@@ -820,7 +820,7 @@ def create_train_tab():
                         lines=4,
                     )
                     preprocessing_btn.click(
-                        preprocess_meta,
+                        _preprocess_meta,
                         [
                             experiment_name,
                             audio_data_root,
@@ -882,12 +882,12 @@ def create_train_tab():
                     extract_f0_btn = gr.Button(i18n("Extract"), variant="primary")
                     info2 = gr.Textbox(label=i18n("Info"), value="", max_lines=8)
                     f0method8.change(
-                        fn=change_f0_method,
+                        fn=_change_f0_method,
                         inputs=[f0method8],
                         outputs=[gpus_rmvpe],
                     )
                     extract_f0_btn.click(
-                        extract_f0_feature,
+                        _extract_f0_feature,
                         [
                             gpus6,
                             cpu_count,
@@ -959,17 +959,17 @@ def create_train_tab():
                     interactive=True,
                 )
                 target_sr.change(
-                    change_sample_rate,
+                    _change_sample_rate,
                     [target_sr, use_f0, model_version],
                     [pretrained_G, pretrained_D],
                 )
                 model_version.change(
-                    change_version,
+                    _change_version,
                     [target_sr, use_f0, model_version],
                     [pretrained_G, pretrained_D, target_sr],
                 )
                 use_f0.change(
-                    change_f0,
+                    _change_f0,
                     [use_f0, target_sr, model_version],
                     [f0method8, gpus_rmvpe, pretrained_G, pretrained_D],
                 )
@@ -991,7 +991,7 @@ def create_train_tab():
                 )
                 training_info = gr.Textbox(label=i18n("Info"), value="", max_lines=10)
                 train_btn.click(
-                    click_train,
+                    _click_train,
                     [
                         experiment_name,
                         target_sr,
@@ -1012,10 +1012,10 @@ def create_train_tab():
                     api_name="train_start",
                 )
                 index_btn.click(
-                    train_index, [experiment_name, model_version], training_info
+                    _train_index, [experiment_name, model_version], training_info
                 )
                 one_click_btn.click(
-                    one_click_training,
+                    _one_click_training,
                     [
                         experiment_name,
                         target_sr,
