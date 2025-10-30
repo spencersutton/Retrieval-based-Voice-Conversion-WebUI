@@ -129,15 +129,18 @@ def preprocess_meta(
     progress: gr.Progress = gr.Progress(),
 ):
     audio_dir = Path(audio_dir_str)
-    audio_files = [Path(f) for f in audio_files_str] if audio_files_str else None
     save_dir = audio_dir / experiment_name
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    if audio_files is not None:
+    # Copy selected audio files to experiment directory if provided
+    if audio_files_str:
+        audio_files = [Path(f) for f in audio_files_str]
+        total_files = len(audio_files)
         for idx, audio_file in enumerate(audio_files):
             shutil.copy(audio_file, save_dir / audio_file.name)
-            progress(idx / len(audio_files), "Copying files...")
+            progress(idx / total_files, desc="Copying files...")
 
+    # Run preprocessing on the prepared directory
     yield from preprocess_dataset(
         audio_dir=save_dir,
         exp_dir=Path(experiment_name),
@@ -148,31 +151,22 @@ def preprocess_meta(
 
 
 def parse_f0_feature_log(content: str) -> tuple[int, int]:
-    max_now: int | None = 0
-    max_all: int | None = 1
-    # Regex to capture the numbers after "now-" and "all-"
-    # Pattern breakdown:
-    # f0ing,       # Literal string "f0ing,"
-    # now-(\d+)    # "now-" followed by one or more digits (captured as group 1)
-    # ,all-(\d+)   # ",all-" followed by one or more digits (captured as group 2)
-    # The rest of the line (e.g., ",-filepath") is ignored by this regex.
+    """
+    Parses log content to extract the highest 'now' and 'all' values from lines matching the pattern:
+    'f0ing,now-<number>,all-<number>,...'
+    """
+    max_now = 0
+    max_all = 1
     pattern = re.compile(r"f0ing,now-(\d+),all-(\d+)")
 
     for line in content.splitlines():
         match = pattern.search(line)
         if match:
             try:
-                current_now_str = match.group(1)
-                current_all_str = match.group(2)
-
-                current_now = int(current_now_str)
-                current_all = int(current_all_str)
-
-                if max_now is None or current_now > max_now:
-                    max_now = current_now
-
-                if max_all is None or current_all > max_all:
-                    max_all = current_all
+                current_now = int(match.group(1))
+                current_all = int(match.group(2))
+                max_now = max(max_now, current_now)
+                max_all = max(max_all, current_all)
             except ValueError:
                 print(f"Warning: Could not parse numbers from line: {line}")
 
