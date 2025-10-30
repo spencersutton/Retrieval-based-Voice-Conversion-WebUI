@@ -23,15 +23,13 @@ from sklearn.cluster import MiniBatchKMeans
 import shared
 from shared import i18n
 
-ProgressComponent = gr.Progress
-
-F0GPUVisible = not shared.config.dml
+f0_GPU_visible = not shared.config.dml
 
 
 def change_f0_method(f0_method: str):
     # Show GPU config only for rmvpe_gpu method
     return {
-        "visible": F0GPUVisible if f0_method == "rmvpe_gpu" else False,
+        "visible": f0_GPU_visible if f0_method == "rmvpe_gpu" else False,
         "__type__": "update",
     }
 
@@ -54,7 +52,21 @@ def preprocess_dataset(
     sr: str,
     n_p: int,
     progress: gr.Progress = gr.Progress(),
-) -> Generator[str, None, None]:
+) -> Generator[str]:
+    """
+    Preprocesses an audio dataset by validating the input directory, counting files, and running a preprocessing script.
+    Progress is reported via a Gradio progress object, and status messages are yielded throughout the process.
+
+    Args:
+        audio_dir (Path): Path to the directory containing audio files to preprocess.
+        exp_dir (Path): Path to the experiment directory for storing logs.
+        sr (str): Sample rate key to look up the actual sample rate value.
+        n_p (int): Number of processes or parallel workers to use for preprocessing.
+        progress (gr.Progress, optional): Gradio progress object for reporting progress. Defaults to gr.Progress().
+
+    Yields:
+        str: Status messages, warnings, errors, and the final log content.
+    """
     # Validate audio_dir and count files
     if not audio_dir.is_dir():
         error_msg = (
@@ -261,10 +273,10 @@ def extract_f0_feature(
     yield log
 
 
-def get_pretrained_models(path_str: str, f0_str: str, sr2: str):
+def get_pretrained_models(path_str: str, f0_str: str, sample_rate: str):
     base_dir = Path(f"assets/pretrained{path_str}")
-    gen_path = base_dir / f"{f0_str}G{sr2}.pth"
-    dis_path = base_dir / f"{f0_str}D{sr2}.pth"
+    gen_path = base_dir / f"{f0_str}G{sample_rate}.pth"
+    dis_path = base_dir / f"{f0_str}D{sample_rate}.pth"
 
     gen_exists = gen_path.exists()
     dis_exists = dis_path.exists()
@@ -280,29 +292,29 @@ def get_pretrained_models(path_str: str, f0_str: str, sr2: str):
     )
 
 
-def change_sr(sr2: str, if_f0_3: bool, version: Literal["v1", "v2"]):
+def change_sr(sample_rate: str, if_f0_3: bool, version: Literal["v1", "v2"]):
     path_str = "" if version == "v1" else "_v2"
     f0_str = "f0" if if_f0_3 else ""
-    return get_pretrained_models(path_str, f0_str, sr2)
+    return get_pretrained_models(path_str, f0_str, sample_rate)
 
 
-def change_version(sr2: str, if_f0_3: bool, version: Literal["v1", "v2"]):
+def change_version(sample_rate: str, if_f0_3: bool, version: Literal["v1", "v2"]):
     # Adjust sample rate for v1 if needed
-    if sr2 == "32k" and version == "v1":
-        sr2 = "40k"
+    if sample_rate == "32k" and version == "v1":
+        sample_rate = "40k"
     path_str = "" if version == "v1" else "_v2"
     f0_str = "f0" if if_f0_3 else ""
     # Set available choices based on version
     choices = ["40k", "48k"] if version == "v1" else ["40k", "48k", "32k"]
-    sr_update = {"choices": choices, "__type__": "update", "value": sr2}
-    return (*get_pretrained_models(path_str, f0_str, sr2), sr_update)
+    sr_update = {"choices": choices, "__type__": "update", "value": sample_rate}
+    return (*get_pretrained_models(path_str, f0_str, sample_rate), sr_update)
 
 
-def change_f0(if_f0_3: bool, sr2: str, version: Literal["v1", "v2"]):
+def change_f0(if_f0: bool, sample_rate: str, version: Literal["v1", "v2"]):
     path_str = "" if version == "v1" else "_v2"
-    visible_update = {"visible": if_f0_3, "__type__": "update"}
-    f0_str = "f0" if if_f0_3 else ""
-    gen_path, dis_path = get_pretrained_models(path_str, f0_str, sr2)
+    visible_update = {"visible": if_f0, "__type__": "update"}
+    f0_str = "f0" if if_f0 else ""
+    gen_path, dis_path = get_pretrained_models(path_str, f0_str, sample_rate)
     return visible_update, visible_update, gen_path, dis_path
 
 
@@ -334,24 +346,24 @@ scalar_history = []
 
 
 def click_train(
-    exp_dir1: str,
-    sr2: str,
-    if_f0_3: bool,
-    spk_id5: str,
-    save_epoch10: int,
-    total_epoch11: int,
-    batch_size12: int,
-    if_save_latest13: bool,
-    pretrained_G14: str,
-    pretrained_D15: str,
-    gpus16: str,
-    if_cache_gpu17: bool,
-    if_save_every_weights18: bool,
+    exp_dir_str: str,
+    sample_rate: str,
+    if_f0: bool,
+    spk_id: str,
+    save_epoch: int,
+    total_epoch: int,
+    batch_size: int,
+    if_save_latest: bool,
+    pretrained_G: str,
+    pretrained_D: str,
+    gpus: str,
+    if_cache_gpu: bool,
+    if_save_every_weights: bool,
     version: Literal["v1", "v2"],
     progress: gr.Progress = gr.Progress(),
 ):
     # Setup experiment directories
-    exp_dir = Path.cwd() / "logs" / exp_dir1
+    exp_dir = Path.cwd() / "logs" / exp_dir_str
     exp_dir.mkdir(parents=True, exist_ok=True)
     gt_wavs_dir = exp_dir / shared.GT_WAVS_DIR_NAME
     feature_dir = exp_dir / (
@@ -361,7 +373,7 @@ def click_train(
     # Collect file names for training
     f0_dir = None
     f0nsf_dir = None
-    if if_f0_3:
+    if if_f0:
         f0_dir = exp_dir / shared.F0_DIR_NAME
         f0nsf_dir = exp_dir / shared.F0_NSF_DIR_NAME
         names = (
@@ -379,33 +391,33 @@ def click_train(
     opt = []
     fea_dim = 256 if version == "v1" else 768
     mute_dir = Path.cwd() / "logs" / "mute"
-    mute_gt_wavs = mute_dir / shared.GT_WAVS_DIR_NAME / f"mute{sr2}.wav"
+    mute_gt_wavs = mute_dir / shared.GT_WAVS_DIR_NAME / f"mute{sample_rate}.wav"
     mute_feature = mute_dir / f"3_feature{fea_dim}" / "mute.npy"
 
-    if if_f0_3:
+    if if_f0:
         mute_f0 = mute_dir / shared.F0_DIR_NAME / "mute.wav.npy"
         mute_f0nsf = mute_dir / shared.F0_NSF_DIR_NAME / "mute.wav.npy"
         assert f0_dir is not None and f0nsf_dir is not None
         opt.extend(
             [
-                f"{gt_wavs_dir / (name + '.wav')}|{feature_dir / (name + '.npy')}|{f0_dir / (name + '.wav.npy')}|{f0nsf_dir / (name + '.wav.npy')}|{spk_id5}"
+                f"{gt_wavs_dir / (name + '.wav')}|{feature_dir / (name + '.npy')}|{f0_dir / (name + '.wav.npy')}|{f0nsf_dir / (name + '.wav.npy')}|{spk_id}"
                 for name in names
             ]
         )
         opt.extend(
             [
-                f"{mute_gt_wavs}|{mute_feature}|{mute_f0}|{mute_f0nsf}|{spk_id5}"
+                f"{mute_gt_wavs}|{mute_feature}|{mute_f0}|{mute_f0nsf}|{spk_id}"
                 for _ in range(2)
             ]
         )
     else:
         opt.extend(
             [
-                f"{gt_wavs_dir / (name + '.wav')}|{feature_dir / (name + '.npy')}|{spk_id5}"
+                f"{gt_wavs_dir / (name + '.wav')}|{feature_dir / (name + '.npy')}|{spk_id}"
                 for name in names
             ]
         )
-        opt.extend([f"{mute_gt_wavs}|{mute_feature}|{spk_id5}" for _ in range(2)])
+        opt.extend([f"{mute_gt_wavs}|{mute_feature}|{spk_id}" for _ in range(2)])
 
     shuffle(opt)
     filelist_path = exp_dir / "filelist.txt"
@@ -413,13 +425,15 @@ def click_train(
     shared.logger.debug("Write filelist done")
 
     # Prepare config
-    shared.logger.info("Use gpus: %s", str(gpus16))
-    if pretrained_G14 == "":
+    shared.logger.info("Use gpus: %s", str(gpus))
+    if pretrained_G == "":
         shared.logger.info("No pretrained Generator")
-    if pretrained_D15 == "":
+    if pretrained_D == "":
         shared.logger.info("No pretrained Discriminator")
     config_path = (
-        f"v1/{sr2}.json" if version == "v1" or sr2 == "40k" else f"v2/{sr2}.json"
+        f"v1/{sample_rate}.json"
+        if version == "v1" or sample_rate == "40k"
+        else f"v2/{sample_rate}.json"
     )
     config_save_path = exp_dir / "config.json"
     if not config_save_path.exists():
@@ -445,17 +459,17 @@ def click_train(
     ):
         args = [
             f'"{shared.config.python_cmd}" infer/modules/train/train.py',
-            f'-e "{exp_dir1}"',
-            f"-sr {sr2}",
-            f"-f0 {1 if if_f0_3 else 0}",
-            f"-bs {batch_size12}",
+            f'-e "{exp_dir_str}"',
+            f"-sr {sample_rate}",
+            f"-f0 {1 if if_f0 else 0}",
+            f"-bs {batch_size}",
         ]
         if gpus:
             args.append(f"-g {gpus}")
         args.extend(
             [
-                f"-te {total_epoch11}",
-                f"-se {save_epoch10}",
+                f"-te {total_epoch}",
+                f"-se {save_epoch}",
             ]
         )
         if pretrained_G:
@@ -473,12 +487,12 @@ def click_train(
         return " ".join(args)
 
     cmd = build_train_cmd(
-        gpus16,
-        pretrained_G14,
-        pretrained_D15,
-        if_save_latest13,
-        if_cache_gpu17,
-        if_save_every_weights18,
+        gpus,
+        pretrained_G,
+        pretrained_D,
+        if_save_latest,
+        if_cache_gpu,
+        if_save_every_weights,
     )
     shared.logger.info("Execute: " + cmd)
 
@@ -507,7 +521,7 @@ def click_train(
                 pass
 
         current_epoch = parse_epoch_from_train_log_line(line) or current_epoch
-        progress(current_epoch / total_epoch11, desc="Training...")
+        progress(current_epoch / total_epoch, desc="Training...")
 
     p.wait()
     yield (
@@ -517,9 +531,11 @@ def click_train(
 
 
 def train_index(
-    exp_dir1: str, version: Literal["v1", "v2"], progress: gr.Progress = gr.Progress()
+    exp_dir_str: str,
+    version: Literal["v1", "v2"],
+    progress: gr.Progress = gr.Progress(),
 ):
-    exp_dir = Path("logs") / exp_dir1
+    exp_dir = Path("logs") / exp_dir_str
     exp_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = exp_dir / (
         shared.FEATURE_DIR_NAME if version == "v1" else shared.FEATURE_DIR_NAME_V2
@@ -575,7 +591,7 @@ def train_index(
     index.train(big_npy)
     faiss.write_index(
         index,
-        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index",
+        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir_str}_{version}.index",
     )
     progress(0.7, desc="Adding vectors to index...")
     infos.append("Adding vectors to index...")
@@ -584,16 +600,16 @@ def train_index(
         index.add(big_npy[i : i + batch_size_add])
     faiss.write_index(
         index,
-        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index",
+        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir_str}_{version}.index",
     )
     infos.append(
-        f"Successfully built index: added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index"
+        f"Successfully built index: added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir_str}_{version}.index"
     )
     try:
         link = os.link if platform.system() == "Windows" else os.symlink
         link(
-            f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index",
-            f"{shared.outside_index_root}/{exp_dir1}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index",
+            f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir_str}_{version}.index",
+            f"{shared.outside_index_root}/{exp_dir_str}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir_str}_{version}.index",
         )
         infos.append(
             f"Linked index to external directory: {shared.outside_index_root}"
@@ -606,23 +622,24 @@ def train_index(
     yield "\n".join(infos)
 
 
+# TODO: Fix this
 def one_click_training(
-    exp_dir1: str,
-    sr2: str,
-    if_f0_3: bool,
-    trainset_dir4: str,
-    spk_id5: str,
-    np7: int,
-    f0method8: str,
-    save_epoch10: int,
-    total_epoch11: int,
-    batch_size12: int,
-    if_save_latest13: bool,
-    pretrained_G14: str,
-    pretrained_D15: str,
-    gpus16: str,
-    if_cache_gpu17: bool,
-    if_save_every_weights18: bool,
+    exp_dir_str: str,
+    sample_rate: str,
+    if_f0: bool,
+    trainset_dir: str,
+    spk_id: str,
+    np: int,
+    f0method: str,
+    save_epoch: int,
+    total_epoch: int,
+    batch_size: int,
+    if_save_latest: bool,
+    pretrained_G: str,
+    pretrained_D: str,
+    gpus: str,
+    if_cache_gpu: bool,
+    if_save_every_weights: bool,
     version: Literal["v1", "v2"],
     gpus_rmvpe: str,
 ) -> Generator[str]:
@@ -635,39 +652,41 @@ def one_click_training(
     yield get_info_str(shared.i18n("step1: processing data..."))
     [
         get_info_str(_)
-        for _ in preprocess_dataset(Path(trainset_dir4), Path(exp_dir1), sr2, np7)
+        for _ in preprocess_dataset(
+            Path(trainset_dir), Path(exp_dir_str), sample_rate, np
+        )
     ]
 
     yield get_info_str(shared.i18n("step2: extracting feature & pitch"))
     [
         get_info_str(_)
         for _ in extract_f0_feature(
-            gpus16, np7, f0method8, if_f0_3, exp_dir1, version, gpus_rmvpe
+            gpus, np, f0method, if_f0, exp_dir_str, version, gpus_rmvpe
         )
     ]
 
     yield get_info_str(shared.i18n("step3a:正在训练模型"))
     click_train(
-        exp_dir1,
-        sr2,
-        if_f0_3,
-        spk_id5,
-        save_epoch10,
-        total_epoch11,
-        batch_size12,
-        if_save_latest13,
-        pretrained_G14,
-        pretrained_D15,
-        gpus16,
-        if_cache_gpu17,
-        if_save_every_weights18,
+        exp_dir_str,
+        sample_rate,
+        if_f0,
+        spk_id,
+        save_epoch,
+        total_epoch,
+        batch_size,
+        if_save_latest,
+        pretrained_G,
+        pretrained_D,
+        gpus,
+        if_cache_gpu,
+        if_save_every_weights,
         version,
     )
     yield get_info_str(
         i18n("训练结束, 您可查看控制台训练日志或实验文件夹下的train.log")
     )
 
-    [get_info_str(_) for _ in train_index(exp_dir1, version)]
+    [get_info_str(_) for _ in train_index(exp_dir_str, version)]
     yield get_info_str(i18n("全流程结束!"))
 
 
@@ -761,12 +780,12 @@ def create_train_tab():
                         ),
                         value=shared.gpus,
                         interactive=True,
-                        visible=F0GPUVisible,
+                        visible=f0_GPU_visible,
                     )
                     gr.Textbox(
                         label=i18n("GPU Info"),
                         value=shared.gpu_info,
-                        visible=F0GPUVisible,
+                        visible=f0_GPU_visible,
                     )
                 with gr.Column():
                     gr.Markdown(
@@ -794,7 +813,7 @@ def create_train_tab():
                         ),
                         value=f"{shared.gpus}-{shared.gpus}",
                         interactive=True,
-                        visible=F0GPUVisible,
+                        visible=f0_GPU_visible,
                     )
                 with gr.Column():
                     extract_f0_btn = gr.Button(i18n("Extract"), variant="primary")
@@ -847,31 +866,31 @@ def create_train_tab():
                     value=shared.default_batch_size,
                     interactive=True,
                 )
-                if_save_latest13 = gr.Radio(
+                if_save_latest = gr.Radio(
                     label=i18n("Only Save Latest Model"),
                     choices=[i18n("Yes"), i18n("No")],
                     value=i18n("No"),
                     interactive=True,
                 )
-                if_cache_gpu17 = gr.Radio(
+                if_cache_gpu = gr.Radio(
                     label=i18n("Cache Data to GPU (Recommend for Data < 10 mins)"),
                     choices=[i18n("Yes"), i18n("No")],
                     value=i18n("No"),
                     interactive=True,
                 )
-                if_save_every_weights18 = gr.Radio(
+                if_save_every_weights = gr.Radio(
                     label=i18n("Save Finalized Model Every Time"),
                     choices=[i18n("Yes"), i18n("No")],
                     value=i18n("No"),
                     interactive=True,
                 )
             with gr.Row():
-                pretrained_G14 = gr.Textbox(
+                pretrained_G = gr.Textbox(
                     label=i18n("Base Model G"),
                     value="assets/pretrained_v2/f0D48k.pth",
                     interactive=True,
                 )
-                pretrained_D15 = gr.Textbox(
+                pretrained_D = gr.Textbox(
                     label=i18n("Base Model D"),
                     value="assets/pretrained_v2/f0D48k.pth",
                     interactive=True,
@@ -879,19 +898,19 @@ def create_train_tab():
                 target_sr.change(
                     change_sr,
                     [target_sr, use_f0, model_version],
-                    [pretrained_G14, pretrained_D15],
+                    [pretrained_G, pretrained_D],
                 )
                 model_version.change(
                     change_version,
                     [target_sr, use_f0, model_version],
-                    [pretrained_G14, pretrained_D15, target_sr],
+                    [pretrained_G, pretrained_D, target_sr],
                 )
                 use_f0.change(
                     change_f0,
                     [use_f0, target_sr, model_version],
-                    [f0method8, gpus_rmvpe, pretrained_G14, pretrained_D15],
+                    [f0method8, gpus_rmvpe, pretrained_G, pretrained_D],
                 )
-                gpus16 = gr.Textbox(
+                gpus = gr.Textbox(
                     label=i18n(
                         "以-分隔输入使用的卡号, 例如   0-1-2   使用卡0和卡1和卡2"
                     ),
@@ -918,12 +937,12 @@ def create_train_tab():
                         save_epoch,
                         total_epoch,
                         batch_size,
-                        if_save_latest13,
-                        pretrained_G14,
-                        pretrained_D15,
-                        gpus16,
-                        if_cache_gpu17,
-                        if_save_every_weights18,
+                        if_save_latest,
+                        pretrained_G,
+                        pretrained_D,
+                        gpus,
+                        if_cache_gpu,
+                        if_save_every_weights,
                         model_version,
                     ],
                     [training_info, training_plot],
@@ -945,12 +964,12 @@ def create_train_tab():
                         save_epoch,
                         total_epoch,
                         batch_size,
-                        if_save_latest13,
-                        pretrained_G14,
-                        pretrained_D15,
-                        gpus16,
-                        if_cache_gpu17,
-                        if_save_every_weights18,
+                        if_save_latest,
+                        pretrained_G,
+                        pretrained_D,
+                        gpus,
+                        if_cache_gpu,
+                        if_save_every_weights,
                         model_version,
                         gpus_rmvpe,
                     ],
