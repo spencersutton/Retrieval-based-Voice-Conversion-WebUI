@@ -24,7 +24,7 @@ per = float(sys.argv[6])
 f = open(f"{exp_dir}/preprocess.log", "a+")
 
 
-def println(strr):
+def println(strr: str):
     print(strr)
     f.write(f"{strr}\n")
     f.flush()

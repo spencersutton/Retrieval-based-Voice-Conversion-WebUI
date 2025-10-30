@@ -183,7 +183,7 @@ def extract_f0_feature(
     f0method: str,
     if_f0: bool,
     exp_dir: str,
-    version: str,
+    version: Literal["v1", "v2"],
     gpus_rmvpe: str,  # pyright: ignore[reportRedeclaration]
     progress: gr.Progress = gr.Progress(),
 ) -> Generator[str, None, None]:
@@ -300,13 +300,13 @@ def get_pretrained_models(path_str: str, f0_str: str, sr2: str):
     )
 
 
-def change_sr2(sr2: str, if_f0_3: bool, version: str):
+def change_sr(sr2: str, if_f0_3: bool, version: Literal["v1", "v2"]):
     path_str = "" if version == "v1" else "_v2"
     f0_str = "f0" if if_f0_3 else ""
     return get_pretrained_models(path_str, f0_str, sr2)
 
 
-def change_version19(sr2: str, if_f0_3: bool, version: str):
+def change_version(sr2: str, if_f0_3: bool, version: Literal["v1", "v2"]):
     path_str = "" if version == "v1" else "_v2"
     if sr2 == "32k" and version == "v1":
         sr2 = "40k"
@@ -322,7 +322,7 @@ def change_version19(sr2: str, if_f0_3: bool, version: str):
     )
 
 
-def change_f0(if_f0_3: bool, sr2: str, version: str):
+def change_f0(if_f0_3: bool, sr2: str, version: Literal["v1", "v2"]):
     path_str = "" if version == "v1" else "_v2"
     return (
         {"visible": if_f0_3, "__type__": "update"},
@@ -541,7 +541,9 @@ def click_train(
     )
 
 
-def train_index(exp_dir1: str, version: str, progress: gr.Progress = gr.Progress()):
+def train_index(
+    exp_dir1: str, version: Literal["v1", "v2"], progress: gr.Progress = gr.Progress()
+):
     exp_dir = Path("logs") / exp_dir1
     exp_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = exp_dir / (
@@ -691,7 +693,7 @@ def one_click_training(
     )
 
     [get_info_str(_) for _ in train_index(exp_dir1, version)]
-    yield get_info_str(i18n("全流程结束！"))
+    yield get_info_str(i18n("全流程结束!"))
 
 
 def create_train_tab():
@@ -811,7 +813,7 @@ def create_train_tab():
                     )
                     gpus_rmvpe = gr.Textbox(
                         label=i18n(
-                            "rmvpe卡号配置：以-分隔输入使用的不同进程卡号,例如0-0-1使用在卡0上跑2个进程并在卡1上跑1个进程"
+                            "rmvpe卡号配置: 以-分隔输入使用的不同进程卡号,例如0-0-1使用在卡0上跑2个进程并在卡1上跑1个进程"
                         ),
                         value=f"{shared.gpus}-{shared.gpus}",
                         interactive=True,
@@ -896,12 +898,12 @@ def create_train_tab():
                     interactive=True,
                 )
                 target_sr.change(
-                    change_sr2,
+                    change_sr,
                     [target_sr, use_f0, model_version],
                     [pretrained_G14, pretrained_D15],
                 )
                 model_version.change(
-                    change_version19,
+                    change_version,
                     [target_sr, use_f0, model_version],
                     [pretrained_G14, pretrained_D15, target_sr],
                 )

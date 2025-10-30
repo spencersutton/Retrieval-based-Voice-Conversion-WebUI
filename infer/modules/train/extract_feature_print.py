@@ -37,7 +37,7 @@ if "privateuseone" not in device:
     elif torch.backends.mps.is_available():
         device = "mps"
 else:
-    import torch_directml
+    import torch_directml  # type: ignore
 
     device = torch_directml.device(torch_directml.default_device())
 
