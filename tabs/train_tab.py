@@ -292,7 +292,7 @@ def get_pretrained_models(path_str: str, f0_str: str, sample_rate: str):
     )
 
 
-def change_sr(sample_rate: str, if_f0: bool, version: Literal["v1", "v2"]):
+def change_sample_rate(sample_rate: str, if_f0: bool, version: Literal["v1", "v2"]):
     path_str = "" if version == "v1" else "_v2"
     f0_str = "f0" if if_f0 else ""
     return get_pretrained_models(path_str, f0_str, sample_rate)
@@ -906,7 +906,7 @@ def create_train_tab():
                     interactive=True,
                 )
                 target_sr.change(
-                    change_sr,
+                    change_sample_rate,
                     [target_sr, use_f0, model_version],
                     [pretrained_G, pretrained_D],
                 )
