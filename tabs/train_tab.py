@@ -539,25 +539,25 @@ def train_index(
 ):
     exp_dir = Path("logs") / experiment_name
     exp_dir.mkdir(parents=True, exist_ok=True)
+
     feature_dir = exp_dir / (
         shared.FEATURE_DIR_NAME if version == "v1" else shared.FEATURE_DIR_NAME_V2
     )
     if not feature_dir.exists():
         return "Please perform feature extraction first!"
-    listdir_res = sorted([p for p in feature_dir.iterdir() if p.is_file()])
-    if len(listdir_res) == 0:
+
+    feature_files = sorted([p for p in feature_dir.iterdir() if p.is_file()])
+    if len(feature_files) == 0:
         return "Please perform feature extraction first!"
 
     progress(0.05, desc="Loading features...")  # Initial progress update
+
     infos = []
-    npys = []
-    for path in listdir_res:
-        phone = np.load(str(path))
-        npys.append(phone)
+    npys = [np.load(path) for path in feature_files]
+
     big_npy = np.concatenate(npys, 0)
     big_npy_idx = np.arange(big_npy.shape[0])
-    rng = np.random.default_rng()
-    rng.shuffle(big_npy_idx)
+    np.random.default_rng().shuffle(big_npy_idx)
     big_npy = big_npy[big_npy_idx]
     if big_npy.shape[0] > 2e5:
         infos.append(
@@ -582,47 +582,46 @@ def train_index(
             infos.append(info)
             yield "\n".join(infos)
 
-    np.save(f"{exp_dir}/total_fea.npy", big_npy)
+    np.save(exp_dir / "total_fea.npy", big_npy)
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
     infos.append(f"{big_npy.shape},{n_ivf}")
+
     progress(0.5, desc="Training FAISS index...")  # Progress update for training
     index = faiss.index_factory(
         shared.FEATURE_DIMENSION if version == "v1" else shared.FEATURE_DIMENSION_V2,
         f"IVF{n_ivf},Flat",
     )
     infos.append("training")
-    index_ivf = faiss.extract_index_ivf(index)  #
+    index_ivf = faiss.extract_index_ivf(index)
     index_ivf.nprobe = 1
     index.train(big_npy)
-    faiss.write_index(
-        index,
-        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{experiment_name}_{version}.index",
+    index_file_name = (
+        f"IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{experiment_name}_{version}.index"
     )
+    faiss.write_index(index, f"{exp_dir}/trained_{index_file_name}")
+
     progress(0.7, desc="Adding vectors to index...")
     infos.append("Adding vectors to index...")
-    batch_size_add = 8192
-    for i in range(0, big_npy.shape[0], batch_size_add):
-        index.add(big_npy[i : i + batch_size_add])
-    faiss.write_index(
-        index,
-        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{experiment_name}_{version}.index",
-    )
-    infos.append(
-        f"Successfully built index: added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{experiment_name}_{version}.index"
-    )
+
+    BATCH_SIZE_ADD = 8192
+    for i in range(0, big_npy.shape[0], BATCH_SIZE_ADD):
+        index.add(big_npy[i : i + BATCH_SIZE_ADD])
+    added_index_file_path = f"{exp_dir}/added_{index_file_name}"
+    faiss.write_index(index, added_index_file_path)
+
+    infos.append(f"Successfully built index: {added_index_file_path}")
+
     try:
         link = os.link if platform.system() == "Windows" else os.symlink
         link(
-            f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{experiment_name}_{version}.index",
-            f"{shared.outside_index_root}/{experiment_name}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{experiment_name}_{version}.index",
+            added_index_file_path,
+            f"{shared.outside_index_root}/{experiment_name}_{index_file_name}",
         )
-        infos.append(
-            f"Linked index to external directory: {shared.outside_index_root}"
-        )  # Original: "链接索引到外部-%s"
+        infos.append(f"Linked index to external directory: {shared.outside_index_root}")
     except Exception:
         infos.append(
             f"Failed to link index to external directory: {shared.outside_index_root}"
-        )  # Original: "链接索引到外部-%s失败"
+        )
     progress(1.0, desc="Indexing complete!")  # Final progress update
     yield "\n".join(infos)
 
