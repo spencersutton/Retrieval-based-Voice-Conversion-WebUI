@@ -183,7 +183,7 @@ def extract_f0_feature(
     f0method: str,
     if_f0: bool,
     exp_dir: str,
-    version19: str,
+    version: str,
     gpus_rmvpe: str,  # pyright: ignore[reportRedeclaration]
     progress: gr.Progress = gr.Progress(),
 ) -> Generator[str, None, None]:
@@ -242,7 +242,7 @@ def extract_f0_feature(
     length = len(gpus)
     ps = []
     for idx, n_g in enumerate(gpus):
-        cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract_feature_print.py {shared.config.device} {length} {idx} {n_g} "{Path.cwd()}/logs/{exp_dir}" {version19} {shared.config.is_half}'
+        cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract_feature_print.py {shared.config.device} {length} {idx} {n_g} "{Path.cwd()}/logs/{exp_dir}" {version} {shared.config.is_half}'
         shared.logger.info("Execute: " + cmd)
         p = Popen(cmd, shell=True, cwd=Path.cwd())
         ps.append(p)
@@ -300,19 +300,19 @@ def get_pretrained_models(path_str: str, f0_str: str, sr2: str):
     )
 
 
-def change_sr2(sr2: str, if_f0_3: bool, version19: str):
-    path_str = "" if version19 == "v1" else "_v2"
+def change_sr2(sr2: str, if_f0_3: bool, version: str):
+    path_str = "" if version == "v1" else "_v2"
     f0_str = "f0" if if_f0_3 else ""
     return get_pretrained_models(path_str, f0_str, sr2)
 
 
-def change_version19(sr2: str, if_f0_3: bool, version19: str):
-    path_str = "" if version19 == "v1" else "_v2"
-    if sr2 == "32k" and version19 == "v1":
+def change_version19(sr2: str, if_f0_3: bool, version: str):
+    path_str = "" if version == "v1" else "_v2"
+    if sr2 == "32k" and version == "v1":
         sr2 = "40k"
     to_return_sr2 = (
         {"choices": ["40k", "48k"], "__type__": "update", "value": sr2}
-        if version19 == "v1"
+        if version == "v1"
         else {"choices": ["40k", "48k", "32k"], "__type__": "update", "value": sr2}
     )
     f0_str = "f0" if if_f0_3 else ""
@@ -322,8 +322,8 @@ def change_version19(sr2: str, if_f0_3: bool, version19: str):
     )
 
 
-def change_f0(if_f0_3: bool, sr2: str, version19: str):
-    path_str = "" if version19 == "v1" else "_v2"
+def change_f0(if_f0_3: bool, sr2: str, version: str):
+    path_str = "" if version == "v1" else "_v2"
     return (
         {"visible": if_f0_3, "__type__": "update"},
         {"visible": if_f0_3, "__type__": "update"},
@@ -541,11 +541,11 @@ def click_train(
     )
 
 
-def train_index(exp_dir1: str, version19: str, progress: gr.Progress = gr.Progress()):
+def train_index(exp_dir1: str, version: str, progress: gr.Progress = gr.Progress()):
     exp_dir = Path("logs") / exp_dir1
     exp_dir.mkdir(parents=True, exist_ok=True)
     feature_dir = exp_dir / (
-        shared.FEATURE_DIR_NAME if version19 == "v1" else shared.FEATURE_DIR_NAME_V2
+        shared.FEATURE_DIR_NAME if version == "v1" else shared.FEATURE_DIR_NAME_V2
     )
     if not feature_dir.exists():
         return "Please perform feature extraction first!"
@@ -591,14 +591,14 @@ def train_index(exp_dir1: str, version19: str, progress: gr.Progress = gr.Progre
     n_ivf = min(int(16 * np.sqrt(big_npy.shape[0])), big_npy.shape[0] // 39)
     infos.append(f"{big_npy.shape},{n_ivf}")
     progress(0.5, desc="Training FAISS index...")  # Progress update for training
-    index = faiss.index_factory(256 if version19 == "v1" else 768, f"IVF{n_ivf},Flat")
+    index = faiss.index_factory(256 if version == "v1" else 768, f"IVF{n_ivf},Flat")
     infos.append("training")
     index_ivf = faiss.extract_index_ivf(index)  #
     index_ivf.nprobe = 1
     index.train(big_npy)
     faiss.write_index(
         index,
-        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index",
+        f"{exp_dir}/trained_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index",
     )
     progress(0.7, desc="Adding vectors to index...")
     infos.append("Adding vectors to index...")
@@ -607,16 +607,16 @@ def train_index(exp_dir1: str, version19: str, progress: gr.Progress = gr.Progre
         index.add(big_npy[i : i + batch_size_add])
     faiss.write_index(
         index,
-        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index",
+        f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index",
     )
     infos.append(
-        f"Successfully built index: added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index"
+        f"Successfully built index: added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index"
     )
     try:
         link = os.link if platform.system() == "Windows" else os.symlink
         link(
-            f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index",
-            f"{shared.outside_index_root}/{exp_dir1}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version19}.index",
+            f"{exp_dir}/added_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index",
+            f"{shared.outside_index_root}/{exp_dir1}_IVF{n_ivf}_Flat_nprobe_{index_ivf.nprobe}_{exp_dir1}_{version}.index",
         )
         infos.append(
             f"Linked index to external directory: {shared.outside_index_root}"
@@ -646,7 +646,7 @@ def one_click_training(
     gpus16: str,
     if_cache_gpu17: bool,
     if_save_every_weights18: bool,
-    version19: Literal["v1", "v2"],
+    version: Literal["v1", "v2"],
     gpus_rmvpe: str,
 ) -> Generator[str]:
     infos: list[str] = []
@@ -665,7 +665,7 @@ def one_click_training(
     [
         get_info_str(_)
         for _ in extract_f0_feature(
-            gpus16, np7, f0method8, if_f0_3, exp_dir1, version19, gpus_rmvpe
+            gpus16, np7, f0method8, if_f0_3, exp_dir1, version, gpus_rmvpe
         )
     ]
 
@@ -684,13 +684,13 @@ def one_click_training(
         gpus16,
         if_cache_gpu17,
         if_save_every_weights18,
-        version19,
+        version,
     )
     yield get_info_str(
         i18n("训练结束, 您可查看控制台训练日志或实验文件夹下的train.log")
     )
 
-    [get_info_str(_) for _ in train_index(exp_dir1, version19)]
+    [get_info_str(_) for _ in train_index(exp_dir1, version)]
     yield get_info_str(i18n("全流程结束！"))
 
 
