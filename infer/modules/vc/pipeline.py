@@ -1,4 +1,3 @@
-import logging
 import os
 import traceback
 from time import time as ttime
@@ -23,8 +22,6 @@ from infer.lib.infer_pack.models import (
 )
 from infer.modules.vc.f0_extractors import *
 from lib.types.f0 import PitchMethod
-
-logger = logging.getLogger(__name__)
 
 bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
 

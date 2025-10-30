@@ -55,8 +55,6 @@ class PM_PitchExtractor(PitchExtractor):
         return f0
 
 
-input_audio_path2wav = {}
-
 _wav_cache = {}  # holds np.ndarray -> key mapping
 
 
