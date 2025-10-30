@@ -3,7 +3,7 @@ name = "rvc-webgui-fork"
 version = "0.1.0"
 description = "A Fork of RVC WebGUI with many quality of life improvements"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "av>=15.0.0",
     "fairseq",
@@ -27,7 +27,7 @@ dependencies = [
     "scipy>=1.15.3",
     "sounddevice>=0.5.2",
     "soundfile>=0.12.1",
-    "torch==2.7.0",
+    "torch>=2.7.0",
     "torchaudio>=2.7.0",
     "torchcrepe>=0.0.24",
     "torchfcpe>=0.0.4",
