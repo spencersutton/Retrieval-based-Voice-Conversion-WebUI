@@ -940,7 +940,7 @@ def create_train_tab():
                 training_plot = gr.LinePlot(
                     label=i18n("Training Metrics"),
                     x="index",  # Use the DataFrame's index as the x-axis (epochs)
-                    y=["loss/g/total", "loss/d/total"],
+                    y=["loss/g/total", "loss/d/total"],  # type: ignore # TODO: Fix type ignore
                 )
                 training_info = gr.Textbox(label=i18n("Info"), value="", max_lines=10)
                 train_btn.click(

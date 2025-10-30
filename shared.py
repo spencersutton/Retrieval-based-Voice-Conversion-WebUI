@@ -38,12 +38,12 @@ vc = VC(config)
 
 if config.dml:
 
-    def forward_dml(ctx, x: torch.Tensor, scale: float) -> torch.Tensor:
+    def forward_dml(ctx, x: torch.Tensor, scale: float) -> torch.Tensor:  # type: ignore
         ctx.scale = scale
         res = x.clone().detach()
         return res
 
-    fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml
+    fairseq.modules.grad_multiply.GradMultiply.forward = forward_dml  # type: ignore
 i18n = I18nAuto()
 logger.info(i18n)
 # Get GPU count
