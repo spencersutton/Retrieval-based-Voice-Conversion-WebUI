@@ -81,6 +81,8 @@ def preprocess_dataset(
                     1.0,
                     desc=f"No files found in {audio_dir}. Preprocessing step initiated.",
                 )
+            return
+
     except OSError as e:
         error_msg = (
             f"Error: Could not access audio directory '{audio_dir}' to count files: {e}"
