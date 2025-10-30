@@ -28,12 +28,12 @@ ProgressComponent = gr.Progress
 F0GPUVisible = not shared.config.dml
 
 
-def change_f0_method(f0method8: str):
-    if f0method8 == "rmvpe_gpu":
-        visible = F0GPUVisible
-    else:
-        visible = False
-    return {"visible": visible, "__type__": "update"}
+def change_f0_method(f0_method: str):
+    # Show GPU config only for rmvpe_gpu method
+    return {
+        "visible": F0GPUVisible if f0_method == "rmvpe_gpu" else False,
+        "__type__": "update",
+    }
 
 
 def if_done(done_flag: list[bool], p: Popen):
@@ -42,6 +42,7 @@ def if_done(done_flag: list[bool], p: Popen):
 
 
 def if_done_multi(done_flag: list[bool], p_objs: list[Popen]):
+    # Wait for all processes to finish
     for p_obj in p_objs:
         p_obj.wait()
     done_flag[0] = True
@@ -50,11 +51,11 @@ def if_done_multi(done_flag: list[bool], p_objs: list[Popen]):
 def preprocess_dataset(
     audio_dir: Path,
     exp_dir: Path,
-    sr: str,  # pyright: ignore[reportRedeclaration]
+    sr: str,
     n_p: int,
     progress: gr.Progress = gr.Progress(),
 ) -> Generator[str, None, None]:
-    # 1. Validate audio_dir and count files
+    # Validate audio_dir and count files
     if not audio_dir.is_dir():
         error_msg = (
             f"Error: Audio directory '{audio_dir}' not found or is not a directory."
@@ -63,48 +64,48 @@ def preprocess_dataset(
         yield error_msg
         return
 
-    actual_file_count = 0
     try:
-        # List all entries in the directory and filter for files
-        file_names = [name for name in audio_dir.iterdir() if name.is_file()]
-        actual_file_count = len(file_names)
-        info_msg = f"Found {actual_file_count} files in audio directory: {audio_dir}"
-        shared.logger.info(info_msg)
-
-        if actual_file_count == 0:
-            warning_msg = f"Warning: No files found in '{audio_dir}'. Preprocessing script will run, but may not find items to process."
-            shared.logger.warning(warning_msg)
-            yield warning_msg
-            # Update progress to indicate nothing to process, but the step is "complete"
-            if progress:
-                progress(
-                    1.0,
-                    desc=f"No files found in {audio_dir}. Preprocessing step initiated.",
-                )
-            return
-
+        file_names = [f for f in audio_dir.iterdir() if f.is_file()]
     except OSError as e:
-        error_msg = (
-            f"Error: Could not access audio directory '{audio_dir}' to count files: {e}"
-        )
+        error_msg = f"Error: Could not access audio directory '{audio_dir}': {e}"
         shared.logger.error(error_msg)
         yield error_msg
         return
-    sr: int = shared.sr_dict[sr]
+
+    actual_file_count = len(file_names)
+    shared.logger.info(
+        f"Found {actual_file_count} files in audio directory: {audio_dir}"
+    )
+
+    if actual_file_count == 0:
+        warning_msg = f"Warning: No files found in '{audio_dir}'. Preprocessing script will run, but may not find items to process."
+        shared.logger.warning(warning_msg)
+        yield warning_msg
+        if progress:
+            progress(
+                1.0,
+                desc=f"No files found in {audio_dir}. Preprocessing step initiated.",
+            )
+        return
+
+    sr_int = shared.sr_dict[sr]
     log_dir = Path.cwd() / "logs" / exp_dir
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "preprocess.log"
     log_file.touch()
-    cmd = f'"{shared.config.python_cmd}" infer/modules/train/preprocess.py "{audio_dir}" {sr} {n_p} "{log_dir}" {shared.config.noparallel} {shared.config.preprocess_per:.1f}'
+
+    cmd = (
+        f'"{shared.config.python_cmd}" infer/modules/train/preprocess.py '
+        f'"{audio_dir}" {sr_int} {n_p} "{log_dir}" {shared.config.noparallel} {shared.config.preprocess_per:.1f}'
+    )
     shared.logger.info("Execute: " + cmd)
     p = Popen(cmd, shell=True)
-    # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
+
     done = [False]
     threading.Thread(target=if_done, args=(done, p)).start()
 
-    log_file_path = Path.cwd() / "logs" / exp_dir / "preprocess.log"
     while True:
-        file_content = log_file_path.read_text()
+        file_content = log_file.read_text()
         count = file_content.count("Success")
         progress(
             float(count) / actual_file_count,
@@ -113,7 +114,8 @@ def preprocess_dataset(
         sleep(0.5)
         if done[0]:
             break
-    log = log_file_path.read_text()
+
+    log = log_file.read_text()
     shared.logger.info(log)
     yield log
 
@@ -266,37 +268,21 @@ def extract_f0_feature(
 
 
 def get_pretrained_models(path_str: str, f0_str: str, sr2: str):
-    if_pretrained_generator_exist = os.access(
-        f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth", os.F_OK
-    )
-    if_pretrained_discriminator_exist = os.access(
-        f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth", os.F_OK
-    )
-    if not if_pretrained_generator_exist:
-        shared.logger.warning(
-            "assets/pretrained%s/%sG%s.pth not exist, will not use pretrained model",
-            path_str,
-            f0_str,
-            sr2,
-        )
-    if not if_pretrained_discriminator_exist:
-        shared.logger.warning(
-            "assets/pretrained%s/%sD%s.pth not exist, will not use pretrained model",
-            path_str,
-            f0_str,
-            sr2,
-        )
+    base_dir = Path(f"assets/pretrained{path_str}")
+    gen_path = base_dir / f"{f0_str}G{sr2}.pth"
+    dis_path = base_dir / f"{f0_str}D{sr2}.pth"
+
+    gen_exists = gen_path.exists()
+    dis_exists = dis_path.exists()
+
+    if not gen_exists:
+        shared.logger.warning("%s not exist, will not use pretrained model", gen_path)
+    if not dis_exists:
+        shared.logger.warning("%s not exist, will not use pretrained model", dis_path)
+
     return (
-        (
-            f"assets/pretrained{path_str}/{f0_str}G{sr2}.pth"
-            if if_pretrained_generator_exist
-            else ""
-        ),
-        (
-            f"assets/pretrained{path_str}/{f0_str}D{sr2}.pth"
-            if if_pretrained_discriminator_exist
-            else ""
-        ),
+        str(gen_path) if gen_exists else "",
+        str(dis_path) if dis_exists else "",
     )
 
 
@@ -307,28 +293,23 @@ def change_sr(sr2: str, if_f0_3: bool, version: Literal["v1", "v2"]):
 
 
 def change_version(sr2: str, if_f0_3: bool, version: Literal["v1", "v2"]):
-    path_str = "" if version == "v1" else "_v2"
+    # Adjust sample rate for v1 if needed
     if sr2 == "32k" and version == "v1":
         sr2 = "40k"
-    to_return_sr2 = (
-        {"choices": ["40k", "48k"], "__type__": "update", "value": sr2}
-        if version == "v1"
-        else {"choices": ["40k", "48k", "32k"], "__type__": "update", "value": sr2}
-    )
+    path_str = "" if version == "v1" else "_v2"
     f0_str = "f0" if if_f0_3 else ""
-    return (
-        *get_pretrained_models(path_str, f0_str, sr2),
-        to_return_sr2,
-    )
+    # Set available choices based on version
+    choices = ["40k", "48k"] if version == "v1" else ["40k", "48k", "32k"]
+    sr_update = {"choices": choices, "__type__": "update", "value": sr2}
+    return (*get_pretrained_models(path_str, f0_str, sr2), sr_update)
 
 
 def change_f0(if_f0_3: bool, sr2: str, version: Literal["v1", "v2"]):
     path_str = "" if version == "v1" else "_v2"
-    return (
-        {"visible": if_f0_3, "__type__": "update"},
-        {"visible": if_f0_3, "__type__": "update"},
-        *get_pretrained_models(path_str, "f0" if if_f0_3 else "", sr2),
-    )
+    visible_update = {"visible": if_f0_3, "__type__": "update"}
+    f0_str = "f0" if if_f0_3 else ""
+    gen_path, dis_path = get_pretrained_models(path_str, f0_str, sr2)
+    return visible_update, visible_update, gen_path, dis_path
 
 
 def parse_epoch_from_train_log_line(line: str) -> int | None:
