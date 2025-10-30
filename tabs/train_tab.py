@@ -1,7 +1,6 @@
 import datetime
 import json
 import os
-import pathlib
 import platform
 import re
 import shutil
@@ -9,6 +8,7 @@ import subprocess
 import threading
 import traceback
 from collections.abc import Generator
+from pathlib import Path
 from random import shuffle
 from subprocess import Popen
 from time import sleep
@@ -47,14 +47,14 @@ def if_done_multi(done_flag: list[bool], p_objs: list[Popen]):
 
 
 def preprocess_dataset(
-    audio_dir: str,
-    exp_dir: str,
+    audio_dir: Path,
+    exp_dir: Path,
     sr: str,  # pyright: ignore[reportRedeclaration]
     n_p: int,
     progress: gr.Progress = gr.Progress(),
 ) -> Generator[str, None, None]:
     # 1. Validate audio_dir and count files
-    if not os.path.isdir(audio_dir):
+    if not audio_dir.is_dir():
         error_msg = (
             f"Error: Audio directory '{audio_dir}' not found or is not a directory."
         )
@@ -65,11 +65,7 @@ def preprocess_dataset(
     actual_file_count = 0
     try:
         # List all entries in the directory and filter for files
-        file_names = [
-            name
-            for name in os.listdir(audio_dir)
-            if os.path.isfile(os.path.join(audio_dir, name))
-        ]
+        file_names = [name for name in audio_dir.iterdir() if name.is_file()]
         actual_file_count = len(file_names)
         info_msg = f"Found {actual_file_count} files in audio directory: {audio_dir}"
         shared.logger.info(info_msg)
@@ -94,59 +90,54 @@ def preprocess_dataset(
         yield error_msg
         return
     sr: int = shared.sr_dict[sr]
-    os.makedirs(f"{shared.now_dir}/logs/{exp_dir}", exist_ok=True)
-    f = open(f"{shared.now_dir}/logs/{exp_dir}/preprocess.log", "w")
-    f.close()
-    cmd = f'"{shared.config.python_cmd}" infer/modules/train/preprocess.py "{audio_dir}" {sr} {n_p} "{shared.now_dir}/logs/{exp_dir}" {shared.config.noparallel} {shared.config.preprocess_per:.1f}'
+    log_dir = shared.now_dir / "logs" / exp_dir
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "preprocess.log"
+    log_file.touch()
+    cmd = f'"{shared.config.python_cmd}" infer/modules/train/preprocess.py "{audio_dir}" {sr} {n_p} "{log_dir}" {shared.config.noparallel} {shared.config.preprocess_per:.1f}'
     shared.logger.info("Execute: " + cmd)
     p = Popen(cmd, shell=True)
     # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
     done = [False]
-    threading.Thread(
-        target=if_done,
-        args=(
-            done,
-            p,
-        ),
-    ).start()
+    threading.Thread(target=if_done, args=(done, p)).start()
 
+    log_file_path = shared.now_dir / "logs" / exp_dir / "preprocess.log"
     while True:
-        with open(f"{shared.now_dir}/logs/{exp_dir}/preprocess.log") as f:
-            file_content = f.read()
-            count = file_content.count("Success")
-            progress(
-                float(count) / actual_file_count,
-                desc=f"Processed {count}/{actual_file_count} audio...",
-            )
+        file_content = log_file_path.read_text()
+        count = file_content.count("Success")
+        progress(
+            float(count) / actual_file_count,
+            desc=f"Processed {count}/{actual_file_count} audio...",
+        )
         sleep(0.5)
         if done[0]:
             break
-    with open(f"{shared.now_dir}/logs/{exp_dir}/preprocess.log") as f:
-        log = f.read()
+    log = log_file_path.read_text()
     shared.logger.info(log)
     yield log
 
 
 def preprocess_meta(
     experiment_name: str,
-    audio_dir: str,
-    audio_files: list[str] | None,
+    audio_dir_str: str,
+    audio_files_str: list[str] | None,
     sr: str,
     n_p: int,
     progress: gr.Progress = gr.Progress(),
 ):
-    save_dir = f"{audio_dir}/{experiment_name}"
-    os.makedirs(save_dir, exist_ok=True)
+    audio_dir = Path(audio_dir_str)
+    audio_files = [Path(f) for f in audio_files_str] if audio_files_str else None
+    save_dir = audio_dir / experiment_name
+    save_dir.mkdir(parents=True, exist_ok=True)
 
     if audio_files is not None:
         for idx, audio_file in enumerate(audio_files):
-            audio_file_name = os.path.basename(audio_file)
-            shutil.copy(audio_file, f"{save_dir}/{audio_file_name}")
+            shutil.copy(audio_file, save_dir / audio_file.name)
             progress(idx / len(audio_files), "Copying files...")
 
     yield from preprocess_dataset(
         audio_dir=save_dir,
-        exp_dir=experiment_name,
+        exp_dir=Path(experiment_name),
         sr=sr,
         n_p=n_p,
         progress=progress,
@@ -200,23 +191,18 @@ def extract_f0_feature(
         progress(float(now) / all, desc=f"{now}/{all} Features extracted...")
 
     gpus = gpus_str.split("-")
-    os.makedirs(f"{shared.now_dir}/logs/{exp_dir}", exist_ok=True)
-    f = open(f"{shared.now_dir}/logs/{exp_dir}/extract_f0_feature.log", "w")
-    f.close()
+    log_dir_path = shared.now_dir / "logs" / exp_dir
+    log_dir_path.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir_path / "extract_f0_feature.log"
+    log_file.touch()
     if if_f0:
         if f0method != "rmvpe_gpu":
-            cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{shared.now_dir}/logs/{exp_dir}" {n_p} {f0method}'
+            cmd = f'"{shared.config.python_cmd}" infer/modules/train/extract/extract_f0_print.py "{log_dir_path}" {n_p} {f0method}'
             shared.logger.info("Execute: " + cmd)
             p = Popen(cmd, shell=True, cwd=shared.now_dir)
             # 煞笔gr, popen read都非得全跑完了再一次性读取, 不用gr就正常读一句输出一句;只能额外弄出一个文本流定时读
             done = [False]
-            threading.Thread(
-                target=if_done,
-                args=(
-                    done,
-                    p,
-                ),
-            ).start()
+            threading.Thread(target=if_done, args=(done, p)).start()
         else:
             if gpus_rmvpe != "-":
                 gpus_rmvpe: list[str] = gpus_rmvpe.split("-")
@@ -238,29 +224,20 @@ def extract_f0_feature(
             else:
                 cmd = (
                     shared.config.python_cmd
-                    + f' infer/modules/train/extract/extract_f0_rmvpe_dml.py "{shared.now_dir}/logs/{exp_dir}" '
+                    + f' infer/modules/train/extract/extract_f0_rmvpe_dml.py "{log_dir_path}" '
                 )
                 shared.logger.info("Execute: " + cmd)
                 p = Popen(cmd, shell=True, cwd=shared.now_dir)
                 p.wait()
                 done = [True]
         while True:
-            with open(f"{shared.now_dir}/logs/{exp_dir}/extract_f0_feature.log") as f:
-                update_progress(f.read())
+            update_progress(log_file.read_text())
             sleep(1)
             if done[0]:
                 break
-        with open(f"{shared.now_dir}/logs/{exp_dir}/extract_f0_feature.log") as f:
-            log = f.read()
+        log = log_file.read_text()
         shared.logger.info(log)
     # 对不同part分别开多进程
-    """
-    n_part=int(sys.argv[1])
-    i_part=int(sys.argv[2])
-    i_gpu=sys.argv[3]
-    exp_dir=sys.argv[4]
-    os.environ["CUDA_VISIBLE_DEVICES"]=str(i_gpu)
-    """
     length = len(gpus)
     ps = []
     for idx, n_g in enumerate(gpus):
@@ -278,13 +255,11 @@ def extract_f0_feature(
         ),
     ).start()
     while True:
-        with open(f"{shared.now_dir}/logs/{exp_dir}/extract_f0_feature.log") as f:
-            update_progress(f.read())
+        update_progress(log_file.read_text())
         sleep(1)
         if done[0]:
             break
-    with open(f"{shared.now_dir}/logs/{exp_dir}/extract_f0_feature.log") as f:
-        log = f.read()
+    log = log_file.read_text()
     shared.logger.info(log)
     yield log
 
@@ -399,124 +374,128 @@ def click_train(
     version19: str,
     progress: gr.Progress = gr.Progress(),
 ):
-    # Generating file list
-    exp_dir = f"{shared.now_dir}/logs/{exp_dir1}"
-    os.makedirs(exp_dir, exist_ok=True)
-    gt_wavs_dir = f"{exp_dir}/0_gt_wavs"
-    feature_dir = (
-        f"{exp_dir}/3_feature256" if version19 == "v1" else f"{exp_dir}/3_feature768"
-    )
-    f0_dir = ""
-    f0nsf_dir = ""
+    # Setup experiment directories
+    exp_dir = shared.now_dir / "logs" / exp_dir1
+    exp_dir.mkdir(parents=True, exist_ok=True)
+    gt_wavs_dir = exp_dir / "0_gt_wavs"
+    feature_dir = exp_dir / ("3_feature256" if version19 == "v1" else "3_feature768")
+
+    # Collect file names for training
     if if_f0_3:
-        f0_dir = f"{exp_dir}/2a_f0"
-        f0nsf_dir = f"{exp_dir}/2b-f0nsf"
+        f0_dir = exp_dir / "2a_f0"
+        f0nsf_dir = exp_dir / "2b-f0nsf"
         names = (
-            {name.split(".")[0] for name in os.listdir(gt_wavs_dir)}
-            & {name.split(".")[0] for name in os.listdir(feature_dir)}
-            & {name.split(".")[0] for name in os.listdir(f0_dir)}
-            & {name.split(".")[0] for name in os.listdir(f0nsf_dir)}
+            {p.stem for p in gt_wavs_dir.iterdir() if p.is_file()}
+            & {p.stem for p in feature_dir.iterdir() if p.is_file()}
+            & {p.stem for p in f0_dir.iterdir() if p.is_file()}
+            & {p.stem for p in f0nsf_dir.iterdir() if p.is_file()}
         )
     else:
-        names = {name.split(".")[0] for name in os.listdir(gt_wavs_dir)} & {
-            name.split(".")[0] for name in os.listdir(feature_dir)
+        names = {p.stem for p in gt_wavs_dir.iterdir() if p.is_file()} & {
+            p.stem for p in feature_dir.iterdir() if p.is_file()
         }
+
+    # Build filelist for training
     opt = []
-    for name in names:
-        if if_f0_3:
-            opt.append(
-                "{}/{}.wav|{}/{}.npy|{}/{}.wav.npy|{}/{}.wav.npy|{}".format(
-                    gt_wavs_dir.replace("\\", "\\\\"),
-                    name,
-                    feature_dir.replace("\\", "\\\\"),
-                    name,
-                    f0_dir.replace("\\", "\\\\"),
-                    name,
-                    f0nsf_dir.replace("\\", "\\\\"),
-                    name,
-                    spk_id5,
-                )
-            )
-        else:
-            opt.append(
-                "{}/{}.wav|{}/{}.npy|{}".format(
-                    gt_wavs_dir.replace("\\", "\\\\"),
-                    name,
-                    feature_dir.replace("\\", "\\\\"),
-                    name,
-                    spk_id5,
-                )
-            )
     fea_dim = 256 if version19 == "v1" else 768
+    mute_gt_wavs = shared.now_dir / "logs" / "mute" / "0_gt_wavs" / f"mute{sr2}.wav"
+    mute_feature = shared.now_dir / "logs" / "mute" / f"3_feature{fea_dim}" / "mute.npy"
     if if_f0_3:
-        for _ in range(2):
+        mute_f0 = shared.now_dir / "logs" / "mute" / "2a_f0" / "mute.wav.npy"
+        mute_f0nsf = shared.now_dir / "logs" / "mute" / "2b-f0nsf" / "mute.wav.npy"
+        for name in names:
             opt.append(
-                f"{shared.now_dir}/logs/mute/0_gt_wavs/mute{sr2}.wav|{shared.now_dir}/logs/mute/3_feature{fea_dim}/mute.npy|{shared.now_dir}/logs/mute/2a_f0/mute.wav.npy|{shared.now_dir}/logs/mute/2b-f0nsf/mute.wav.npy|{spk_id5}"
+                f"{gt_wavs_dir / (name + '.wav')}|{feature_dir / (name + '.npy')}|{f0_dir / (name + '.wav.npy')}|{f0nsf_dir / (name + '.wav.npy')}|{spk_id5}"
             )
+        opt.extend(
+            [
+                f"{mute_gt_wavs}|{mute_feature}|{mute_f0}|{mute_f0nsf}|{spk_id5}"
+                for _ in range(2)
+            ]
+        )
     else:
-        for _ in range(2):
+        for name in names:
             opt.append(
-                f"{shared.now_dir}/logs/mute/0_gt_wavs/mute{sr2}.wav|{shared.now_dir}/logs/mute/3_feature{fea_dim}/mute.npy|{spk_id5}"
+                f"{gt_wavs_dir / (name + '.wav')}|{feature_dir / (name + '.npy')}|{spk_id5}"
             )
+        opt.extend([f"{mute_gt_wavs}|{mute_feature}|{spk_id5}" for _ in range(2)])
+
     shuffle(opt)
-    with open(f"{exp_dir}/filelist.txt", "w") as f:
-        f.write("\n".join(opt))
+    filelist_path = exp_dir / "filelist.txt"
+    filelist_path.write_text("\n".join(opt), encoding="utf-8")
     shared.logger.debug("Write filelist done")
-    # 生成config#无需生成config
+
+    # Prepare config
     shared.logger.info("Use gpus: %s", str(gpus16))
     if pretrained_G14 == "":
         shared.logger.info("No pretrained Generator")
     if pretrained_D15 == "":
         shared.logger.info("No pretrained Discriminator")
-    if version19 == "v1" or sr2 == "40k":
-        config_path = f"v1/{sr2}.json"
-    else:
-        config_path = f"v2/{sr2}.json"
-    config_save_path = os.path.join(exp_dir, "config.json")
-    if not pathlib.Path(config_save_path).exists():
-        with open(config_save_path, "w", encoding="utf-8") as f:
-            json.dump(
+    config_path = (
+        f"v1/{sr2}.json" if version19 == "v1" or sr2 == "40k" else f"v2/{sr2}.json"
+    )
+    config_save_path = exp_dir / "config.json"
+    if not config_save_path.exists():
+        config_save_path.write_text(
+            json.dumps(
                 shared.config.json_config[config_path],
-                f,
                 ensure_ascii=False,
                 indent=4,
                 sort_keys=True,
             )
-            f.write("\n")
-    if gpus16:
-        cmd = '"{}" infer/modules/train/train.py -e "{}" -sr {} -f0 {} -bs {} -g {} -te {} -se {} {} {} -l {} -c {} -sw {} -v {}'.format(
-            shared.config.python_cmd,
-            exp_dir1,
-            sr2,
-            1 if if_f0_3 else 0,
-            batch_size12,
-            gpus16,
-            total_epoch11,
-            save_epoch10,
-            f"-pg {pretrained_G14}" if pretrained_G14 != "" else "",
-            f"-pd {pretrained_D15}" if pretrained_D15 != "" else "",
-            1 if if_save_latest13 == i18n("Yes") else 0,
-            1 if if_cache_gpu17 == i18n("Yes") else 0,
-            1 if if_save_every_weights18 == i18n("Yes") else 0,
-            version19,
+            + "\n",
+            encoding="utf-8",
         )
-    else:
-        cmd = '"{}" infer/modules/train/train.py -e "{}" -sr {} -f0 {} -bs {} -te {} -se {} {} {} -l {} -c {} -sw {} -v {}'.format(
-            shared.config.python_cmd,
-            exp_dir1,
-            sr2,
-            1 if if_f0_3 else 0,
-            batch_size12,
-            total_epoch11,
-            save_epoch10,
-            f"-pg {pretrained_G14}" if pretrained_G14 != "" else "",
-            f"-pd {pretrained_D15}" if pretrained_D15 != "" else "",
-            1 if if_save_latest13 == shared.i18n("Yes") else 0,
-            1 if if_cache_gpu17 == shared.i18n("Yes") else 0,
-            1 if if_save_every_weights18 == shared.i18n("Yes") else 0,
-            version19,
+
+    # Helper to build command line arguments for train.py
+    def build_train_cmd(
+        gpus: str,
+        pretrained_G: str,
+        pretrained_D: str,
+        save_latest: bool,
+        cache_gpu: bool,
+        save_every_weights: bool,
+    ):
+        args = [
+            f'"{shared.config.python_cmd}" infer/modules/train/train.py',
+            f'-e "{exp_dir1}"',
+            f"-sr {sr2}",
+            f"-f0 {1 if if_f0_3 else 0}",
+            f"-bs {batch_size12}",
+        ]
+        if gpus:
+            args.append(f"-g {gpus}")
+        args.extend(
+            [
+                f"-te {total_epoch11}",
+                f"-se {save_epoch10}",
+            ]
         )
+        if pretrained_G:
+            args.append(f"-pg {pretrained_G}")
+        if pretrained_D:
+            args.append(f"-pd {pretrained_D}")
+        args.extend(
+            [
+                f"-l {1 if save_latest == i18n('Yes') else 0}",
+                f"-c {1 if cache_gpu == i18n('Yes') else 0}",
+                f"-sw {1 if save_every_weights == i18n('Yes') else 0}",
+                f"-v {version19}",
+            ]
+        )
+        return " ".join(args)
+
+    cmd = build_train_cmd(
+        gpus16,
+        pretrained_G14,
+        pretrained_D15,
+        if_save_latest13,
+        if_cache_gpu17,
+        if_save_every_weights18,
+    )
     shared.logger.info("Execute: " + cmd)
+
+    # Run training and update progress/plot
     current_epoch = 0
     p = Popen(cmd, shell=True, cwd=shared.now_dir, stdout=subprocess.PIPE)
     scalar_count = 0
@@ -525,29 +504,18 @@ def click_train(
         line_bytes = p.stdout.readline()
         if not line_bytes:
             break
-        # the real code does filtering here
         line = line_bytes.decode("utf-8", errors="ignore")
         shared.logger.info(f"{line}")
 
         if line.startswith("SCALAR_DICT: "):
             try:
-                scalar_dict: dict = json.loads(line.replace("SCALAR_DICT: ", ""))
+                scalar_dict = json.loads(line.replace("SCALAR_DICT: ", ""))
                 scalar_dict["index"] = scalar_count
                 scalar_count += 1
-
-                # Step 1: Append the dictionary to the history
                 scalar_history.append(scalar_dict)
-
-                # Step 2: Convert the history list to a pandas DataFrame
                 df = pd.DataFrame(scalar_history)
-                # Returning the plot data will update the plot component
-                # The yield statement is necessary to update the Gradio UI in real-time
-                # within a loop.
                 print(f"history: {scalar_history}")
-                yield (
-                    "",
-                    df,
-                )  # Yielding the empty string updates info3, and plot_data updates the plot
+                yield ("", df)
             except Exception:
                 pass
 
@@ -556,32 +524,31 @@ def click_train(
 
     p.wait()
     yield (
-        "Training finished with exit code {return_code}.",
+        f"Training finished with exit code {p.returncode}.",
         pd.DataFrame(scalar_history),
     )
 
 
 def train_index(exp_dir1: str, version19: str, progress: gr.Progress = gr.Progress()):
-    exp_dir = f"logs/{exp_dir1}"
-    os.makedirs(exp_dir, exist_ok=True)
-    feature_dir = (
-        f"{exp_dir}/3_feature256" if version19 == "v1" else f"{exp_dir}/3_feature768"
-    )
-    if not os.path.exists(feature_dir):
+    exp_dir = Path("logs") / exp_dir1
+    exp_dir.mkdir(parents=True, exist_ok=True)
+    feature_dir = exp_dir / ("3_feature256" if version19 == "v1" else "3_feature768")
+    if not feature_dir.exists():
         return "Please perform feature extraction first!"
-    listdir_res = list(os.listdir(feature_dir))
+    listdir_res = sorted([p for p in feature_dir.iterdir() if p.is_file()])
     if len(listdir_res) == 0:
         return "Please perform feature extraction first!"
 
     progress(0.05, desc="Loading features...")  # Initial progress update
     infos = []
     npys = []
-    for name in sorted(listdir_res):
-        phone = np.load(f"{feature_dir}/{name}")
+    for path in listdir_res:
+        phone = np.load(str(path))
         npys.append(phone)
     big_npy = np.concatenate(npys, 0)
     big_npy_idx = np.arange(big_npy.shape[0])
-    np.random.shuffle(big_npy_idx)
+    rng = np.random.default_rng()
+    rng.shuffle(big_npy_idx)
     big_npy = big_npy[big_npy_idx]
     if big_npy.shape[0] > 2e5:
         infos.append(
@@ -675,7 +642,10 @@ def one_click_training(
         return "\n".join(infos)
 
     yield get_info_str(shared.i18n("step1: processing data..."))
-    [get_info_str(_) for _ in preprocess_dataset(trainset_dir4, exp_dir1, sr2, np7)]
+    [
+        get_info_str(_)
+        for _ in preprocess_dataset(Path(trainset_dir4), Path(exp_dir1), sr2, np7)
+    ]
 
     yield get_info_str(shared.i18n("step2: extracting feature & pitch"))
     [

@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import warnings
+from pathlib import Path
 
 import fairseq
 import torch
@@ -19,15 +20,15 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 
 logger = logging.getLogger(__name__)
-now_dir = os.getcwd()
-tmp = os.path.join(now_dir, "TEMP")
+now_dir = Path.cwd()
+tmp = now_dir / "TEMP"
 shutil.rmtree(tmp, ignore_errors=True)
-shutil.rmtree(f"{now_dir}/runtime/Lib/site-packages/infer_pack", ignore_errors=True)
-shutil.rmtree(f"{now_dir}/runtime/Lib/site-packages/uvr5_pack", ignore_errors=True)
-os.makedirs(tmp, exist_ok=True)
-os.makedirs(os.path.join(now_dir, "logs"), exist_ok=True)
-os.makedirs(os.path.join(now_dir, "assets/weights"), exist_ok=True)
-os.environ["TEMP"] = tmp
+shutil.rmtree(now_dir / "runtime/Lib/site-packages/infer_pack", ignore_errors=True)
+shutil.rmtree(now_dir / "runtime/Lib/site-packages/uvr5_pack", ignore_errors=True)
+tmp.mkdir(parents=True, exist_ok=True)
+(log_dir := now_dir / "logs").mkdir(parents=True, exist_ok=True)
+(assets_dir := now_dir / "assets/weights").mkdir(parents=True, exist_ok=True)
+os.environ["TEMP"] = str(tmp)
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
