@@ -38,11 +38,6 @@ def _get_feature_dir_name(version: Literal["v1", "v2"]) -> str:
     return shared.FEATURE_DIR_NAME if version == "v1" else shared.FEATURE_DIR_NAME_V2
 
 
-def _get_feature_dimension(version: Literal["v1", "v2"]) -> int:
-    """Get feature dimension based on version."""
-    return shared.FEATURE_DIMENSION if version == "v1" else shared.FEATURE_DIMENSION_V2
-
-
 def _get_pretrained_path(version: Literal["v1", "v2"], if_f0: bool) -> str:
     """Get pretrained model directory path."""
     return "" if version == "v1" else "_v2"
@@ -394,10 +389,12 @@ def _parse_epoch_from_train_log_line(line: str) -> int | None:
 def _get_mute_paths(sample_rate: str, version: Literal["v1", "v2"], if_f0: bool):
     """Get paths for mute files used in training."""
     mute_dir = Path.cwd() / "logs" / MUTE_DIR_NAME
-    feature_dimension = _get_feature_dimension(version)
 
     mute_gt_wavs = mute_dir / shared.GT_WAVS_DIR_NAME / f"mute{sample_rate}.wav"
-    mute_feature = mute_dir / f"3_feature{feature_dimension}" / "mute.npy"
+    dir_name = (
+        shared.FEATURE_DIR_NAME if version == "v1" else shared.FEATURE_DIR_NAME_V2
+    )
+    mute_feature = mute_dir / dir_name / "mute.npy"
 
     if if_f0:
         mute_f0 = mute_dir / shared.F0_DIR_NAME / "mute.wav.npy"
@@ -645,7 +642,9 @@ def _train_index(
     infos.append(f"{big_npy.shape},{n_ivf}")
 
     progress(0.5, desc="Training FAISS index...")
-    feature_dim = _get_feature_dimension(version)
+    feature_dim = (
+        shared.FEATURE_DIMENSION if version == "v1" else shared.FEATURE_DIMENSION_V2
+    )
     index = faiss.index_factory(feature_dim, f"IVF{n_ivf},Flat")
     infos.append("training")
     index_ivf = faiss.extract_index_ivf(index)
