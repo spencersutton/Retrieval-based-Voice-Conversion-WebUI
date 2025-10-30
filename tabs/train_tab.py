@@ -292,18 +292,18 @@ def get_pretrained_models(path_str: str, f0_str: str, sample_rate: str):
     )
 
 
-def change_sr(sample_rate: str, if_f0_3: bool, version: Literal["v1", "v2"]):
+def change_sr(sample_rate: str, if_f0: bool, version: Literal["v1", "v2"]):
     path_str = "" if version == "v1" else "_v2"
-    f0_str = "f0" if if_f0_3 else ""
+    f0_str = "f0" if if_f0 else ""
     return get_pretrained_models(path_str, f0_str, sample_rate)
 
 
-def change_version(sample_rate: str, if_f0_3: bool, version: Literal["v1", "v2"]):
+def change_version(sample_rate: str, if_f0: bool, version: Literal["v1", "v2"]):
     # Adjust sample rate for v1 if needed
     if sample_rate == "32k" and version == "v1":
         sample_rate = "40k"
     path_str = "" if version == "v1" else "_v2"
-    f0_str = "f0" if if_f0_3 else ""
+    f0_str = "f0" if if_f0 else ""
     # Set available choices based on version
     choices = ["40k", "48k"] if version == "v1" else ["40k", "48k", "32k"]
     sr_update = {"choices": choices, "__type__": "update", "value": sample_rate}
@@ -389,12 +389,12 @@ def click_train(
 
     # Build filelist for training
     opt = []
-    fea_dim = (
+    feature_dimension = (
         shared.FEATURE_DIMENSION if version == "v1" else shared.FEATURE_DIMENSION_V2
     )
     mute_dir = Path.cwd() / "logs" / "mute"
     mute_gt_wavs = mute_dir / shared.GT_WAVS_DIR_NAME / f"mute{sample_rate}.wav"
-    mute_feature = mute_dir / f"3_feature{fea_dim}" / "mute.npy"
+    mute_feature = mute_dir / f"3_feature{feature_dimension}" / "mute.npy"
 
     if if_f0:
         mute_f0 = mute_dir / shared.F0_DIR_NAME / "mute.wav.npy"
@@ -402,7 +402,13 @@ def click_train(
         assert f0_dir is not None and f0nsf_dir is not None
         opt.extend(
             [
-                f"{gt_wavs_dir / (name + '.wav')}|{feature_dir / (name + '.npy')}|{f0_dir / (name + '.wav.npy')}|{f0nsf_dir / (name + '.wav.npy')}|{spk_id}"
+                (
+                    f"{gt_wavs_dir / (name + '.wav')}"
+                    f"|{feature_dir / (name + '.npy')}"
+                    f"|{f0_dir / (name + '.wav.npy')}"
+                    f"|{f0nsf_dir / (name + '.wav.npy')}"
+                    f"|{spk_id}"
+                )
                 for name in names
             ]
         )
