@@ -157,22 +157,20 @@ class F0FeatureExtractor:
         device: str = "cpu",
     ):
         """Extract F0 for a batch of files."""
-        if len(paths) == 0:
+        if not paths:
             self.printt("no-f0-todo")
             return
-
         self.printt(f"todo-f0-{len(paths)}")
         n = max(len(paths) // 5, 1)
         for idx, (inp_path, opt_path1, opt_path2) in enumerate(paths):
             try:
                 if idx % n == 0:
                     self.printt(f"f0ing,now-{idx},all-{len(paths)},-{inp_path}")
-
-                if (opt_path1.with_suffix(".npy").exists()) and (
-                    opt_path2.with_suffix(".npy").exists()
+                if (
+                    opt_path1.with_suffix(".npy").exists()
+                    and opt_path2.with_suffix(".npy").exists()
                 ):
                     continue
-
                 featur_pit = self.compute_f0(inp_path, f0_method, is_half, device)
                 np.save(opt_path2, featur_pit, allow_pickle=False)  # nsf
                 coarse_pit = self.coarse_f0(featur_pit)
@@ -262,58 +260,55 @@ class FeatureExtractor:
         outPath.mkdir(parents=True, exist_ok=True)
 
         n = max(1, len(file_list) // 10)
-        if len(file_list) == 0:
+        if not file_list:
             self.printt("no-feature-todo")
-        else:
-            self.printt(f"all-feature-{len(file_list)}")
-            for idx, file in enumerate(file_list):
-                try:
-                    if file.suffix == ".wav":
-                        wav_path = wavPath / file.name
-                        out_path = outPath / file.name.replace("wav", "npy")
+            return
+        self.printt(f"all-feature-{len(file_list)}")
+        for idx, file in enumerate(file_list):
+            try:
+                if file.suffix != ".wav":
+                    continue
+                wav_path = wavPath / file.name
+                out_path = outPath / file.name.replace("wav", "npy")
 
-                        if out_path.exists():
-                            continue
+                if out_path.exists():
+                    continue
 
-                        assert self.saved_cfg is not None
-                        feats = self.readwave(
-                            wav_path, normalize=self.saved_cfg.task.normalize
-                        )
-                        padding_mask = torch.BoolTensor(feats.shape).fill_(False)
+                assert self.saved_cfg is not None
+                feats = self.readwave(wav_path, normalize=self.saved_cfg.task.normalize)
+                padding_mask = torch.BoolTensor(feats.shape).fill_(False)
 
-                        inputs = {
-                            "source": (
-                                feats.half().to(device)
-                                if is_half and device not in ["mps", "cpu"]
-                                else feats.to(device)
-                            ),
-                            "padding_mask": padding_mask.to(device),
-                            "output_layer": 9 if version == "v1" else 12,
-                        }
+                inputs = {
+                    "source": (
+                        feats.half().to(device)
+                        if is_half and device not in ["mps", "cpu"]
+                        else feats.to(device)
+                    ),
+                    "padding_mask": padding_mask.to(device),
+                    "output_layer": 9 if version == "v1" else 12,
+                }
 
-                        with torch.no_grad():
-                            assert self.model is not None
-                            logits = self.model.extract_features(**inputs)
-                            feats = (
-                                self.model.final_proj(logits[0])
-                                if version == "v1"
-                                else logits[0]
-                            )
+                with torch.no_grad():
+                    assert self.model is not None
+                    logits = self.model.extract_features(**inputs)
+                    feats = (
+                        self.model.final_proj(logits[0])
+                        if version == "v1"
+                        else logits[0]
+                    )
 
-                        feats = feats.squeeze(0).float().cpu().numpy()
-                        if np.isnan(feats).sum() == 0:
-                            np.save(out_path, feats, allow_pickle=False)
-                        else:
-                            self.printt(f"{file}-contains nan")
+                feats = feats.squeeze(0).float().cpu().numpy()
+                if np.isnan(feats).sum() == 0:
+                    np.save(out_path, feats, allow_pickle=False)
+                else:
+                    self.printt(f"{file}-contains nan")
 
-                        if idx % n == 0:
-                            self.printt(
-                                f"now-{len(file_list)},all-{idx},{file},{feats.shape}"
-                            )
-                except Exception:
-                    self.printt(traceback.format_exc())
+                if idx % n == 0:
+                    self.printt(f"now-{len(file_list)},all-{idx},{file},{feats.shape}")
+            except Exception:
+                self.printt(traceback.format_exc())
 
-            self.printt("all-feature-done")
+        self.printt("all-feature-done")
 
 
 def _extract_f0_feature(
