@@ -403,7 +403,9 @@ def _extract_f0_feature(
                 f0_extractor.extract_f0_batch(paths, "rmvpe", False, rmvpe_device)
 
         _write_to_log(log_file, "F0 extraction completed")
-        yield log_file.read_text(encoding="utf-8")
+        log_content = log_file.read_text(encoding="utf-8")
+        update_progress(log_content)
+        yield log_content
 
     # Feature extraction
     _write_to_log(log_file, f"Starting feature extraction with version: {version}")
@@ -457,7 +459,9 @@ def _extract_f0_feature(
         p.join()
 
     _write_to_log(log_file, "Feature extraction completed")
-    yield log_file.read_text(encoding="utf-8")
+    log_content = log_file.read_text(encoding="utf-8")
+    update_progress(log_content)
+    yield log_content
 
 
 def _change_f0_method(f0_method: str):
