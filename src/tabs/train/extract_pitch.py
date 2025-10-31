@@ -1,4 +1,3 @@
-import os
 import re
 import traceback
 from collections.abc import Generator
@@ -153,7 +152,7 @@ class F0FeatureExtractor:
     def extract_f0_batch(
         self,
         paths: list[tuple[Path, Path, Path]],
-        f0_method: str,
+        f0_method: Literal["pm", "harvest", "dio", "rmvpe"],
         is_half: bool = False,
         device: str = "cpu",
     ):
@@ -196,9 +195,9 @@ class FeatureExtractor:
         print(message)
         _write_to_log(self.log_file, message)
 
-    def load_model(self, model_path: str, device: str, is_half: bool) -> bool:
+    def load_model(self, model_path: Path, device: str, is_half: bool) -> bool:
         """Load HuBERT model."""
-        if not os.access(model_path, os.F_OK):
+        if not model_path.exists():
             self.printt(
                 f"Error: Extracting is shut down because {model_path} does not exist, "
                 "you may download it from https://huggingface.co/lj1995/VoiceConversionWebUI/tree/main"
@@ -415,7 +414,7 @@ def _extract_f0_feature(
     _write_to_log(log_file, f"Starting feature extraction with version: {version}")
 
     feature_extractor = FeatureExtractor(str(log_dir_path), log_file)
-    model_path = "assets/hubert/hubert_base.pt"
+    model_path = Path("assets/hubert/hubert_base.pt")
 
     # Determine device
     device = "cpu"
