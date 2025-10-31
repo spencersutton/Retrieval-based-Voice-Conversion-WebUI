@@ -3,6 +3,7 @@ import os
 import shutil
 import warnings
 from pathlib import Path
+from typing import Final
 
 import fairseq
 import torch
@@ -36,14 +37,14 @@ torch.manual_seed(114514)
 config: Config = Config()
 vc = VC(config)
 
-F0_DIR_NAME = "2a_f0"
-F0_NSF_DIR_NAME = "2b-f0nsf"
-GT_WAVS_DIR_NAME = "0_gt_wavs"
-WAVS_16K_DIR_NAME = "1_16k_wavs"
-FEATURE_DIMENSION = 256
-FEATURE_DIMENSION_V2 = 768
-FEATURE_DIR_NAME = f"3_feature{FEATURE_DIMENSION}"
-FEATURE_DIR_NAME_V2 = f"3_feature{FEATURE_DIMENSION_V2}"
+F0_DIR_NAME: Final = "2a_f0"
+F0_NSF_DIR_NAME: Final = "2b-f0nsf"
+GT_WAVS_DIR_NAME: Final = "0_gt_wavs"
+WAVS_16K_DIR_NAME: Final = "1_16k_wavs"
+FEATURE_DIMENSION: Final = 256
+FEATURE_DIMENSION_V2: Final = 768
+FEATURE_DIR_NAME: Final = f"3_feature{FEATURE_DIMENSION}"
+FEATURE_DIR_NAME_V2: Final = f"3_feature{FEATURE_DIMENSION_V2}"
 
 if config.dml:
 

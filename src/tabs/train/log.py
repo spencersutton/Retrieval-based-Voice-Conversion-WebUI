@@ -1,5 +1,6 @@
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 LOG_POLL_INTERVAL = 0.5
@@ -8,7 +9,7 @@ LOG_POLL_INTERVAL = 0.5
 def monitor_log_with_progress(
     log_file: Path,
     done_event: threading.Event,
-    progress_callback,  # type: ignore
+    progress_callback: Callable[[str], None],
     poll_interval: float = LOG_POLL_INTERVAL,
 ) -> str:
     """Monitor a log file and update progress until completion."""
