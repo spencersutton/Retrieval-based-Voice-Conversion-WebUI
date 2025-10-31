@@ -59,7 +59,7 @@ def _parse_f0_feature_log(content: str) -> tuple[int, int]:
 class F0FeatureExtractor:
     """Handles F0 and feature extraction with support for multiple methods."""
 
-    def __init__(self, exp_dir: str, log_file: Path):
+    def __init__(self, exp_dir: Path, log_file: Path):
         self.exp_dir = exp_dir
         self.log_file = log_file
         self.fs = 16000
@@ -316,7 +316,7 @@ class FeatureExtractor:
 def _extract_f0_feature(
     gpus_str: str,
     n_p: int,
-    f0method: str,
+    f0_method: Literal["pm", "harvest", "dio", "rmvpe", "rmvpe_gpu"],
     if_f0: bool,
     exp_dir: str,
     version: Literal["v1", "v2"],
@@ -335,13 +335,13 @@ def _extract_f0_feature(
     log_dir_path = Path.cwd() / "logs" / exp_dir
     log_dir_path.mkdir(parents=True, exist_ok=True)
     log_file = log_dir_path / "extract_f0_feature.log"
-    log_file.write_text("", encoding="utf-8")
+    log_file.touch()
 
     # Extract F0 if needed
     if if_f0:
-        _write_to_log(log_file, f"Starting F0 extraction with method: {f0method}")
+        _write_to_log(log_file, f"Starting F0 extraction with method: {f0_method}")
 
-        f0_extractor = F0FeatureExtractor(str(log_dir_path), log_file)
+        f0_extractor = F0FeatureExtractor(log_dir_path, log_file)
         inp_root = log_dir_path / shared.WAVS_16K_DIR_NAME
         opt_root1 = log_dir_path / shared.F0_DIR_NAME
         opt_root2 = log_dir_path / shared.F0_NSF_DIR_NAME
@@ -354,27 +354,25 @@ def _extract_f0_feature(
             if "spec" in str(inp_path):
                 continue
             name = inp_path.name
-            opt_path1 = opt_root1 / name
-            opt_path2 = opt_root2 / name
-            paths.append((inp_path, opt_path1, opt_path2))
+            paths.append((inp_path, opt_root1 / name, opt_root2 / name))
 
         # Determine device for RMVPE
         rmvpe_device = "cpu"
-        if f0method == "rmvpe_gpu" and torch.cuda.is_available():
+        if f0_method == "rmvpe_gpu" and torch.cuda.is_available():
             rmvpe_device = "cuda"
-        elif f0method == "rmvpe_gpu" and shared.config.dml:
+        elif f0_method == "rmvpe_gpu" and shared.config.dml:
             import torch_directml  # type: ignore  # noqa: PLC0415
 
             rmvpe_device = torch_directml.device(torch_directml.default_device())
 
         # Run F0 extraction with multiprocessing
-        if f0method != "rmvpe_gpu":
+        if f0_method != "rmvpe_gpu":
             # Multi-process for CPU-based methods
             ps = []
             for i in range(n_p):
                 p = Process(
                     target=f0_extractor.extract_f0_batch,
-                    args=(paths[i::n_p], f0method, False, "cpu"),
+                    args=(paths[i::n_p], f0_method, False, "cpu"),
                 )
                 ps.append(p)
                 p.start()
@@ -384,7 +382,7 @@ def _extract_f0_feature(
             # Multi-GPU or multi-device for RMVPE
             if gpus_rmvpe != "-":
                 gpus_rmvpe_list = gpus_rmvpe.split("-")
-                ps = []
+                ps: list[Process] = []
                 for idx, gpu_id in enumerate(gpus_rmvpe_list):
                     device = f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu"
                     p = Process(
