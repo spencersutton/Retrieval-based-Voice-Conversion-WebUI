@@ -1,5 +1,6 @@
 import re
 import traceback
+import typing
 from collections.abc import Generator
 from multiprocessing import Process
 from pathlib import Path
@@ -77,7 +78,7 @@ class F0FeatureExtractor:
         print(message)
         _write_to_log(self.log_file, message)
 
-    def compute_f0(
+    def _compute_f0(
         self,
         path: Path,
         f0_method: Literal["pm", "harvest", "dio", "rmvpe"],
@@ -88,54 +89,56 @@ class F0FeatureExtractor:
         x = load_audio(path, FS)
         p_len = x.shape[0] // HOP
 
-        if f0_method == "pm":
-            time_step = 160 / 16000 * 1000
-            f0 = (
-                parselmouth.Sound(x, FS)
-                .to_pitch_ac(
-                    time_step=time_step / 1000,
-                    voicing_threshold=0.6,
-                    pitch_floor=F0_MIN,
-                    pitch_ceiling=F0_MAX,
+        match f0_method:
+            case "pm":
+                time_step = 160 / 16000 * 1000
+                f0 = (
+                    parselmouth.Sound(x, FS)
+                    .to_pitch_ac(
+                        time_step=time_step / 1000,
+                        voicing_threshold=0.6,
+                        pitch_floor=F0_MIN,
+                        pitch_ceiling=F0_MAX,
+                    )
+                    .selected_array["frequency"]
                 )
-                .selected_array["frequency"]
-            )
-            pad_size = (p_len - len(f0) + 1) // 2
-            if pad_size > 0 or p_len - len(f0) - pad_size > 0:
-                f0 = np.pad(
-                    f0, [[pad_size, p_len - len(f0) - pad_size]], mode="constant"
+                pad_size = (p_len - len(f0) + 1) // 2
+                if pad_size > 0 or p_len - len(f0) - pad_size > 0:
+                    f0 = np.pad(
+                        f0, [[pad_size, p_len - len(f0) - pad_size]], mode="constant"
+                    )
+            case "harvest":
+                f0, t = pyworld.harvest(  # type: ignore
+                    x.astype(np.double),
+                    fs=FS,
+                    f0_ceil=F0_MAX,
+                    f0_floor=F0_MIN,
+                    frame_period=1000 * HOP / FS,
                 )
-        elif f0_method == "harvest":
-            f0, t = pyworld.harvest(  # type: ignore
-                x.astype(np.double),
-                fs=FS,
-                f0_ceil=F0_MAX,
-                f0_floor=F0_MIN,
-                frame_period=1000 * HOP / FS,
-            )
-            f0 = pyworld.stonemask(x.astype(np.double), f0, t, FS)  # type: ignore
-        elif f0_method == "dio":
-            f0, t = pyworld.dio(  # type: ignore
-                x.astype(np.double),
-                fs=FS,
-                f0_ceil=F0_MAX,
-                f0_floor=F0_MIN,
-                frame_period=1000 * HOP / FS,
-            )
-            f0 = pyworld.stonemask(x.astype(np.double), f0, t, FS)  # type: ignore
-        elif f0_method == "rmvpe":
-            if self.model_rmvpe is None:
-                self._printt("Loading rmvpe model")
-                self.model_rmvpe = RMVPE(
-                    "assets/rmvpe/rmvpe.pt", is_half=is_half, device=device
+                f0 = pyworld.stonemask(x.astype(np.double), f0, t, FS)  # type: ignore
+            case "dio":
+                f0, t = pyworld.dio(  # type: ignore
+                    x.astype(np.double),
+                    fs=FS,
+                    f0_ceil=F0_MAX,
+                    f0_floor=F0_MIN,
+                    frame_period=1000 * HOP / FS,
                 )
-            f0 = self.model_rmvpe.infer_from_audio(x, thred=0.03)
-        else:
-            raise ValueError(f"Unknown f0_method: {f0_method}")
+                f0 = pyworld.stonemask(x.astype(np.double), f0, t, FS)  # type: ignore
+            case "rmvpe":
+                if self.model_rmvpe is None:
+                    self._printt("Loading rmvpe model")
+                    self.model_rmvpe = RMVPE(
+                        "assets/rmvpe/rmvpe.pt", is_half=is_half, device=device
+                    )
+                f0 = self.model_rmvpe.infer_from_audio(x, thred=0.03)
+            case _:
+                typing.assert_never(f0_method)
+                raise ValueError(f"Unknown f0_method: {f0_method}")
 
         return f0
 
-    def coarse_f0(self, f0: np.ndarray) -> np.ndarray:
+    def _coarse_f0(self, f0: np.ndarray) -> np.ndarray:
         """Convert F0 to coarse representation."""
         f0_mel = 1127 * np.log(1 + f0 / 700)
         f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - F0_MEL_MIN) * (F0_BIN - 2) / (
@@ -174,9 +177,9 @@ class F0FeatureExtractor:
                     and opt_path2.with_suffix(".npy").exists()
                 ):
                     continue
-                featur_pit = self.compute_f0(inp_path, f0_method, is_half, device)
+                featur_pit = self._compute_f0(inp_path, f0_method, is_half, device)
                 np.save(opt_path2, featur_pit, allow_pickle=False)  # nsf
-                coarse_pit = self.coarse_f0(featur_pit)
+                coarse_pit = self._coarse_f0(featur_pit)
                 np.save(opt_path1, coarse_pit, allow_pickle=False)  # ori
             except Exception:
                 self._printt(f"f0fail-{idx}-{inp_path}-{traceback.format_exc()}")
@@ -229,7 +232,7 @@ class FeatureExtractor:
             self._printt(f"Error loading model: {traceback.format_exc()}")
             return False
 
-    def readwave(self, wav_path: Path, normalize: bool = False) -> torch.Tensor:
+    def _read_wave(self, wav_path: Path, normalize: bool = False) -> torch.Tensor:
         """Read and prepare audio file."""
         wav, sr = sf.read(wav_path)
         assert sr == 16000, f"Sample rate must be 16000, got {sr}"
@@ -278,7 +281,9 @@ class FeatureExtractor:
                     continue
 
                 assert self.saved_cfg is not None
-                feats = self.readwave(wav_path, normalize=self.saved_cfg.task.normalize)
+                feats = self._read_wave(
+                    wav_path, normalize=self.saved_cfg.task.normalize
+                )
                 padding_mask = torch.BoolTensor(feats.shape).fill_(False)
 
                 inputs = {
