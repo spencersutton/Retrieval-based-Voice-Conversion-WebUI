@@ -8,7 +8,7 @@ import gradio as gr
 import shared
 from infer.modules.train.preprocess import preprocess_trainset
 from shared import i18n
-from tabs.train.train_tab import monitor_log_with_progress
+from tabs.train.log import monitor_log_with_progress
 
 
 def _preprocess_dataset(
