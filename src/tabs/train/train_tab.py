@@ -5,9 +5,9 @@ import numpy as np
 
 import shared
 from shared import i18n
-from tabs.train.configure_training_parameters import configure_training_parameters
-from tabs.train.extract_pitch_config import extract_pitch_config
+from tabs.train.extract_pitch import extract_pitch_config
 from tabs.train.preprocess import create_preprocess_section
+from tabs.train.run_training import configure_training_parameters
 
 # Constants
 
