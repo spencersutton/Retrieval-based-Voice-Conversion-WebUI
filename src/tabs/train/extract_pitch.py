@@ -76,7 +76,11 @@ class F0FeatureExtractor:
         _write_to_log(self.log_file, message)
 
     def compute_f0(
-        self, path: Path, f0_method: str, is_half: bool = False, device: str = "cpu"
+        self,
+        path: Path,
+        f0_method: Literal["pm", "harvest", "dio", "rmvpe"],
+        is_half: bool = False,
+        device: str = "cpu",
     ) -> np.ndarray:
         """Compute F0 using the specified method."""
         x = load_audio(path, self.fs)
@@ -156,25 +160,26 @@ class F0FeatureExtractor:
         """Extract F0 for a batch of files."""
         if len(paths) == 0:
             self.printt("no-f0-todo")
-        else:
-            self.printt(f"todo-f0-{len(paths)}")
-            n = max(len(paths) // 5, 1)
-            for idx, (inp_path, opt_path1, opt_path2) in enumerate(paths):
-                try:
-                    if idx % n == 0:
-                        self.printt(f"f0ing,now-{idx},all-{len(paths)},-{inp_path}")
+            return
 
-                    if (opt_path1.with_suffix(".npy").exists()) and (
-                        opt_path2.with_suffix(".npy").exists()
-                    ):
-                        continue
+        self.printt(f"todo-f0-{len(paths)}")
+        n = max(len(paths) // 5, 1)
+        for idx, (inp_path, opt_path1, opt_path2) in enumerate(paths):
+            try:
+                if idx % n == 0:
+                    self.printt(f"f0ing,now-{idx},all-{len(paths)},-{inp_path}")
 
-                    featur_pit = self.compute_f0(inp_path, f0_method, is_half, device)
-                    np.save(opt_path2, featur_pit, allow_pickle=False)  # nsf
-                    coarse_pit = self.coarse_f0(featur_pit)
-                    np.save(opt_path1, coarse_pit, allow_pickle=False)  # ori
-                except Exception:
-                    self.printt(f"f0fail-{idx}-{inp_path}-{traceback.format_exc()}")
+                if (opt_path1.with_suffix(".npy").exists()) and (
+                    opt_path2.with_suffix(".npy").exists()
+                ):
+                    continue
+
+                featur_pit = self.compute_f0(inp_path, f0_method, is_half, device)
+                np.save(opt_path2, featur_pit, allow_pickle=False)  # nsf
+                coarse_pit = self.coarse_f0(featur_pit)
+                np.save(opt_path1, coarse_pit, allow_pickle=False)  # ori
+            except Exception:
+                self.printt(f"f0fail-{idx}-{inp_path}-{traceback.format_exc()}")
 
 
 class FeatureExtractor:
