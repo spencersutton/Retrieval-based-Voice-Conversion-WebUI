@@ -362,7 +362,7 @@ def _change_f0(if_f0: bool, sample_rate: str, version: Literal["v1", "v2"]):
     return visible_update, visible_update, gen_path, dis_path
 
 
-def parse_epoch_from_train_log_line(line: str) -> int | None:
+def _parse_epoch_from_train_log_line(line: str) -> int | None:
     # Pattern 1: Train Epoch: X [...]
     match = re.search(r"Train Epoch:\s*(\d+)", line)
     if match:
