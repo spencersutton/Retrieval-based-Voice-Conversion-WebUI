@@ -483,7 +483,7 @@ def extract_pitch_config(
     gr.Markdown(value=i18n("## Extract Pitch"))
     with gr.Row():
         with gr.Column():
-            gpus6 = gr.Textbox(
+            gpus = gr.Textbox(
                 label=i18n("以-分隔输入使用的卡号, 例如   0-1-2   使用卡0和卡1和卡2"),
                 value=shared.gpus,
                 interactive=True,
@@ -504,7 +504,7 @@ def extract_pitch_config(
                 - RMVPE is the best and slightly CPU/GPU-intensive."""
                 )
             )
-            f0method8 = gr.Radio(
+            f0_method = gr.Radio(
                 label="Method",
                 choices=["pm", "harvest", "dio", "rmvpe", "rmvpe_gpu"],
                 value="rmvpe_gpu",
@@ -518,27 +518,28 @@ def extract_pitch_config(
                 interactive=True,
                 visible=f0_GPU_visible,
             )
-        with gr.Column():
-            extract_f0_btn = gr.Button(i18n("Extract"), variant="primary")
-            info2 = gr.Textbox(label=i18n("Info"), value="", max_lines=8)
-            f0method8.change(
+            f0_method.change(
                 fn=_change_f0_method,
-                inputs=[f0method8],
+                inputs=[f0_method],
                 outputs=[gpus_rmvpe],
             )
+        with gr.Column():
+            extract_f0_btn = gr.Button(i18n("Extract"), variant="primary")
+            info = gr.Textbox(label=i18n("Info"), value="", max_lines=8)
+
             extract_f0_btn.click(
                 _extract_f0_feature,
                 [
-                    gpus6,
+                    gpus,
                     cpu_count,
-                    f0method8,
+                    f0_method,
                     use_f0,
                     experiment_name,
                     model_version,
                     gpus_rmvpe,
                 ],
-                [info2],
+                [info],
                 api_name="train_extract_f0_feature",
             )
 
-    return f0method8, gpus_rmvpe
+    return f0_method, gpus_rmvpe
