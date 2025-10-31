@@ -223,7 +223,7 @@ class FeatureExtractor:
             with safe_globals([Dictionary]):
                 models, saved_cfg, _task = (
                     fairseq.checkpoint_utils.load_model_ensemble_and_task(
-                        [model_path],
+                        [str(model_path)],
                         suffix="",
                     )
                 )
