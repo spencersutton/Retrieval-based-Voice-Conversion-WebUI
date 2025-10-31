@@ -2,7 +2,7 @@ import re
 import traceback
 import typing
 from collections.abc import Generator
-from multiprocessing import Process
+from multiprocessing import get_context
 from pathlib import Path
 from typing import Final, Literal
 
@@ -375,8 +375,9 @@ def _extract_f0_feature(
         # Run F0 extraction with multiprocessing
         if f0_method != "rmvpe_gpu":
             # Multi-process for CPU-based methods
+            ctx = get_context("spawn")
             ps = [
-                Process(
+                ctx.Process(
                     target=f0_extractor.extract_f0_batch,
                     args=(paths[i::n_p], f0_method, False, "cpu"),
                 )
@@ -390,8 +391,9 @@ def _extract_f0_feature(
             # Multi-GPU or multi-device for RMVPE
             if gpus_rmvpe != "-":
                 gpus_rmvpe_list = gpus_rmvpe.split("-")
+                ctx = get_context("spawn")
                 ps = [
-                    Process(
+                    ctx.Process(
                         target=f0_extractor.extract_f0_batch,
                         args=(
                             paths[idx :: len(gpus_rmvpe_list)],
@@ -430,7 +432,8 @@ def _extract_f0_feature(
 
     # Split files across processes
     gpus = gpus_str.split("-")
-    ps: list[Process] = []
+    ctx = get_context("spawn")
+    ps: list = []
 
     for idx, gpu_id in enumerate(gpus):
         device_for_extraction = DEVICE
@@ -438,7 +441,7 @@ def _extract_f0_feature(
             device_for_extraction = f"cuda:{gpu_id}"
 
         file_subset = all_files[idx :: len(gpus)]
-        p = Process(
+        p = ctx.Process(
             target=feature_extractor.extract_features_batch,
             args=(file_subset, device_for_extraction, version, shared.config.is_half),
         )
