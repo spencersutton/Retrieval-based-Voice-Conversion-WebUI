@@ -23,6 +23,8 @@ from shared import i18n
 
 f0_GPU_visible = not shared.config.dml
 
+HUBERT_PATH = Path("assets/hubert/hubert_base.pt")
+
 
 def _write_to_log(log_file: Path, message: str):
     """Write message to log file and print it."""
@@ -182,7 +184,7 @@ class F0FeatureExtractor:
 class FeatureExtractor:
     """Handles HuBERT feature extraction."""
 
-    def __init__(self, exp_dir: str, log_file: Path):
+    def __init__(self, exp_dir: Path, log_file: Path):
         self.exp_dir = Path(exp_dir)
         self.log_file = Path(log_file)
         self.model = None
@@ -251,13 +253,13 @@ class FeatureExtractor:
         is_half: bool,
     ):
         """Extract features for a batch of files."""
-        wavPath = self.exp_dir / shared.WAVS_16K_DIR_NAME
-        outPath = (
+        wav_path = self.exp_dir / shared.WAVS_16K_DIR_NAME
+        out_path = (
             self.exp_dir / shared.FEATURE_DIR_NAME
             if version == "v1"
             else self.exp_dir / shared.FEATURE_DIR_NAME_V2
         )
-        outPath.mkdir(parents=True, exist_ok=True)
+        out_path.mkdir(parents=True, exist_ok=True)
 
         n = max(1, len(file_list) // 10)
         if not file_list:
@@ -268,8 +270,8 @@ class FeatureExtractor:
             try:
                 if file.suffix != ".wav":
                     continue
-                wav_path = wavPath / file.name
-                out_path = outPath / file.name.replace("wav", "npy")
+                wav_path = wav_path / file.name
+                out_path = out_path / file.name.replace("wav", "npy")
 
                 if out_path.exists():
                     continue
@@ -410,8 +412,7 @@ def _extract_f0_feature(
     # Feature extraction
     _write_to_log(log_file, f"Starting feature extraction with version: {version}")
 
-    feature_extractor = FeatureExtractor(str(log_dir_path), log_file)
-    model_path = Path("assets/hubert/hubert_base.pt")
+    feature_extractor = FeatureExtractor(log_dir_path, log_file)
 
     # Determine device
     device = "cpu"
@@ -425,12 +426,12 @@ def _extract_f0_feature(
         device = torch_directml.device(torch_directml.default_device())
 
     # Load model
-    if not feature_extractor.load_model(model_path, device, shared.config.is_half):
+    if not feature_extractor.load_model(HUBERT_PATH, device, shared.config.is_half):
         yield log_file.read_text(encoding="utf-8")
         return
 
-    wavPath = log_dir_path / shared.WAVS_16K_DIR_NAME
-    all_files = sorted(wavPath.iterdir())
+    wav_path = log_dir_path / shared.WAVS_16K_DIR_NAME
+    all_files = sorted(wav_path.iterdir())
 
     # Split files across processes
     gpus = gpus_str.split("-")
