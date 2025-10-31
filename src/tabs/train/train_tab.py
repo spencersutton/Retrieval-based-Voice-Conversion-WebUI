@@ -21,7 +21,7 @@ from sklearn.cluster import MiniBatchKMeans
 
 import shared
 from shared import i18n
-from tabs.train.create_preprocess_section import create_preprocess_section
+from tabs.train.preprocess import create_preprocess_section
 
 # Constants
 f0_GPU_visible = not shared.config.dml
