@@ -442,7 +442,7 @@ def _extract_f0_feature(
 
     # Split files across processes
     gpus = gpus_str.split("-")
-    ps = []
+    ps: list[Process] = []
 
     for idx, gpu_id in enumerate(gpus):
         device_for_extraction = "cpu"
