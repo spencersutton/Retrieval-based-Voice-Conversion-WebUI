@@ -363,24 +363,27 @@ def _extract_f0_feature(
             paths.append((inp_path, opt_root1 / name, opt_root2 / name))
 
         # Determine device for RMVPE
-        rmvpe_device = "cpu"
-        if f0_method == "rmvpe_gpu" and torch.cuda.is_available():
-            rmvpe_device = "cuda"
-        elif f0_method == "rmvpe_gpu" and shared.config.dml:
-            import torch_directml  # type: ignore  # noqa: PLC0415
+        match f0_method:
+            case "rmvpe_gpu" if torch.cuda.is_available():
+                rmvpe_device = "cuda"
+            case "rmvpe_gpu" if shared.config.dml:
+                import torch_directml  # type: ignore  # noqa: PLC0415
 
-            rmvpe_device = torch_directml.device(torch_directml.default_device())
+                rmvpe_device = torch_directml.device(torch_directml.default_device())
+            case _:
+                rmvpe_device = "cpu"
 
         # Run F0 extraction with multiprocessing
         if f0_method != "rmvpe_gpu":
             # Multi-process for CPU-based methods
-            ps = []
-            for i in range(n_p):
-                p = Process(
+            ps = [
+                Process(
                     target=f0_extractor.extract_f0_batch,
                     args=(paths[i::n_p], f0_method, False, "cpu"),
                 )
-                ps.append(p)
+                for i in range(n_p)
+            ]
+            for p in ps:
                 p.start()
             for p in ps:
                 p.join()
@@ -388,19 +391,19 @@ def _extract_f0_feature(
             # Multi-GPU or multi-device for RMVPE
             if gpus_rmvpe != "-":
                 gpus_rmvpe_list = gpus_rmvpe.split("-")
-                ps: list[Process] = []
-                for idx, gpu_id in enumerate(gpus_rmvpe_list):
-                    device = f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu"
-                    p = Process(
+                ps = [
+                    Process(
                         target=f0_extractor.extract_f0_batch,
                         args=(
                             paths[idx :: len(gpus_rmvpe_list)],
                             "rmvpe",
                             shared.config.is_half,
-                            device,
+                            f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu",
                         ),
                     )
-                    ps.append(p)
+                    for idx, gpu_id in enumerate(gpus_rmvpe_list)
+                ]
+                for p in ps:
                     p.start()
                 for p in ps:
                     p.join()
