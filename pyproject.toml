@@ -36,10 +36,6 @@ dependencies = [
     "tqdm>=4.63.1",
 ]
 
-[build-system]
-requires = ["setuptools>=61.0", "wheel", "cython"]
-build-backend = "setuptools.build_meta"
-
 
 [dependency-groups]
 dev = ["pyright>=1.1.407", "setuptools>=80.9.0"]
@@ -51,9 +47,6 @@ gtk = [
     "pygobject>=3.52.3",
     "pygobject-stubs>=2.13.0",
 ]
-
-[tool.setuptools]
-packages = ["infer", "lib", "tabs", "i18n"]
 
 [tool.uv]
 package = true
