@@ -5,12 +5,12 @@ import gradio as gr
 import torch
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-
-import shared
 from tabs.ckpt_processing_tab import create_ckpt_processing_tab
 from tabs.inference_tab import create_inference_tab
 from tabs.train_tab import create_train_tab
 from tabs.vocal_tab import create_vocal_tab
+
+import shared
 
 # Try to import the Dictionary class in a way compatible with different fairseq versions,
 # and only register it with torch.serialization if the import succeeds.

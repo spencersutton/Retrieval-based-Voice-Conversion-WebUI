@@ -52,9 +52,6 @@ gtk = [
     "pygobject-stubs>=2.13.0",
 ]
 
-[tool.setuptools]
-packages = ["infer", "lib", "tabs", "i18n"]
-
 [tool.uv]
 package = true
 
