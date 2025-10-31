@@ -1,8 +1,10 @@
+from pathlib import Path
+
 import av
 import numpy as np
 
 
-def load_audio(file: str, sr: int) -> np.ndarray:
+def load_audio(file: Path, sr: int) -> np.ndarray:
     """Load and resample audio file to mono at the specified sample rate.
 
     Args:

@@ -76,7 +76,7 @@ class F0FeatureExtractor:
         _write_to_log(self.log_file, message)
 
     def compute_f0(
-        self, path: str, f0_method: str, is_half: bool = False, device: str = "cpu"
+        self, path: Path, f0_method: str, is_half: bool = False, device: str = "cpu"
     ) -> np.ndarray:
         """Compute F0 using the specified method."""
         x = load_audio(path, self.fs)
@@ -148,7 +148,7 @@ class F0FeatureExtractor:
 
     def extract_f0_batch(
         self,
-        paths: list[tuple[str, str, str]],
+        paths: list[tuple[Path, Path, Path]],
         f0_method: str,
         is_half: bool = False,
         device: str = "cpu",
@@ -164,8 +164,8 @@ class F0FeatureExtractor:
                     if idx % n == 0:
                         self.printt(f"f0ing,now-{idx},all-{len(paths)},-{inp_path}")
 
-                    if os.path.exists(opt_path1 + ".npy") and os.path.exists(
-                        opt_path2 + ".npy"
+                    if (opt_path1.with_suffix(".npy").exists()) and (
+                        opt_path2.with_suffix(".npy").exists()
                     ):
                         continue
 
@@ -224,7 +224,7 @@ class FeatureExtractor:
             self.printt(f"Error loading model: {traceback.format_exc()}")
             return False
 
-    def readwave(self, wav_path: str, normalize: bool = False) -> torch.Tensor:
+    def readwave(self, wav_path: Path, normalize: bool = False) -> torch.Tensor:
         """Read and prepare audio file."""
         wav, sr = sf.read(wav_path)
         assert sr == 16000, f"Sample rate must be 16000, got {sr}"
@@ -243,7 +243,7 @@ class FeatureExtractor:
 
     def extract_features_batch(
         self,
-        file_list: list[str],
+        file_list: list[Path],
         device: str,
         version: Literal["v1", "v2"],
         is_half: bool,
@@ -264,11 +264,11 @@ class FeatureExtractor:
             self.printt(f"all-feature-{len(file_list)}")
             for idx, file in enumerate(file_list):
                 try:
-                    if file.endswith(".wav"):
-                        wav_path = f"{wavPath}/{file}"
-                        out_path = f"{outPath}/{file.replace('wav', 'npy')}"
+                    if file.suffix == ".wav":
+                        wav_path = wavPath / file.name
+                        out_path = outPath / file.name.replace("wav", "npy")
 
-                        if os.path.exists(out_path):
+                        if out_path.exists():
                             continue
 
                         assert self.saved_cfg is not None
@@ -288,6 +288,7 @@ class FeatureExtractor:
                         }
 
                         with torch.no_grad():
+                            assert self.model is not None
                             logits = self.model.extract_features(**inputs)
                             feats = (
                                 self.model.final_proj(logits[0])
@@ -427,8 +428,8 @@ def _extract_f0_feature(
         yield log_file.read_text(encoding="utf-8")
         return
 
-    wavPath = f"{log_dir_path}/{shared.WAVS_16K_DIR_NAME}"
-    all_files = sorted(os.listdir(wavPath))
+    wavPath = log_dir_path / shared.WAVS_16K_DIR_NAME
+    all_files = sorted(wavPath.iterdir())
 
     # Split files across processes
     gpus = gpus_str.split("-")
