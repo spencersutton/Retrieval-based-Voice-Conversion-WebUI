@@ -9,7 +9,7 @@ import gradio as gr
 
 import shared
 from shared import i18n
-from tabs.train.train_tab import monitor_log_with_progress
+from tabs.train.log import monitor_log_with_progress
 
 f0_GPU_visible = not shared.config.dml
 
