@@ -88,6 +88,7 @@ extend-select = [
     "PTH",
     "Q",
     "RUF",
+    "SLF",
     "TC",
     "TID",
     "UP",

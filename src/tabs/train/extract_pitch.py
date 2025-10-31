@@ -3,7 +3,7 @@ import traceback
 from collections.abc import Generator
 from multiprocessing import Process
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal
 
 import fairseq.checkpoint_utils
 import gradio as gr
@@ -21,9 +21,17 @@ from infer.lib.audio import load_audio
 from infer.lib.rmvpe import RMVPE
 from shared import i18n
 
-f0_GPU_visible = not shared.config.dml
+f0_GPU_visible: Final = not shared.config.dml
 
-HUBERT_PATH = Path("assets/hubert/hubert_base.pt")
+HUBERT_PATH: Final = Path("assets/hubert/hubert_base.pt")
+
+FS: Final = 16000
+HOP: Final = 160
+F0_BIN: Final = 256
+F0_MAX: Final = 1100.0
+F0_MIN: Final = 50.0
+F0_MEL_MIN: Final[float] = 1127 * np.log(1 + F0_MIN / 700)
+F0_MEL_MAX: Final[float] = 1127 * np.log(1 + F0_MAX / 700)
 
 
 def _write_to_log(log_file: Path, message: str):
@@ -59,19 +67,12 @@ def _parse_f0_feature_log(content: str) -> tuple[int, int]:
 class F0FeatureExtractor:
     """Handles F0 and feature extraction with support for multiple methods."""
 
-    def __init__(self, exp_dir: Path, log_file: Path):
-        self.exp_dir = exp_dir
+    def __init__(self, log_file: Path):
         self.log_file = log_file
-        self.fs = 16000
-        self.hop = 160
-        self.f0_bin = 256
-        self.f0_max = 1100.0
-        self.f0_min = 50.0
-        self.f0_mel_min = 1127 * np.log(1 + self.f0_min / 700)
-        self.f0_mel_max = 1127 * np.log(1 + self.f0_max / 700)
+
         self.model_rmvpe = None
 
-    def printt(self, message: str):
+    def _printt(self, message: str):
         """Log message to both console and file."""
         print(message)
         _write_to_log(self.log_file, message)
@@ -84,18 +85,18 @@ class F0FeatureExtractor:
         device: str = "cpu",
     ) -> np.ndarray:
         """Compute F0 using the specified method."""
-        x = load_audio(path, self.fs)
-        p_len = x.shape[0] // self.hop
+        x = load_audio(path, FS)
+        p_len = x.shape[0] // HOP
 
         if f0_method == "pm":
             time_step = 160 / 16000 * 1000
             f0 = (
-                parselmouth.Sound(x, self.fs)
+                parselmouth.Sound(x, FS)
                 .to_pitch_ac(
                     time_step=time_step / 1000,
                     voicing_threshold=0.6,
-                    pitch_floor=self.f0_min,
-                    pitch_ceiling=self.f0_max,
+                    pitch_floor=F0_MIN,
+                    pitch_ceiling=F0_MAX,
                 )
                 .selected_array["frequency"]
             )
@@ -107,24 +108,24 @@ class F0FeatureExtractor:
         elif f0_method == "harvest":
             f0, t = pyworld.harvest(  # type: ignore
                 x.astype(np.double),
-                fs=self.fs,
-                f0_ceil=self.f0_max,
-                f0_floor=self.f0_min,
-                frame_period=1000 * self.hop / self.fs,
+                fs=FS,
+                f0_ceil=F0_MAX,
+                f0_floor=F0_MIN,
+                frame_period=1000 * HOP / FS,
             )
-            f0 = pyworld.stonemask(x.astype(np.double), f0, t, self.fs)  # type: ignore
+            f0 = pyworld.stonemask(x.astype(np.double), f0, t, FS)  # type: ignore
         elif f0_method == "dio":
             f0, t = pyworld.dio(  # type: ignore
                 x.astype(np.double),
-                fs=self.fs,
-                f0_ceil=self.f0_max,
-                f0_floor=self.f0_min,
-                frame_period=1000 * self.hop / self.fs,
+                fs=FS,
+                f0_ceil=F0_MAX,
+                f0_floor=F0_MIN,
+                frame_period=1000 * HOP / FS,
             )
-            f0 = pyworld.stonemask(x.astype(np.double), f0, t, self.fs)  # type: ignore
+            f0 = pyworld.stonemask(x.astype(np.double), f0, t, FS)  # type: ignore
         elif f0_method == "rmvpe":
             if self.model_rmvpe is None:
-                self.printt("Loading rmvpe model")
+                self._printt("Loading rmvpe model")
                 self.model_rmvpe = RMVPE(
                     "assets/rmvpe/rmvpe.pt", is_half=is_half, device=device
                 )
@@ -137,12 +138,12 @@ class F0FeatureExtractor:
     def coarse_f0(self, f0: np.ndarray) -> np.ndarray:
         """Convert F0 to coarse representation."""
         f0_mel = 1127 * np.log(1 + f0 / 700)
-        f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - self.f0_mel_min) * (
-            self.f0_bin - 2
-        ) / (self.f0_mel_max - self.f0_mel_min) + 1
+        f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - F0_MEL_MIN) * (F0_BIN - 2) / (
+            F0_MEL_MAX - F0_MEL_MIN
+        ) + 1
 
         f0_mel[f0_mel <= 1] = 1
-        f0_mel[f0_mel > self.f0_bin - 1] = self.f0_bin - 1
+        f0_mel[f0_mel > F0_BIN - 1] = F0_BIN - 1
         f0_coarse = np.rint(f0_mel).astype(int)
 
         assert f0_coarse.max() <= 255 and f0_coarse.min() >= 1, (
@@ -160,14 +161,14 @@ class F0FeatureExtractor:
     ):
         """Extract F0 for a batch of files."""
         if not paths:
-            self.printt("no-f0-todo")
+            self._printt("no-f0-todo")
             return
-        self.printt(f"todo-f0-{len(paths)}")
+        self._printt(f"todo-f0-{len(paths)}")
         n = max(len(paths) // 5, 1)
         for idx, (inp_path, opt_path1, opt_path2) in enumerate(paths):
             try:
                 if idx % n == 0:
-                    self.printt(f"f0ing,now-{idx},all-{len(paths)},-{inp_path}")
+                    self._printt(f"f0ing,now-{idx},all-{len(paths)},-{inp_path}")
                 if (
                     opt_path1.with_suffix(".npy").exists()
                     and opt_path2.with_suffix(".npy").exists()
@@ -178,7 +179,7 @@ class F0FeatureExtractor:
                 coarse_pit = self.coarse_f0(featur_pit)
                 np.save(opt_path1, coarse_pit, allow_pickle=False)  # ori
             except Exception:
-                self.printt(f"f0fail-{idx}-{inp_path}-{traceback.format_exc()}")
+                self._printt(f"f0fail-{idx}-{inp_path}-{traceback.format_exc()}")
 
 
 class FeatureExtractor:
@@ -190,7 +191,7 @@ class FeatureExtractor:
         self.model = None
         self.saved_cfg = None
 
-    def printt(self, message: str):
+    def _printt(self, message: str):
         """Log message to both console and file."""
         print(message)
         _write_to_log(self.log_file, message)
@@ -198,14 +199,14 @@ class FeatureExtractor:
     def load_model(self, model_path: Path, device: str, is_half: bool) -> bool:
         """Load HuBERT model."""
         if not model_path.exists():
-            self.printt(
+            self._printt(
                 f"Error: Extracting is shut down because {model_path} does not exist, "
                 "you may download it from https://huggingface.co/lj1995/VoiceConversionWebUI/tree/main"
             )
             return False
 
         try:
-            self.printt(f"load model(s) from {model_path}")
+            self._printt(f"load model(s) from {model_path}")
             with safe_globals([Dictionary]):
                 models, saved_cfg, _task = (
                     fairseq.checkpoint_utils.load_model_ensemble_and_task(
@@ -217,7 +218,7 @@ class FeatureExtractor:
             self.saved_cfg = saved_cfg
 
             self.model = self.model.to(device)
-            self.printt(f"move model to {device}")
+            self._printt(f"move model to {device}")
 
             if is_half and device not in ["mps", "cpu"]:
                 self.model = self.model.half()
@@ -225,7 +226,7 @@ class FeatureExtractor:
             self.model.eval()
             return True
         except Exception:
-            self.printt(f"Error loading model: {traceback.format_exc()}")
+            self._printt(f"Error loading model: {traceback.format_exc()}")
             return False
 
     def readwave(self, wav_path: Path, normalize: bool = False) -> torch.Tensor:
@@ -263,9 +264,9 @@ class FeatureExtractor:
 
         n = max(1, len(file_list) // 10)
         if not file_list:
-            self.printt("no-feature-todo")
+            self._printt("no-feature-todo")
             return
-        self.printt(f"all-feature-{len(file_list)}")
+        self._printt(f"all-feature-{len(file_list)}")
         for idx, file in enumerate(file_list):
             try:
                 if file.suffix != ".wav":
@@ -303,14 +304,14 @@ class FeatureExtractor:
                 if np.isnan(feats).sum() == 0:
                     np.save(out_path, feats, allow_pickle=False)
                 else:
-                    self.printt(f"{file}-contains nan")
+                    self._printt(f"{file}-contains nan")
 
                 if idx % n == 0:
-                    self.printt(f"now-{len(file_list)},all-{idx},{file},{feats.shape}")
+                    self._printt(f"now-{len(file_list)},all-{idx},{file},{feats.shape}")
             except Exception:
-                self.printt(traceback.format_exc())
+                self._printt(traceback.format_exc())
 
-        self.printt("all-feature-done")
+        self._printt("all-feature-done")
 
 
 def _extract_f0_feature(
@@ -341,7 +342,7 @@ def _extract_f0_feature(
     if if_f0:
         _write_to_log(log_file, f"Starting F0 extraction with method: {f0_method}")
 
-        f0_extractor = F0FeatureExtractor(log_dir_path, log_file)
+        f0_extractor = F0FeatureExtractor(log_file)
         inp_root = log_dir_path / shared.WAVS_16K_DIR_NAME
         opt_root1 = log_dir_path / shared.F0_DIR_NAME
         opt_root2 = log_dir_path / shared.F0_NSF_DIR_NAME
