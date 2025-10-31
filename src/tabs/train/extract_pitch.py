@@ -34,6 +34,16 @@ F0_MIN: Final = 50.0
 F0_MEL_MIN: Final[float] = 1127 * np.log(1 + F0_MIN / 700)
 F0_MEL_MAX: Final[float] = 1127 * np.log(1 + F0_MAX / 700)
 
+DEVICE = "cpu"
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+elif torch.backends.mps.is_available():
+    DEVICE = "mps"
+elif shared.config.dml:
+    import torch_directml  # type: ignore
+
+    DEVICE = torch_directml.device(torch_directml.default_device())
+
 
 def _write_to_log(log_file: Path, message: str):
     """Write message to log file and print it."""
@@ -362,17 +372,6 @@ def _extract_f0_feature(
             name = inp_path.name
             paths.append((inp_path, opt_root1 / name, opt_root2 / name))
 
-        # Determine device for RMVPE
-        match f0_method:
-            case "rmvpe_gpu" if torch.cuda.is_available():
-                rmvpe_device = "cuda"
-            case "rmvpe_gpu" if shared.config.dml:
-                import torch_directml  # type: ignore  # noqa: PLC0415
-
-                rmvpe_device = torch_directml.device(torch_directml.default_device())
-            case _:
-                rmvpe_device = "cpu"
-
         # Run F0 extraction with multiprocessing
         if f0_method != "rmvpe_gpu":
             # Multi-process for CPU-based methods
@@ -398,7 +397,7 @@ def _extract_f0_feature(
                             paths[idx :: len(gpus_rmvpe_list)],
                             "rmvpe",
                             shared.config.is_half,
-                            f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu",
+                            f"cuda:{gpu_id}" if DEVICE == "cuda" else "cpu",
                         ),
                     )
                     for idx, gpu_id in enumerate(gpus_rmvpe_list)
@@ -409,7 +408,7 @@ def _extract_f0_feature(
                     p.join()
             else:
                 # DML device
-                f0_extractor.extract_f0_batch(paths, "rmvpe", False, rmvpe_device)
+                f0_extractor.extract_f0_batch(paths, "rmvpe", False, DEVICE)
 
         _write_to_log(log_file, "F0 extraction completed")
         log_content = log_file.read_text(encoding="utf-8")
@@ -421,19 +420,8 @@ def _extract_f0_feature(
 
     feature_extractor = FeatureExtractor(log_dir_path, log_file)
 
-    # Determine device
-    device = "cpu"
-    if torch.cuda.is_available():
-        device = "cuda"
-    elif torch.backends.mps.is_available():
-        device = "mps"
-    elif shared.config.dml:
-        import torch_directml  # type: ignore  # noqa: PLC0415
-
-        device = torch_directml.device(torch_directml.default_device())
-
     # Load model
-    if not feature_extractor.load_model(HUBERT_PATH, device, shared.config.is_half):
+    if not feature_extractor.load_model(HUBERT_PATH, DEVICE, shared.config.is_half):
         yield log_file.read_text(encoding="utf-8")
         return
 
@@ -445,15 +433,9 @@ def _extract_f0_feature(
     ps: list[Process] = []
 
     for idx, gpu_id in enumerate(gpus):
-        device_for_extraction = "cpu"
-        if torch.cuda.is_available():
+        device_for_extraction = DEVICE
+        if DEVICE == "cuda":
             device_for_extraction = f"cuda:{gpu_id}"
-        elif shared.config.dml:
-            import torch_directml  # type: ignore # noqa: PLC0415
-
-            device_for_extraction = torch_directml.device(
-                torch_directml.default_device()
-            )
 
         file_subset = all_files[idx :: len(gpus)]
         p = Process(
