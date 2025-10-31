@@ -3,7 +3,6 @@ import json
 import os
 import platform
 import re
-import shutil
 import subprocess
 import threading
 import traceback
@@ -21,8 +20,8 @@ import pandas as pd
 from sklearn.cluster import MiniBatchKMeans
 
 import shared
-from infer.modules.train.preprocess import preprocess_trainset
 from shared import i18n
+from tabs.train.create_preprocess_section import create_preprocess_section
 
 # Constants
 f0_GPU_visible = not shared.config.dml
@@ -51,7 +50,7 @@ def _change_f0_method(f0_method: str):
     }
 
 
-def _monitor_log_with_progress(
+def monitor_log_with_progress(
     log_file: Path,
     done_event: threading.Event,
     progress_callback,  # type: ignore
@@ -75,126 +74,6 @@ def _wait_for_processes(done_event: threading.Event, processes: list[Popen]):
     for p in processes:
         p.wait()
     done_event.set()
-
-
-def _preprocess_dataset(
-    audio_dir: Path,
-    exp_dir: Path,
-    sr: str,
-    n_p: int,
-    progress: gr.Progress = gr.Progress(),
-) -> Generator[str]:
-    """
-    Preprocesses an audio dataset by validating the input directory, counting files, and running a preprocessing script.
-    Progress is reported via a Gradio progress object, and status messages are yielded throughout the process.
-
-    Args:
-        audio_dir (Path): Path to the directory containing audio files to preprocess.
-        exp_dir (Path): Path to the experiment directory for storing logs.
-        sr (str): Sample rate key to look up the actual sample rate value.
-        n_p (int): Number of processes or parallel workers to use for preprocessing.
-        progress (gr.Progress, optional): Gradio progress object for reporting progress. Defaults to gr.Progress().
-
-    Yields:
-        str: Status messages, warnings, errors, and the final log content.
-    """
-    # Validate audio_dir and count files
-    if not audio_dir.is_dir():
-        error_msg = (
-            f"Error: Audio directory '{audio_dir}' not found or is not a directory."
-        )
-        shared.logger.error(error_msg)
-        yield error_msg
-        return
-
-    try:
-        file_names = [f for f in audio_dir.iterdir() if f.is_file()]
-        actual_file_count = len(file_names)
-    except OSError as e:
-        error_msg = f"Error: Could not access audio directory '{audio_dir}': {e}"
-        shared.logger.error(error_msg)
-        yield error_msg
-        return
-
-    shared.logger.info(
-        f"Found {actual_file_count} files in audio directory: {audio_dir}"
-    )
-
-    if actual_file_count == 0:
-        warning_msg = f"Warning: No files found in '{audio_dir}'. Preprocessing script will run, but may not find items to process."
-        shared.logger.warning(warning_msg)
-        yield warning_msg
-        if progress:
-            progress(
-                1.0,
-                desc=f"No files found in {audio_dir}. Preprocessing step initiated.",
-            )
-        return
-
-    sr_int = int(sr.replace("k", "000"))
-    log_dir = Path.cwd() / "logs" / exp_dir
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "preprocess.log"
-    log_file.touch()
-
-    # Run preprocess_trainset directly in a thread
-    done_event = threading.Event()
-
-    def run_preprocess():
-        try:
-            preprocess_trainset(
-                inp_root=audio_dir,
-                sr=sr_int,
-                n_p=n_p,
-                exp_dir=log_dir,
-                per=shared.config.preprocess_per,
-                no_parallel=shared.config.no_parallel,
-            )
-        finally:
-            done_event.set()
-
-    threading.Thread(target=run_preprocess, daemon=True).start()
-
-    def update_progress(content: str):
-        count = content.count("Success")
-        progress(
-            float(count) / actual_file_count,
-            desc=f"Processed {count}/{actual_file_count} audio...",
-        )
-
-    log = _monitor_log_with_progress(log_file, done_event, update_progress)
-    shared.logger.info(log)
-    yield log
-
-
-def _preprocess_meta(
-    experiment_name: str,
-    audio_dir_str: str,
-    audio_files_str: list[str] | None,
-    sr: str,
-    n_p: int,
-    progress: gr.Progress = gr.Progress(),
-):
-    audio_dir = Path(audio_dir_str)
-    save_dir = audio_dir / experiment_name
-    save_dir.mkdir(parents=True, exist_ok=True)
-
-    # Copy selected audio files to experiment directory if provided
-    if audio_files_str:
-        audio_files = [Path(f) for f in audio_files_str]
-        total_files = len(audio_files)
-        for idx, audio_file in enumerate(audio_files):
-            shutil.copy(audio_file, save_dir / audio_file.name)
-            progress(idx / total_files, desc="Copying files...")
-
-    # Run preprocessing on the prepared directory
-    yield from _preprocess_dataset(
-        audio_dir=save_dir,
-        exp_dir=Path(experiment_name),
-        sr=sr,
-        n_p=n_p,
-        progress=progress,
-    )
 
 
 def _parse_f0_feature_log(content: str) -> tuple[int, int]:
@@ -259,7 +138,7 @@ def _extract_f0_feature(
                 target=_wait_for_process, args=(done_event, ps[0]), daemon=True
             ).start()
 
-        return _monitor_log_with_progress(
+        return monitor_log_with_progress(
             log_file, done_event, update_progress, poll_interval=1
         )
 
@@ -733,74 +612,6 @@ def _train_index(
     yield "\n".join(infos)
 
 
-# TODO: Fix this
-def _one_click_training(
-    exp_dir_str: str,
-    sample_rate: str,
-    if_f0: bool,
-    trainset_dir: str,
-    spk_id: str,
-    np: int,
-    f0method: str,
-    save_epoch: int,
-    total_epoch: int,
-    batch_size: int,
-    if_save_latest: bool,
-    pretrained_G: str,
-    pretrained_D: str,
-    gpus: str,
-    if_cache_gpu: bool,
-    if_save_every_weights: bool,
-    version: Literal["v1", "v2"],
-    gpus_rmvpe: str,
-) -> Generator[str]:
-    infos: list[str] = []
-
-    def get_info_str(strr: str) -> str:
-        infos.append(strr)
-        return "\n".join(infos)
-
-    yield get_info_str(shared.i18n("step1: processing data..."))
-    [
-        get_info_str(_)
-        for _ in _preprocess_dataset(
-            Path(trainset_dir), Path(exp_dir_str), sample_rate, np
-        )
-    ]
-
-    yield get_info_str(shared.i18n("step2: extracting feature & pitch"))
-    [
-        get_info_str(_)
-        for _ in _extract_f0_feature(
-            gpus, np, f0method, if_f0, exp_dir_str, version, gpus_rmvpe
-        )
-    ]
-
-    yield get_info_str(shared.i18n("step3a:正在训练模型"))
-    _click_train(
-        exp_dir_str,
-        sample_rate,
-        if_f0,
-        spk_id,
-        save_epoch,
-        total_epoch,
-        batch_size,
-        if_save_latest,
-        pretrained_G,
-        pretrained_D,
-        gpus,
-        if_cache_gpu,
-        if_save_every_weights,
-        version,
-    )
-    yield get_info_str(
-        i18n("训练结束, 您可查看控制台训练日志或实验文件夹下的train.log")
-    )
-
-    [get_info_str(_) for _ in _train_index(exp_dir_str, version)]
-    yield get_info_str(i18n("全流程结束!"))
-
-
 def create_train_tab():
     with gr.TabItem(i18n("Train")):
         # Experiment Config
@@ -841,44 +652,7 @@ def create_train_tab():
 
         # Preprocess
         with gr.Group():
-            gr.Markdown(value=i18n("## Preprocess"))
-            spk_id = gr.Slider(
-                minimum=0,
-                maximum=4,
-                step=1,
-                label=i18n("Speaker ID"),
-                value=0,
-                interactive=True,
-                visible=False,
-            )
-            with gr.Row():
-                with gr.Column():
-                    audio_data_root = gr.Textbox(
-                        label=i18n("Audio Directory"),
-                        value=i18n("./datasets"),
-                    )
-                    audio_files = gr.Files(
-                        type="filepath", label=i18n("Audio Files"), file_types=["audio"]
-                    )
-                with gr.Column():
-                    preprocessing_btn = gr.Button(i18n("Preprocess"), variant="primary")
-                    info1 = gr.Textbox(
-                        label=i18n("Info"),
-                        value="",
-                        lines=4,
-                    )
-                    preprocessing_btn.click(
-                        _preprocess_meta,
-                        [
-                            experiment_name,
-                            audio_data_root,
-                            audio_files,
-                            target_sr,
-                            cpu_count,
-                        ],
-                        [info1],
-                        api_name="train_preprocess",
-                    )
+            spk_id = create_preprocess_section(experiment_name, target_sr, cpu_count)
 
         # Extract Pitch
         with gr.Group():
@@ -1030,7 +804,6 @@ def create_train_tab():
                 )
                 train_btn = gr.Button(i18n("Train"), variant="primary")
                 index_btn = gr.Button(i18n("Extra Feature Index"), variant="primary")
-                one_click_btn = gr.Button(i18n("Train Everything"), variant="primary")
 
                 training_plot = gr.LinePlot(
                     label=i18n("Training Metrics"),
@@ -1061,29 +834,4 @@ def create_train_tab():
                 )
                 index_btn.click(
                     _train_index, [experiment_name, model_version], training_info
-                )
-                one_click_btn.click(
-                    _one_click_training,
-                    [
-                        experiment_name,
-                        target_sr,
-                        use_f0,
-                        audio_data_root,
-                        spk_id,
-                        cpu_count,
-                        f0method8,
-                        save_epoch,
-                        total_epoch,
-                        batch_size,
-                        if_save_latest,
-                        pretrained_G,
-                        pretrained_D,
-                        gpus,
-                        if_cache_gpu,
-                        if_save_every_weights,
-                        model_version,
-                        gpus_rmvpe,
-                    ],
-                    training_info,
-                    api_name="train_start_all",
                 )
