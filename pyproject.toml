@@ -54,17 +54,20 @@ gtk = [
 
 [tool.uv]
 package = true
-
-[[tool.uv.index]]
-url = "https://pypi.org/simple"
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
 
 [[tool.uv.index]]
 url = "https://download.pytorch.org/whl/cu130"
-marker = "sys_platform == 'win32' or sys_platform == 'linux'"
+marker = "sys_platform == 'linux' and platform_machine == 'x86_64'"
 
 [[tool.uv.index]]
 url = "https://download.pytorch.org/whl/cpu"
 marker = "sys_platform == 'darwin'"
+
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
 
 [tool.uv.sources]
 fairseq = { git = "https://github.com/yamada-sexta/fairseq.git" }
