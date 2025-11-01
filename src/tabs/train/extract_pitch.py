@@ -22,6 +22,7 @@ from infer.lib.audio import load_audio
 from infer.lib.rmvpe import RMVPE
 from shared import i18n
 
+type FO_METHODS = Literal["pm", "harvest", "dio", "rmvpe", "rmvpe_gpu"]
 f0_GPU_visible: Final = not shared.config.dml
 
 HUBERT_PATH: Final = Path("assets/hubert/hubert_base.pt")
@@ -111,7 +112,7 @@ class F0FeatureExtractor:
     def _compute_f0(
         self,
         path: Path,
-        f0_method: Literal["pm", "harvest", "dio", "rmvpe"],
+        f0_method: FO_METHODS,
         is_half: bool = False,
         device: str = "cpu",
     ) -> np.ndarray:
@@ -171,7 +172,7 @@ class F0FeatureExtractor:
     def extract_f0_batch(
         self,
         paths: list[tuple[Path, Path, Path]],
-        f0_method: Literal["pm", "harvest", "dio", "rmvpe"],
+        f0_method: FO_METHODS,
         is_half: bool = False,
         device: str = "cpu",
     ):
@@ -335,7 +336,7 @@ class FeatureExtractor:
 def _extract_f0_worker(
     paths: list[tuple[Path, Path, Path]],
     log_file: Path,
-    f0_method: Literal["pm", "harvest", "dio", "rmvpe"],
+    f0_method: FO_METHODS,
     is_half: bool,
     device: str,
 ) -> None:
