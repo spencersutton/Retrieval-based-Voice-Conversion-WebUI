@@ -329,6 +329,24 @@ class FeatureExtractor:
         self._printt("all-feature-done")
 
 
+def _extract_features_worker(
+    file_list: list[Path],
+    exp_dir: Path,
+    log_file: Path,
+    device: str,
+    version: Literal["v1", "v2"],
+    is_half: bool,
+) -> None:
+    """Worker function to extract features in a child process. Loads model fresh."""
+    feature_extractor = FeatureExtractor(exp_dir, log_file)
+
+    # Load model fresh in this process
+    if not feature_extractor.load_model(HUBERT_PATH, device, is_half):
+        return
+
+    feature_extractor.extract_features_batch(file_list, device, version, is_half)
+
+
 def _extract_f0_feature(
     gpus_str: str,
     n_p: int,
@@ -420,13 +438,6 @@ def _extract_f0_feature(
     # Feature extraction
     _write_to_log(log_file, f"Starting feature extraction with version: {version}")
 
-    feature_extractor = FeatureExtractor(log_dir_path, log_file)
-
-    # Load model
-    if not feature_extractor.load_model(HUBERT_PATH, DEVICE, shared.config.is_half):
-        yield log_file.read_text(encoding="utf-8")
-        return
-
     wav_path = log_dir_path / shared.WAVS_16K_DIR_NAME
     all_files = sorted(wav_path.iterdir())
 
@@ -442,8 +453,15 @@ def _extract_f0_feature(
 
         file_subset = all_files[idx :: len(gpus)]
         p = ctx.Process(
-            target=feature_extractor.extract_features_batch,
-            args=(file_subset, device_for_extraction, version, shared.config.is_half),
+            target=_extract_features_worker,
+            args=(
+                file_subset,
+                log_dir_path,
+                log_file,
+                device_for_extraction,
+                version,
+                shared.config.is_half,
+            ),
         )
         ps.append(p)
         p.start()
