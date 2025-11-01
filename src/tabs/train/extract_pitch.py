@@ -75,6 +75,26 @@ def _parse_f0_feature_log(content: str) -> tuple[int, int]:
     return max_now, max_all
 
 
+# Pure function
+def _coarse_f0(f0: np.ndarray) -> np.ndarray:
+    """Convert F0 to coarse representation."""
+
+    f0_mel = 1127 * np.log(1 + f0 / 700)
+    f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - F0_MEL_MIN) * (F0_BIN - 2) / (
+        F0_MEL_MAX - F0_MEL_MIN
+    ) + 1
+
+    f0_mel[f0_mel <= 1] = 1
+    f0_mel[f0_mel > F0_BIN - 1] = F0_BIN - 1
+    f0_coarse = np.rint(f0_mel).astype(int)
+
+    assert f0_coarse.max() <= 255 and f0_coarse.min() >= 1, (
+        f0_coarse.max(),
+        f0_coarse.min(),
+    )
+    return f0_coarse
+
+
 class F0FeatureExtractor:
     """Handles F0 and feature extraction with support for multiple methods."""
 
@@ -148,23 +168,6 @@ class F0FeatureExtractor:
 
         return f0
 
-    def _coarse_f0(self, f0: np.ndarray) -> np.ndarray:
-        """Convert F0 to coarse representation."""
-        f0_mel = 1127 * np.log(1 + f0 / 700)
-        f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - F0_MEL_MIN) * (F0_BIN - 2) / (
-            F0_MEL_MAX - F0_MEL_MIN
-        ) + 1
-
-        f0_mel[f0_mel <= 1] = 1
-        f0_mel[f0_mel > F0_BIN - 1] = F0_BIN - 1
-        f0_coarse = np.rint(f0_mel).astype(int)
-
-        assert f0_coarse.max() <= 255 and f0_coarse.min() >= 1, (
-            f0_coarse.max(),
-            f0_coarse.min(),
-        )
-        return f0_coarse
-
     def extract_f0_batch(
         self,
         paths: list[tuple[Path, Path, Path]],
@@ -189,10 +192,29 @@ class F0FeatureExtractor:
                     continue
                 featur_pit = self._compute_f0(inp_path, f0_method, is_half, device)
                 np.save(opt_path2, featur_pit, allow_pickle=False)  # nsf
-                coarse_pit = self._coarse_f0(featur_pit)
+                coarse_pit = _coarse_f0(featur_pit)
                 np.save(opt_path1, coarse_pit, allow_pickle=False)  # ori
             except Exception:
                 self._printt(f"f0fail-{idx}-{inp_path}-{traceback.format_exc()}")
+
+
+# Pure function
+def _read_wave(wav_path: Path, normalize: bool = False) -> torch.Tensor:
+    """Read and prepare audio file."""
+    wav, sr = sf.read(wav_path)
+    assert sr == 16000, f"Sample rate must be 16000, got {sr}"
+
+    feats = torch.from_numpy(wav).float()
+    if feats.dim() == 2:
+        feats = feats.mean(-1)
+    assert feats.dim() == 1, feats.dim()
+
+    if normalize:
+        with torch.no_grad():
+            feats = F.layer_norm(feats, feats.shape)
+
+    feats = feats.view(1, -1)
+    return feats
 
 
 class FeatureExtractor:
@@ -242,23 +264,6 @@ class FeatureExtractor:
             self._printt(f"Error loading model: {traceback.format_exc()}")
             return False
 
-    def _read_wave(self, wav_path: Path, normalize: bool = False) -> torch.Tensor:
-        """Read and prepare audio file."""
-        wav, sr = sf.read(wav_path)
-        assert sr == 16000, f"Sample rate must be 16000, got {sr}"
-
-        feats = torch.from_numpy(wav).float()
-        if feats.dim() == 2:
-            feats = feats.mean(-1)
-        assert feats.dim() == 1, feats.dim()
-
-        if normalize:
-            with torch.no_grad():
-                feats = F.layer_norm(feats, feats.shape)
-
-        feats = feats.view(1, -1)
-        return feats
-
     def extract_features_batch(
         self,
         file_list: list[Path],
@@ -291,9 +296,7 @@ class FeatureExtractor:
                     continue
 
                 assert self.saved_cfg is not None
-                feats = self._read_wave(
-                    wav_path, normalize=self.saved_cfg.task.normalize
-                )
+                feats = _read_wave(wav_path, normalize=self.saved_cfg.task.normalize)
                 padding_mask = torch.BoolTensor(feats.shape).fill_(False)
 
                 inputs = {
