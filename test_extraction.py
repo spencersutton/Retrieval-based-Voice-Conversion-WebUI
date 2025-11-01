@@ -73,7 +73,10 @@ def test_f0_extraction() -> None:
                 # Cast to Literal type for type checking
                 method = method_name  # type: ignore
                 f0_extractor.extract_f0_batch(
-                    paths, method, is_half=False, device="cpu"
+                    paths,
+                    method,  # type: ignore
+                    is_half=False,
+                    device="cpu",
                 )
 
                 # Verify output files were created
