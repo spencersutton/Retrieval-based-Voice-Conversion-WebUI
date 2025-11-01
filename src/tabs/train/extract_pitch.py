@@ -267,13 +267,13 @@ class FeatureExtractor:
         is_half: bool,
     ):
         """Extract features for a batch of files."""
-        wav_path = self.exp_dir / shared.WAVS_16K_DIR_NAME
-        out_path = (
+        wav_dir = self.exp_dir / shared.WAVS_16K_DIR_NAME
+        out_dir = (
             self.exp_dir / shared.FEATURE_DIR_NAME
             if version == "v1"
             else self.exp_dir / shared.FEATURE_DIR_NAME_V2
         )
-        out_path.mkdir(parents=True, exist_ok=True)
+        out_dir.mkdir(parents=True, exist_ok=True)
 
         n = max(1, len(file_list) // 10)
         if not file_list:
@@ -284,8 +284,8 @@ class FeatureExtractor:
             try:
                 if file.suffix != ".wav":
                     continue
-                wav_path = wav_path / file.name
-                out_path = out_path / file.name.replace("wav", "npy")
+                wav_path = wav_dir / file.name
+                out_path = out_dir / file.name.replace("wav", "npy")
 
                 if out_path.exists():
                     continue
@@ -327,6 +327,18 @@ class FeatureExtractor:
                 self._printt(traceback.format_exc())
 
         self._printt("all-feature-done")
+
+
+def _extract_f0_worker(
+    paths: list[tuple[Path, Path, Path]],
+    log_file: Path,
+    f0_method: Literal["pm", "harvest", "dio", "rmvpe"],
+    is_half: bool,
+    device: str,
+) -> None:
+    """Worker function to extract F0 in a child process."""
+    f0_extractor = F0FeatureExtractor(log_file)
+    f0_extractor.extract_f0_batch(paths, f0_method, is_half, device)
 
 
 def _extract_features_worker(
@@ -375,7 +387,6 @@ def _extract_f0_feature(
     if if_f0:
         _write_to_log(log_file, f"Starting F0 extraction with method: {f0_method}")
 
-        f0_extractor = F0FeatureExtractor(log_file)
         inp_root = log_dir_path / shared.WAVS_16K_DIR_NAME
         opt_root1 = log_dir_path / shared.F0_DIR_NAME
         opt_root2 = log_dir_path / shared.F0_NSF_DIR_NAME
@@ -392,16 +403,15 @@ def _extract_f0_feature(
 
         # Run F0 extraction with multiprocessing
         if f0_method != "rmvpe_gpu":
-            # Multi-process for CPU-based methods
+            # Multi-process for CPU-based methods - divide work evenly
             ctx = get_context("spawn")
-            ps = [
-                ctx.Process(
-                    target=f0_extractor.extract_f0_batch,
-                    args=(paths[i::n_p], f0_method, False, "cpu"),
+            ps = []
+            for i in range(n_p):
+                p = ctx.Process(
+                    target=_extract_f0_worker,
+                    args=(paths[i::n_p], log_file, f0_method, False, "cpu"),
                 )
-                for i in range(n_p)
-            ]
-            for p in ps:
+                ps.append(p)
                 p.start()
             for p in ps:
                 p.join()
@@ -410,25 +420,25 @@ def _extract_f0_feature(
             if gpus_rmvpe != "-":
                 gpus_rmvpe_list = gpus_rmvpe.split("-")
                 ctx = get_context("spawn")
-                ps = [
-                    ctx.Process(
-                        target=f0_extractor.extract_f0_batch,
+                ps = []
+                for idx, gpu_id in enumerate(gpus_rmvpe_list):
+                    p = ctx.Process(
+                        target=_extract_f0_worker,
                         args=(
                             paths[idx :: len(gpus_rmvpe_list)],
+                            log_file,
                             "rmvpe",
                             shared.config.is_half,
                             f"cuda:{gpu_id}" if DEVICE == "cuda" else "cpu",
                         ),
                     )
-                    for idx, gpu_id in enumerate(gpus_rmvpe_list)
-                ]
-                for p in ps:
+                    ps.append(p)
                     p.start()
                 for p in ps:
                     p.join()
             else:
-                # DML device
-                f0_extractor.extract_f0_batch(paths, "rmvpe", False, DEVICE)
+                # DML device - single process
+                _extract_f0_worker(paths, log_file, "rmvpe", False, DEVICE)
 
         _write_to_log(log_file, "F0 extraction completed")
         log_content = log_file.read_text(encoding="utf-8")

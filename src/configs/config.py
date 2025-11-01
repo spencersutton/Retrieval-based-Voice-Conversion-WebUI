@@ -119,7 +119,11 @@ class Config:
             action="store_true",
             help="torch_dml",
         )
-        cmd_opts = parser.parse_args()
+        try:
+            cmd_opts = parser.parse_args()
+        except SystemExit:
+            # Return defaults when argument parsing fails (e.g., during testing)
+            return (exe, 7865, False, False, False, False)
 
         cmd_opts.port = cmd_opts.port if 0 <= cmd_opts.port <= 65535 else 7865
 
