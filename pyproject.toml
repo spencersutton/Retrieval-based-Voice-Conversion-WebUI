@@ -36,14 +36,8 @@ dependencies = [
     "tqdm>=4.63.1",
 ]
 
-[build-system]
-requires = ["setuptools>=61.0", "wheel", "cython"]
-build-backend = "setuptools.build_meta"
-
-
 [dependency-groups]
 dev = ["pyright>=1.1.407", "setuptools>=80.9.0"]
-
 
 [project.optional-dependencies]
 gtk = [
@@ -54,23 +48,18 @@ gtk = [
 
 [tool.uv]
 package = true
-required-environments = [
-    "sys_platform == 'linux' and platform_machine == 'x86_64'",
-]
 
 [[tool.uv.index]]
+name = "pytorch-cu130"
 url = "https://download.pytorch.org/whl/cu130"
-marker = "sys_platform == 'linux' and platform_machine == 'x86_64'"
-
-[[tool.uv.index]]
-url = "https://download.pytorch.org/whl/cpu"
-marker = "sys_platform == 'darwin'"
-
-[[tool.uv.index]]
-url = "https://pypi.org/simple"
+explicit = true
 
 [tool.uv.sources]
 fairseq = { git = "https://github.com/yamada-sexta/fairseq.git" }
+torch = [{ index = "pytorch-cu130", marker = "sys_platform == 'linux'" }]
+torchaudio = [{ index = "pytorch-cu130", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cu130", marker = "sys_platform == 'linux'" }]
+
 
 [tool.ruff.lint]
 extend-select = [
